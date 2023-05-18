@@ -1,7 +1,5 @@
 package com.rohengiralt.minecraftservermanager.domain.model.local
 
-import com.rohengiralt.minecraftservermanager.observation.Observable
-import com.rohengiralt.minecraftservermanager.observation.SimplePublisher
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.SendChannel
@@ -10,9 +8,7 @@ import java.io.IOException
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
-class MinecraftServerProcess private constructor(private val name: String, private val publisher: SimplePublisher, private val process: Process) : Observable by publisher {
-    constructor(name: String, process: Process) : this(name = name, publisher = SimplePublisher(), process = process)
-
+class MinecraftServerProcess(private val name: String, private val process: Process) {
     val output: Flow<ServerOutput> get() = _outputFlow.asSharedFlow()
     val input: SendChannel<String> get() = _input
 

@@ -2,6 +2,11 @@
 
 db
 rundata
+src/main/resources/static/react
+
+build
+.idea
+.gradle
 
 # Created by https://www.toptal.com/developers/gitignore/api/macos,kotlin,intellij
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,kotlin,intellij

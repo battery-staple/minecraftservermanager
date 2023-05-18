@@ -5,5 +5,4 @@ import java.nio.file.Path
 
 interface MinecraftJarAPI {
     suspend fun appendServerToPath(path: Path, version: MinecraftVersion): Boolean
-//    suspend fun appendClientToPath(path: Path, version: MinecraftVersion): Boolean
 }

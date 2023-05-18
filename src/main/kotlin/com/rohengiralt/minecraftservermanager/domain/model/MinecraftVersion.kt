@@ -149,7 +149,7 @@ sealed class MinecraftVersion {
         @Serializable
         @SerialName("infdev")
         object Infdev : Vanilla() {
-            override val versionString get(): String = "Infdev"
+            override val versionString = "Infdev"
             fun fromString(string: String): Infdev? =
                 if (string == "Infdev") this else null
         }
@@ -319,7 +319,7 @@ sealed class MinecraftVersion {
         BETA,
         RELEASE,
         SNAPSHOT,
-        //        FORGE,
+//        FORGE,
         CUSTOM
     }
 

@@ -4,7 +4,9 @@ import com.rohengiralt.minecraftservermanager.domain.service.RestAPIService
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerAPIModel
 import com.rohengiralt.minecraftservermanager.plugins.ConflictException
 import com.rohengiralt.minecraftservermanager.plugins.NotAllowedException
+import com.rohengiralt.minecraftservermanager.util.cannotUpdateField
 import com.rohengiralt.minecraftservermanager.util.getParameterOrBadRequest
+import com.rohengiralt.minecraftservermanager.util.missingField
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*
@@ -23,11 +25,11 @@ fun Route.serversRoute() { // TODO: Better response codes in general
     post { serverAPIModel: MinecraftServerAPIModel ->
         println("Adding new server")
 
-        if (serverAPIModel.uuid != null) throw BadRequestException("Cannot update field uuid")
+        if (serverAPIModel.uuid != null) cannotUpdateField("uuid")
 
-        val name = serverAPIModel.name ?: throw BadRequestException("Missing field name")
-        val version = serverAPIModel.version ?: throw BadRequestException("Missing field version")
-        val runnerUUID = serverAPIModel.runnerUUID ?: throw BadRequestException("Missing field runnerUUID")
+        val name = serverAPIModel.name ?: missingField("name")
+        val version = serverAPIModel.version ?: missingField("version")
+        val runnerUUID = serverAPIModel.runnerUUID ?: missingField("runnerUUID")
 
         val success = restApiService.createServer(
             uuid = null, name = name, version = version, runnerUUID = runnerUUID
@@ -63,9 +65,9 @@ fun Route.serversRoute() { // TODO: Better response codes in general
             val serverAPIModel: MinecraftServerAPIModel =
                 call.receiveSerializable() // TODO: Can be replaced with body() call?
 
-            if (serverAPIModel.uuid != null) throw BadRequestException("Cannot update field uuid")
-            if (serverAPIModel.version != null) throw BadRequestException("Cannot update field version")
-            if (serverAPIModel.runnerUUID != null) throw BadRequestException("Cannot update field runnerUUID")
+            if (serverAPIModel.uuid != null) cannotUpdateField("uuid")
+            if (serverAPIModel.version != null) cannotUpdateField("version")
+            if (serverAPIModel.runnerUUID != null) cannotUpdateField("runnerUUID")
 
             val success = restApiService.updateServer(
                 uuid = serverUUID,
@@ -85,10 +87,10 @@ fun Route.serversRoute() { // TODO: Better response codes in general
 
             val serverAPIModel: MinecraftServerAPIModel = call.receiveSerializable()
 
-            if (serverAPIModel.uuid != null) throw BadRequestException("Cannot update field uuid")
-            val name = serverAPIModel.name ?: throw BadRequestException("Missing field name")
-            val version = serverAPIModel.version ?: throw BadRequestException("Missing field version")
-            val runnerUUID = serverAPIModel.runnerUUID ?: throw BadRequestException("Missing field runnerUUID")
+            if (serverAPIModel.uuid != null) cannotUpdateField("uuid")
+            val name = serverAPIModel.name ?: missingField("name")
+            val version = serverAPIModel.version ?: missingField("version")
+            val runnerUUID = serverAPIModel.runnerUUID ?: missingField("runnerUUID")
 
             val success = restApiService.setServer(
                 uuid = uuid,
