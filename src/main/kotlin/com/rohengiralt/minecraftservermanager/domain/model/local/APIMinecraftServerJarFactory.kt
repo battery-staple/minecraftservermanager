@@ -7,7 +7,6 @@ import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.nio.file.Path
-import java.util.*
 import kotlin.io.path.*
 
 class APIMinecraftServerJarFactory : MinecraftServerJarFactory, KoinComponent {
@@ -21,7 +20,7 @@ class APIMinecraftServerJarFactory : MinecraftServerJarFactory, KoinComponent {
                 }
             }
             .let { path ->
-                MinecraftServerJar(UUID.randomUUID() /*TODO: From hash of jar?*/, path, version)
+                MinecraftServerJar(path, version)
             }
     }
 

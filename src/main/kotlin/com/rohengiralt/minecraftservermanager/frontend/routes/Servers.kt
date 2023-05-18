@@ -4,9 +4,7 @@ import com.rohengiralt.minecraftservermanager.domain.service.RestAPIService
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerAPIModel
 import com.rohengiralt.minecraftservermanager.plugins.ConflictException
 import com.rohengiralt.minecraftservermanager.plugins.NotAllowedException
-import com.rohengiralt.minecraftservermanager.util.cannotUpdateField
-import com.rohengiralt.minecraftservermanager.util.getParameterOrBadRequest
-import com.rohengiralt.minecraftservermanager.util.missingField
+import com.rohengiralt.minecraftservermanager.util.routes.*
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*

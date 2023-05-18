@@ -1,7 +1,6 @@
 package com.rohengiralt.minecraftservermanager.plugins
 
 import com.rohengiralt.minecraftservermanager.frontend.routes.runners.runnersRoute
-import com.rohengiralt.minecraftservermanager.frontend.routes.runsRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.serversRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.websockets
 import io.ktor.http.*
@@ -76,9 +75,6 @@ fun Application.configureRouting() {
                     }
                     route("/runners") {
                         runnersRoute()
-                    }
-                    route("/runs") {
-                        runsRoute()
                     }
                 }
             }

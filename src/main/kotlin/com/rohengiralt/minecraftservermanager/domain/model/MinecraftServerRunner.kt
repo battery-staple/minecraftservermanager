@@ -5,11 +5,13 @@ import java.util.*
 /**
  * Represents a system that can run a Minecraft Server, such as a VM or container.
  */
-interface MinecraftServerRunner { // TODO: How to preserve state when switching runners? (Content directory, etc.)
+interface MinecraftServerRunner {
     val uuid: UUID
     var name: String
     val domain: String
 
+    suspend fun initializeServer(server: MinecraftServer)
+    suspend fun removeServer(server: MinecraftServer)
     suspend fun runServer(
         server: MinecraftServer,
         environmentOverrides: MinecraftServerEnvironment = MinecraftServerEnvironment.EMPTY

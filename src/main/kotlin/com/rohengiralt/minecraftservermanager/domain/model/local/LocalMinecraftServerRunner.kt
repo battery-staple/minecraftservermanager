@@ -15,8 +15,6 @@ import kotlinx.datetime.Instant
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.*
-import kotlin.io.path.div
-import kotlin.io.path.moveTo
 import kotlin.time.Duration.Companion.seconds
 
 object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
@@ -26,23 +24,31 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
     private val currentRuns: MutableList<MinecraftServerCurrentRunWithMetadata> = mutableListOf()
+
+    override suspend fun initializeServer(server: MinecraftServer) {
+        TODO("Not yet implemented")
+    }
+
+    override suspend fun removeServer(server: MinecraftServer) {
+        TODO("Not yet implemented")
+    }
+
     override suspend fun runServer(server: MinecraftServer, environmentOverrides: MinecraftServerEnvironment): MinecraftServerCurrentRun? {
         val environment = environmentOverrides.run { // TODO: Should use other default, get from config?
             copy(
-                port = port ?: MinecraftServerEnvironmentAspect.Port(Port(25565u)),
-                maxHeapSize = maxHeapSize ?: MinecraftServerEnvironmentAspect.MaxHeapSize(2048u),
-                minHeapSize = minHeapSize ?: MinecraftServerEnvironmentAspect.MinHeapSize(1024u)
+                port = port ?: MinecraftServerEnvironment.Port(Port(25565u)),
+                maxHeapSize = maxHeapSize ?: MinecraftServerEnvironment.MaxHeapSize(2048u),
+                minHeapSize = minHeapSize ?: MinecraftServerEnvironment.MinHeapSize(1024u)
             )
         }
         environment.port!!; environment.maxHeapSize!!; environment.minHeapSize!! // Allows smart casts
 
-        val contentDirectory =
-            serverContentDirectoryPathRepository
-                .getContentDirectoryPath(server) ?:
-            serverContentDirectoryPathRepository.saveContentDirectoryPath(
-                server,
-                serverContentDirectoryPathFactory.newContentDirectoryPath(server) ?: return null
+        val contentDirectory = with(serverContentDirectoryPathRepository) {
+            getContentDirectoryPath(server) ?: saveContentDirectoryPath(
+                server = server,
+                path = serverContentDirectoryPathFactory.newContentDirectoryPath(server) ?: return null
             )
+        }
 
         val jar = serverJarRepository
             .getJar(server.version)
@@ -52,12 +58,11 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
 
                 println("Couldn't save new jar; defaulting to unsaved")
                 new
-            }.let { jar ->
+            }/*.let { jar ->
                 jar.copy(
-//                    path = jar.path.moveTo(contentDirectory / "main.jar")
                     path = jar.path.moveTo(contentDirectory / "${jar.path.fileName}")
                 )
-            }
+            }*/
 
         val startTime = Clock.System.now()
         val process = serverDispatcher.runServer(
@@ -86,7 +91,7 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
                 currentRuns.add(MinecraftServerCurrentRunWithMetadata(it, process))
             }
             .also { currentRun ->
-                process.archiveOnEndJob(currentRun) // TODO: HOW DO I ARCHIVE CURRENT RUNS WHEN (e.g) JVM QUITS???
+                process.archiveOnEndJob(currentRun) // TODO: HOW DO I ARCHIVE CURRENT RUNS WHEN (e.g) JVM QUITS??? (edit: Maybe save current runs to database and archive if any current runs exist on startup)
             }
     }
 

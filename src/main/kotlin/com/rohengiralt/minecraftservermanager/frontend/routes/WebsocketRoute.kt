@@ -1,7 +1,8 @@
 package com.rohengiralt.minecraftservermanager.frontend.routes
 
 import com.rohengiralt.minecraftservermanager.domain.service.WebsocketAPIService
-import com.rohengiralt.minecraftservermanager.util.getParameterOrBadRequest
+import com.rohengiralt.minecraftservermanager.util.routes.getParameterOrBadRequest
+import com.rohengiralt.minecraftservermanager.util.routes.parseUUIDOrBadRequest
 import io.ktor.server.plugins.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*

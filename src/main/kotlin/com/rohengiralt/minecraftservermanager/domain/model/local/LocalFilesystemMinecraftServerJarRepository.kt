@@ -3,7 +3,6 @@ package com.rohengiralt.minecraftservermanager.domain.model.local
 import com.rohengiralt.minecraftservermanager.domain.model.MinecraftVersion
 import com.rohengiralt.minecraftservermanager.domain.model.versionType
 import java.io.IOException
-import java.util.*
 import kotlin.io.path.*
 
 class LocalFilesystemMinecraftServerJarRepository(private val directoryName: String) : MinecraftServerJarRepository {
@@ -18,13 +17,13 @@ class LocalFilesystemMinecraftServerJarRepository(private val directoryName: Str
                 }
         }?.let { (path, name) ->
             name ?: return null
-            MinecraftServerJar(name.uuid, path, version)
+            MinecraftServerJar(path, version)
         }
 
     override fun saveJar(jar: MinecraftServerJar): MinecraftServerJar? =
         // TODO: Validate jar somehow
         try {
-            val name = JarFileName(jar.version, jar.uuid)
+            val name = JarFileName(jar.version)
 
             jar.copy(
                 path = jar.path.moveTo(directory / "$name.jar")
@@ -50,20 +49,22 @@ class LocalFilesystemMinecraftServerJarRepository(private val directoryName: Str
     private val directory get() = Path(directoryName)
         .also { it.createDirectories() }
 
-    private data class JarFileName(val version: MinecraftVersion, val uuid: UUID) {
+    private data class JarFileName(val version: MinecraftVersion) {
         override fun toString(): String =
-            "${version.versionString}---${version.versionType}---$uuid"
+            "${version.versionString}---${version.versionType}"
 
         companion object {
-            private val parsingRegex = "(.*)---(.*)---(.*)".toRegex()
+            private val parsingRegex = "(.*)---(.*)".toRegex()
 
             @JvmStatic
             fun fromString(string: String): JarFileName? {
-                val (versionString, versionTypeString, uuidString) = parsingRegex.matchEntire(string)?.destructured ?: return null
+                val (versionString, versionTypeString) = parsingRegex.matchEntire(string)?.destructured ?: return null
 
                 return JarFileName(
-                    version = MinecraftVersion.fromString(versionString, MinecraftVersion.VersionType.valueOf(versionTypeString)) ?: return null,
-                    uuid = UUID.fromString(uuidString)
+                    MinecraftVersion.fromString(
+                        versionString,
+                        MinecraftVersion.VersionType.valueOf(versionTypeString)
+                    ) ?: return null
                 )
             }
 

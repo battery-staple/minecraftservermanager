@@ -1,4 +1,4 @@
-package com.rohengiralt.minecraftservermanager.frontend.routes
+package com.rohengiralt.minecraftservermanager.util.routes
 
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*

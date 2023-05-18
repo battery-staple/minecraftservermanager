@@ -3,10 +3,10 @@ package com.rohengiralt.minecraftservermanager.frontend.routes.runners
 import com.rohengiralt.minecraftservermanager.domain.service.RestAPIService
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerCurrentRunAPIModel
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerEnvironmentAPIModel
-import com.rohengiralt.minecraftservermanager.frontend.routes.parseUUIDOrBadRequest
-import com.rohengiralt.minecraftservermanager.frontend.routes.receiveSerializable
 import com.rohengiralt.minecraftservermanager.plugins.NotAllowedException
-import com.rohengiralt.minecraftservermanager.util.getParameterOrBadRequest
+import com.rohengiralt.minecraftservermanager.util.routes.getParameterOrBadRequest
+import com.rohengiralt.minecraftservermanager.util.routes.parseUUIDOrBadRequest
+import com.rohengiralt.minecraftservermanager.util.routes.receiveSerializable
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*

@@ -1,7 +1,6 @@
 package com.rohengiralt.minecraftservermanager.frontend.model
 
 import com.rohengiralt.minecraftservermanager.domain.model.MinecraftServerEnvironment
-import com.rohengiralt.minecraftservermanager.domain.model.MinecraftServerEnvironmentAspect
 import com.rohengiralt.minecraftservermanager.domain.model.Port
 import kotlinx.serialization.Serializable
 
@@ -19,8 +18,8 @@ data class MinecraftServerEnvironmentAPIModel( // TODO: value class
 
     fun toMinecraftServerEnvironment(): MinecraftServerEnvironment =
         MinecraftServerEnvironment(
-            port = port?.let { MinecraftServerEnvironmentAspect.Port(Port(it)) },
-            maxHeapSize = maxHeapSizeMB?.let { MinecraftServerEnvironmentAspect.MaxHeapSize(it) },
-            minHeapSize = minHeapSizeMB?.let { MinecraftServerEnvironmentAspect.MinHeapSize(it) }
+            port = port?.let { MinecraftServerEnvironment.Port(Port(it)) },
+            maxHeapSize = maxHeapSizeMB?.let { MinecraftServerEnvironment.MaxHeapSize(it) },
+            minHeapSize = minHeapSizeMB?.let { MinecraftServerEnvironment.MinHeapSize(it) }
         )
 }
