@@ -1,0 +1,25 @@
+version: "3.9"
+services:
+  database:
+    image: "library/postgres:latest"
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=usr
+      - POSTGRES_PASSWORD=pwd
+    volumes:
+      - ./db:/var/lib/postgresql/data
+    restart: always
+  servermanager:
+    build: .
+    ports:
+      - "8080:8080"
+      - "25565:25565"
+      - "25566:25566"
+      - "25567:25567"
+    environment:
+      - DATABASE_USERNAME=usr
+      - DATABASE_PASSWORD=pwd
+    volumes:
+    - ./rundata:/minecraftservermanager
+    restart: always
