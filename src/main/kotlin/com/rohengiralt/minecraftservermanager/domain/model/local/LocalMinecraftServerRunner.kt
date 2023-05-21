@@ -2,19 +2,26 @@ package com.rohengiralt.minecraftservermanager.domain.model.local // To allow se
 
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.LocalMinecraftServerDispatcher
 import com.rohengiralt.minecraftservermanager.domain.model.*
+import com.rohengiralt.minecraftservermanager.domain.model.local.contentdirectory.LocalMinecraftServerContentDirectoryRepository
+import com.rohengiralt.minecraftservermanager.domain.model.local.currentruns.CurrentRunRepository
+import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.MinecraftServerJarRepository
 import com.rohengiralt.minecraftservermanager.util.ifNull
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import java.io.IOException
 import java.util.*
+import kotlin.io.path.div
+import kotlin.io.path.exists
+import kotlin.io.path.readLines
 import kotlin.time.Duration.Companion.seconds
 
 object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
@@ -23,7 +30,14 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
     override val domain: String = "home.translatorx.org" //TODO: Customizable (config?)
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
-    private val currentRuns: MutableList<MinecraftServerCurrentRunWithMetadata> = mutableListOf()
+//    private val currentRuns: MutableList<MinecraftServerCurrentRunWithMetadata> = mutableListOf()
+    private val currentRuns: CurrentRunRepository by inject()
+    private val runningProcesses: MutableMap<UUID, MinecraftServerProcess> = mutableMapOf()
+
+    init {
+        // TODO: Check for current runs in the repository (leftovers from before in case of unexpected program quit)
+        // and archive them
+    }
 
     override suspend fun initializeServer(server: MinecraftServer) {
         TODO("Not yet implemented")
@@ -43,27 +57,25 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         }
         environment.port!!; environment.maxHeapSize!!; environment.minHeapSize!! // Allows smart casts
 
-        val contentDirectory = with(serverContentDirectoryPathRepository) {
-            getContentDirectoryPath(server) ?: saveContentDirectoryPath(
-                server = server,
-                path = serverContentDirectoryPathFactory.newContentDirectoryPath(server) ?: return null
-            )
-        }
+        println("Getting content directory for server ${server.name}")
+        val contentDirectory =
+            serverContentDirectoryPathRepository
+                .getOrCreateContentDirectory(server)
+                .ifNull {
+                    println("Couldn't access content directory")
+                    return null
+                }
 
-        val jar = serverJarRepository
-            .getJar(server.version)
-            .ifNull {
-                val new = serverJarFactory.newJar(server.version)
-                serverJarRepository.saveJar(new)?.let { return@ifNull it }
+        println("Getting jar for server ${server.name}")
+        val jar =
+            serverJarRepository
+                .getJar(server.version)
+                .ifNull {
+                    println("Couldn't get server jar")
+                    return null
+                }
 
-                println("Couldn't save new jar; defaulting to unsaved")
-                new
-            }/*.let { jar ->
-                jar.copy(
-                    path = jar.path.moveTo(contentDirectory / "${jar.path.fileName}")
-                )
-            }*/
-
+        println("Starting server ${server.name}")
         val startTime = Clock.System.now()
         val process = serverDispatcher.runServer(
             name = server.name,
@@ -87,8 +99,10 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
             input = process.input,
             output = process.output.filterIsInstance<MinecraftServerProcess.TextOutput>().map { it.text },
         )
-            .also {
-                currentRuns.add(MinecraftServerCurrentRunWithMetadata(it, process))
+            .also { run ->
+                println("Adding new current run ${run.uuid}")
+                currentRuns.addCurrentRun(run)
+                runningProcesses[run.uuid] = process
             }
             .also { currentRun ->
                 process.archiveOnEndJob(currentRun) // TODO: HOW DO I ARCHIVE CURRENT RUNS WHEN (e.g) JVM QUITS??? (edit: Maybe save current runs to database and archive if any current runs exist on startup)
@@ -96,34 +110,57 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
     }
 
     override suspend fun stopRun(uuid: UUID): Boolean {
-        currentRuns.find { it.run.uuid == uuid }?.process?.stop(5.seconds) ?: return false //TODO: No magic number timeout
+        runningProcesses[uuid].ifNull {
+            println("Cannot stop run $uuid, run not found")
+            return false
+        }.stop(5.seconds, 5.seconds).ifNull { //TODO: No magic number timeout
+            println("Timed out while trying to stop run $uuid")
+            return false
+        }
+        println("Successfully stopped run $uuid")
         return true
     }
 
     override fun getCurrentRun(uuid: UUID): MinecraftServerCurrentRun? =
-        currentRuns.find { it.run.uuid == uuid }?.run
+        currentRuns.getCurrentRun(uuid)
 
     override fun getAllCurrentRuns(server: MinecraftServer?): List<MinecraftServerCurrentRun> =
-        currentRuns
-            .asSequence()
-            .map { it.run }
-            .let { runs ->
-                if (server != null)
-                    runs.filter { it.serverId == server.uuid }
-                else runs
-            }
-            .toList()
+        currentRuns.getCurrentRuns(server)
 
+    private fun MinecraftServerProcess.archiveOnEndJob(run: MinecraftServerCurrentRun): Job = coroutineScope.launch {
+        println("Started archive on end job")
+        waitForEnd()
 
-    private fun MinecraftServerProcess.archiveOnEndJob(run: MinecraftServerCurrentRun) = coroutineScope.launch {
+        val endTime = Clock.System.now()
+        println("Current run ${run.uuid} ended at instant $endTime, about to archive")
+        runningProcesses.remove(run.uuid)
+        currentRuns.deleteCurrentRun(run.uuid)
+
+        println("Removed current run ${run.uuid}, about to save past run")
+
+        val success: Boolean = try {
+            println("Getting past run repository")
+            val prr = pastRunRepository
+            println("Converting run to past run")
+            val pastRun = run.toPastRun(endTime)
+            println("Actually saving past run")
+            prr.savePastRun(pastRun)
+        } catch (e: Throwable) {
+            println("Error archiving past run: $e")
+            false
+        }
+
+        if (success) {
+            println("Successfully archived run ${run.uuid}")
+        } else {
+            println("Couldn't archive run ${run.uuid}")
+        }
+    }
+
+    private suspend fun MinecraftServerProcess.waitForEnd() {
         output
             .filterIsInstance<MinecraftServerProcess.OutputEnd>()
-            .first() // TODO: Is this logic here the correct way to wait until the end of the flow?
-
-        currentRuns.removeIf { it.run == run }
-        if (!pastRunRepository.savePastRun(run.toPastRun())) {
-            println("Couldn't archive run $run")
-        }
+            .firstOrNull()
     }
 
     private suspend fun MinecraftServerCurrentRun.toPastRun(
@@ -134,18 +171,26 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         runnerId = runnerId,
         startTime = startTime,
         stopTime = endTime,
-        log = output.toList()
+        log = getLog()
     )
+
+    private fun MinecraftServerCurrentRun.getLog(): List<LogEntry> {
+        val contentDirectory = serverContentDirectoryPathRepository.getExistingContentDirectory(serverId)
+            ?: return emptyList() // TODO: Should distinguish between empty log and no log?
+
+        val log = contentDirectory / "logs" / "latest.log" // TODO: Ensure works on all versions of Minecraft
+        if (!log.exists()) return emptyList()
+
+        return try {
+            log.readLines()
+        } catch (e: IOException) {
+            emptyList()
+        }
+    }
 
     private val serverDispatcher: LocalMinecraftServerDispatcher by inject()
     private val serverJarRepository: MinecraftServerJarRepository by inject()
-    private val serverJarFactory: MinecraftServerJarFactory by inject()
-    private val serverContentDirectoryPathRepository: LocalMinecraftServerContentDirectoryPathRepository by inject()
-    private val serverContentDirectoryPathFactory: LocalMinecraftServerContentDirectoryPathFactory by inject()
+    private val serverContentDirectoryPathRepository: LocalMinecraftServerContentDirectoryRepository by inject()
     private val pastRunRepository: MinecraftServerPastRunRepository by inject()
-
-    private data class MinecraftServerCurrentRunWithMetadata(
-        val run: MinecraftServerCurrentRun,
-        val process: MinecraftServerProcess
-    )
+    private val minecraftServerRepository: MinecraftServerRepository by inject()
 }

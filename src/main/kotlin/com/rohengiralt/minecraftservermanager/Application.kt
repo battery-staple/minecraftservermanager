@@ -4,7 +4,14 @@ import com.rohengiralt.minecraftservermanager.domain.infrastructure.LocalMinecra
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.MinecraftJarAPI
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.RedundantFallbackAPI
 import com.rohengiralt.minecraftservermanager.domain.model.*
-import com.rohengiralt.minecraftservermanager.domain.model.local.*
+import com.rohengiralt.minecraftservermanager.domain.model.local.contentdirectory.LocalMinecraftServerContentDirectoryFactory
+import com.rohengiralt.minecraftservermanager.domain.model.local.contentdirectory.LocalMinecraftServerContentDirectoryRepository
+import com.rohengiralt.minecraftservermanager.domain.model.local.currentruns.CurrentRunRepository
+import com.rohengiralt.minecraftservermanager.domain.model.local.currentruns.InMemoryCurrentRunRepository
+import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.APIMinecraftServerJarFactory
+import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.FilesystemCacheMinecraftServerJarRepository
+import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.MinecraftServerJarFactory
+import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.MinecraftServerJarRepository
 import com.rohengiralt.minecraftservermanager.domain.service.RestAPIService
 import com.rohengiralt.minecraftservermanager.domain.service.RestAPIServiceImpl
 import com.rohengiralt.minecraftservermanager.domain.service.WebsocketAPIService
@@ -56,19 +63,20 @@ fun Application.module() {
                 single<MinecraftJarAPI> { RedundantFallbackAPI() }
                 single<MinecraftServerPastRunRepository> { DatabaseMinecraftServerPastRunRepository() }
                 single<LocalMinecraftServerDispatcher> { LocalMinecraftServerDispatcher() }
-                single<MinecraftServerJarFactory> { CachingMinecraftServerJarFactory() }
+                single<MinecraftServerJarFactory> { APIMinecraftServerJarFactory() }
                 single<MinecraftServerJarRepository> {
-                    LocalFilesystemMinecraftServerJarRepository("/minecraftservermanager/local/jars")
+                    FilesystemCacheMinecraftServerJarRepository("/minecraftservermanager/local/jars")
                 }
-                single<LocalMinecraftServerContentDirectoryPathRepository> {
-                    LocalMinecraftServerContentDirectoryPathRepository()
+                single<LocalMinecraftServerContentDirectoryRepository> {
+                    LocalMinecraftServerContentDirectoryRepository()
                 }
-                single<LocalMinecraftServerContentDirectoryPathFactory> {
-                    LocalMinecraftServerContentDirectoryPathFactory(
+                single<LocalMinecraftServerContentDirectoryFactory> {
+                    LocalMinecraftServerContentDirectoryFactory(
                         "/minecraftservermanager/local/servers"
                     )
                 }
                 single<MinecraftServerRunnerRepository> { HardcodedMinecraftServerRunnerRepository() }
+                single<CurrentRunRepository> { InMemoryCurrentRunRepository() }
 
                 single<RestAPIService> { RestAPIServiceImpl() }
                 single<WebsocketAPIService> { WebsocketAPIServiceImpl() }

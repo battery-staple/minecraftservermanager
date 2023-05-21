@@ -1,4 +1,4 @@
-package com.rohengiralt.minecraftservermanager.domain.model.local
+package com.rohengiralt.minecraftservermanager.domain.model.local.serverjar
 
 import com.rohengiralt.minecraftservermanager.domain.model.MinecraftVersion
 

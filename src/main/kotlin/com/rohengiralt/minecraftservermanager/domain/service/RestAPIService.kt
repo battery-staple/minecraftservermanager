@@ -1,0 +1,116 @@
+package com.rohengiralt.minecraftservermanager.domain.service
+
+import com.rohengiralt.minecraftservermanager.domain.model.*
+import com.rohengiralt.minecraftservermanager.util.ifNull
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
+import java.util.*
+
+interface RestAPIService {
+    suspend fun getAllServers(): List<MinecraftServer>
+    suspend fun createServer(uuid: UUID? = null, name: String, version: MinecraftVersion, runnerUUID: UUID): Boolean
+    suspend fun getServer(uuid: UUID): MinecraftServer?
+    suspend fun setServer(uuid: UUID, name: String, version: MinecraftVersion, runnerUUID: UUID): Boolean
+    suspend fun updateServer(uuid: UUID, name: String? = null): Boolean
+    suspend fun deleteServer(uuid: UUID): Boolean
+
+    suspend fun getAllRunners(): List<MinecraftServerRunner>
+    suspend fun getRunner(uuid: UUID): MinecraftServerRunner?
+
+    suspend fun getAllCurrentRuns(serverUUID: UUID?, runnerUUID: UUID?): List<MinecraftServerCurrentRun>?
+    suspend fun createCurrentRun(serverUUID: UUID, environment: MinecraftServerEnvironment): MinecraftServerCurrentRun?
+    suspend fun getCurrentRun(runnerUUID: UUID, runUUID: UUID): MinecraftServerCurrentRun?
+    suspend fun stopCurrentRun(runnerUUID: UUID, runUUID: UUID): Boolean
+
+    suspend fun getAllPastRuns(serverUUID: UUID): List<MinecraftServerPastRun>
+    suspend fun getPastRun(serverUUID: UUID, runUUID: UUID): MinecraftServerPastRun?
+}
+
+class RestAPIServiceImpl : RestAPIService, KoinComponent {
+    override suspend fun getAllServers(): List<MinecraftServer> =
+        serverRepository.getAllServers()
+
+    override suspend fun createServer(uuid: UUID?, name: String, version: MinecraftVersion, runnerUUID: UUID): Boolean =
+        serverRepository.addServer(
+            MinecraftServer(
+                uuid = uuid ?: UUID.randomUUID(),
+                name = name,
+                version = version,
+                runnerUUID
+            )
+        )
+
+    override suspend fun getServer(uuid: UUID): MinecraftServer? =
+        serverRepository.getServer(uuid)
+
+    override suspend fun setServer(uuid: UUID, name: String, version: MinecraftVersion, runnerUUID: UUID): Boolean =
+        serverRepository.saveServer(MinecraftServer(uuid = uuid, name = name, version = version, runnerUUID = runnerUUID))
+
+    override suspend fun updateServer(uuid: UUID, name: String?): Boolean {
+        val server = serverRepository.getServer(uuid) ?: return false // TODO: CONCURRENCY CONTROL/TRANSACTION MANAGEMENT
+        name?.let { server.name = it }
+
+        return serverRepository.saveServer(server)
+    }
+
+    override suspend fun deleteServer(uuid: UUID): Boolean = // TODO: Make sure EVERYTHING is deleted—for instance, the content directory is currently not being removed from the database & directory is also not being deleted from the filesystem.
+        serverRepository.removeServer(uuid)
+
+    override suspend fun getAllRunners(): List<MinecraftServerRunner> =
+        runnerRepository.getAllRunners()
+
+    override suspend fun getRunner(uuid: UUID): MinecraftServerRunner? =
+        runnerRepository.getRunner(uuid)
+
+    override suspend fun getAllCurrentRuns(serverUUID: UUID?, runnerUUID: UUID?): List<MinecraftServerCurrentRun>? {
+        val server = serverUUID?.let { serverRepository.getServer(it) }
+        val runner =
+            runnerRepository
+                .getRunner(
+                    runnerUUID
+                        ?: server?.runnerUUID
+                        ?: return null
+                ).ifNull {
+                    println("Could not find runner")
+                    return null
+                }
+
+        return runner.getAllCurrentRuns(server)
+    }
+
+    override suspend fun createCurrentRun(serverUUID: UUID, environment: MinecraftServerEnvironment): MinecraftServerCurrentRun? {
+        val server = serverRepository.getServer(serverUUID).ifNull {
+            println("Couldn't find server for UUID $serverUUID")
+            return null
+        }
+        val runner = runnerRepository.getRunner(server.runnerUUID).ifNull {
+            println("Couldn't find runner for UUID $server.runnerUUID")
+            return null
+        }
+
+        return runner.runServer(server, environment)
+    }
+
+    override suspend fun getCurrentRun(runnerUUID: UUID, runUUID: UUID): MinecraftServerCurrentRun? {
+        val runner = runnerRepository.getRunner(runnerUUID) ?: return null
+
+        return runner.getCurrentRun(runUUID)
+    }
+
+    override suspend fun stopCurrentRun(runnerUUID: UUID, runUUID: UUID): Boolean {
+        println("Stopping current run $runUUID")
+        val runner = runnerRepository.getRunner(runnerUUID) ?: return false
+
+        return runner.stopRun(runUUID)
+    }
+
+    override suspend fun getAllPastRuns(serverUUID: UUID): List<MinecraftServerPastRun> =
+        pastRunRepository.getAllPastRuns(serverUUID)
+
+    override suspend fun getPastRun(serverUUID: UUID, runUUID: UUID): MinecraftServerPastRun? =
+        pastRunRepository.getPastRun(serverUUID)
+
+    private val serverRepository: MinecraftServerRepository by inject()
+    private val runnerRepository: MinecraftServerRunnerRepository by inject()
+    private val pastRunRepository: MinecraftServerPastRunRepository by inject()
+}

@@ -1,7 +1,7 @@
 package com.rohengiralt.minecraftservermanager.domain.infrastructure
 
 import com.rohengiralt.minecraftservermanager.domain.model.Port
-import com.rohengiralt.minecraftservermanager.domain.model.local.MinecraftServerJar
+import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.MinecraftServerJar
 import com.rohengiralt.minecraftservermanager.domain.model.local.MinecraftServerProcess
 import java.io.IOException
 import java.nio.file.Path

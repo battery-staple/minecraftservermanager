@@ -1,13 +1,22 @@
-package com.rohengiralt.minecraftservermanager.domain.model.local
+package com.rohengiralt.minecraftservermanager.domain.model.local.serverjar
 
 import com.rohengiralt.minecraftservermanager.domain.model.MinecraftVersion
 import com.rohengiralt.minecraftservermanager.domain.model.versionType
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import java.io.IOException
 import kotlin.io.path.*
 
-class LocalFilesystemMinecraftServerJarRepository(private val directoryName: String) : MinecraftServerJarRepository {
-    override fun getJar(version: MinecraftVersion): MinecraftServerJar? =
-        directory.useDirectoryEntries { entries ->
+class FilesystemCacheMinecraftServerJarRepository(private val directoryName: String) : MinecraftServerJarRepository, KoinComponent {
+    override suspend fun getJar(version: MinecraftVersion): MinecraftServerJar =
+        getCachedJar(version)
+            ?: jarFactory.newJar(version).let { newJar ->
+                cacheJar(newJar) ?: newJar
+            }
+
+    private fun getCachedJar(version: MinecraftVersion): MinecraftServerJar? {
+        println("Trying to get cached jar for version ${version.versionString}")
+        return directory.useDirectoryEntries { entries ->
             entries
                 .map {
                     it to JarFileName.fromString(it.nameWithoutExtension)
@@ -19,10 +28,11 @@ class LocalFilesystemMinecraftServerJarRepository(private val directoryName: Str
             name ?: return null
             MinecraftServerJar(path, version)
         }
+    }
 
-    override fun saveJar(jar: MinecraftServerJar): MinecraftServerJar? =
-        // TODO: Validate jar somehow
-        try {
+    private fun cacheJar(jar: MinecraftServerJar): MinecraftServerJar? {
+        println("Caching new jar with version ${jar.version.versionString}")
+        return try {
             val name = JarFileName(jar.version)
 
             jar.copy(
@@ -32,9 +42,11 @@ class LocalFilesystemMinecraftServerJarRepository(private val directoryName: Str
             println("Got exception when trying to save jar: ${e.message}")
             null
         }
+    }
 
-    override fun deleteJar(version: MinecraftVersion): Boolean =
-        try {
+    override suspend fun deleteJar(version: MinecraftVersion): Boolean {
+        println("Deleting jar for version ${version.versionString}")
+        return try {
             directory.useDirectoryEntries { entries ->
                 entries.filter { entryPath ->
                     entryPath.nameWithoutExtension == version.versionString
@@ -43,12 +55,15 @@ class LocalFilesystemMinecraftServerJarRepository(private val directoryName: Str
                 it.deleteIfExists() // Not transactional; TODO: is that bad?
             }
         } catch (e: IOException) {
+            println("Got exception when trying to delete jar: ${e.message}")
             false
         }
+    }
 
     private val directory get() = Path(directoryName)
         .also { it.createDirectories() }
 
+    private val jarFactory: MinecraftServerJarFactory by inject()
     private data class JarFileName(val version: MinecraftVersion) {
         override fun toString(): String =
             "${version.versionString}---${version.versionType}"

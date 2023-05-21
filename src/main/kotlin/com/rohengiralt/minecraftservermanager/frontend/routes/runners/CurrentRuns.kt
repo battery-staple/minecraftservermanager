@@ -21,9 +21,14 @@ fun Route.currentRuns() {
         val serverUUID = call.parameters["server"]?.parseUUIDOrBadRequest()
         val runnerUUID = call.parameters["runnerId"]?.parseUUIDOrBadRequest()
 
-        if (serverUUID == null && runnerUUID == null) throw BadRequestException("Must include either server or runner id (or both)")
+        if (serverUUID == null && runnerUUID == null)
+            throw BadRequestException("Must include either server or runner id (or both)")
 
-        call.respond(restApiService.getAllCurrentRuns(serverUUID, runnerUUID)?.map(::MinecraftServerCurrentRunAPIModel) ?: throw NotFoundException())
+        call.respond(
+            restApiService.getAllCurrentRuns(serverUUID, runnerUUID)
+                ?.map(::MinecraftServerCurrentRunAPIModel)
+                ?: throw NotFoundException()
+        )
     }
 
     post {
@@ -65,6 +70,7 @@ fun Route.currentRuns() {
         }
 
         delete {
+            println("Ending run")
             val runnerUUID = call.getParameterOrBadRequest("runnerId").parseUUIDOrBadRequest()
             val runUUID = call.getParameterOrBadRequest("runId").parseUUIDOrBadRequest()
 

@@ -2,10 +2,8 @@ package com.rohengiralt.minecraftservermanager.domain.model
 
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.jsonb
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.upsert
+import kotlinx.datetime.*
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toJavaLocalDateTime
-import kotlinx.datetime.toKotlinInstant
-import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import org.jetbrains.exposed.sql.*
@@ -59,9 +57,10 @@ class DatabaseMinecraftServerPastRunRepository : MinecraftServerPastRunRepositor
         MinecraftServerPastRunTable.runnerId eq uuid
 
     override fun savePastRun(run: MinecraftServerPastRun): Boolean = with(MinecraftServerPastRunTable) {
+        println("Saving past run ${run.uuid}")
         try {
             transaction {
-                MinecraftServerPastRunTable.upsert(uuid) {
+                MinecraftServerPastRunTable.upsert(uuid) { // TODO: Should be insert instead of upsert?
                     it[uuid] = run.uuid
                     it[serverId] = run.serverId
                     it[runnerId] = run.runnerId
@@ -70,9 +69,16 @@ class DatabaseMinecraftServerPastRunRepository : MinecraftServerPastRunRepositor
                     it[log] = run.log
                 }
             }
+            println("Successfully saved past run ${run.uuid}")
             true
         } catch (e: SQLException) {
-            println("Encountered error saving run $run: $e")
+            println("Encountered error saving past run ${run.uuid}: $e")
+            false
+        } catch (e: DateTimeArithmeticException) {
+            println("Encountered error saving past run ${run.uuid}: $e")
+            false
+        } catch (e: Throwable) {
+            println("Encountered error saving past run ${run.uuid}: $e")
             false
         }
     }
