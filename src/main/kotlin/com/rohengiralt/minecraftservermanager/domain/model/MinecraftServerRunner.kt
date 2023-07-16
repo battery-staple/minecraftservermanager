@@ -1,5 +1,6 @@
 package com.rohengiralt.minecraftservermanager.domain.model
 
+import kotlinx.coroutines.flow.Flow
 import java.util.*
 
 /**
@@ -17,8 +18,10 @@ interface MinecraftServerRunner {
         environmentOverrides: MinecraftServerEnvironment = MinecraftServerEnvironment.EMPTY
     ): MinecraftServerCurrentRun?
     suspend fun stopRun(uuid: UUID): Boolean
+    suspend fun stopAllRuns(): Boolean
     fun getCurrentRun(uuid: UUID): MinecraftServerCurrentRun?
     fun getAllCurrentRuns(server: MinecraftServer? = null): List<MinecraftServerCurrentRun>
+    suspend fun getAllCurrentRunsFlow(server: MinecraftServer? = null): Flow<List<MinecraftServerCurrentRun>>
 
 //    fun addEnvironment(serverRun: E)
 //    fun getAllEnvironments(): Sequence<E>

@@ -18,7 +18,7 @@ fun Route.currentRuns() {
     val restApiService: RestAPIService by this@currentRuns.inject()
     get {
         println("Getting all runs")
-        val serverUUID = call.parameters["server"]?.parseUUIDOrBadRequest()
+        val serverUUID = call.parameters["serverId"]?.parseUUIDOrBadRequest()
         val runnerUUID = call.parameters["runnerId"]?.parseUUIDOrBadRequest()
 
         if (serverUUID == null && runnerUUID == null)
@@ -42,6 +42,20 @@ fun Route.currentRuns() {
             call.respond(HttpStatusCode.InternalServerError)
         } else {
             call.respond(MinecraftServerCurrentRunAPIModel(createdRun))
+        }
+    }
+
+    delete {
+        println("Stopping current runs")
+
+        val runnerUUID = call.getParameterOrBadRequest("runnerId").parseUUIDOrBadRequest()
+
+        val success = restApiService.stopAllCurrentRuns(runnerUUID)
+
+        if (success) {
+            call.respond(HttpStatusCode.OK) // TODO: Respond with past runs
+        } else {
+            call.respond(HttpStatusCode.InternalServerError)
         }
     }
 

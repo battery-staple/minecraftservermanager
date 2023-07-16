@@ -11,11 +11,11 @@ class MinecraftServerProcess(private val name: String, private val process: Proc
     val output: Flow<ServerOutput> get() = _outputFlow.asSharedFlow()
     val input: SendChannel<String> get() = _input
 
-    suspend fun stop(softTimeout: Duration, forcibleTimeout: Duration): Int? = withContext(Dispatchers.IO) {
+    suspend fun stop(softTimeout: Duration, additionalForcibleTimeout: Duration): Int? = withContext(Dispatchers.IO) {
         withTimeoutOrNull(timeout = softTimeout) {
             process.destroy()
             process.waitFor()
-        } ?: withTimeoutOrNull(timeout = forcibleTimeout) {
+        } ?: withTimeoutOrNull(timeout = additionalForcibleTimeout) {
             process.destroyForcibly()
             process.waitFor()
         }

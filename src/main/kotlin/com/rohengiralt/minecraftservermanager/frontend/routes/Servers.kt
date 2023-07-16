@@ -20,11 +20,12 @@ fun Route.serversRoute() { // TODO: Better response codes in general
         call.respond(restApiService.getAllServers().map(::MinecraftServerAPIModel))
     }
 
-    post { serverAPIModel: MinecraftServerAPIModel ->
+    post {
         println("Adding new server")
 
-        if (serverAPIModel.uuid != null) cannotUpdateField("uuid")
+        val serverAPIModel: MinecraftServerAPIModel = call.receiveSerializable()
 
+        if (serverAPIModel.uuid != null) cannotUpdateField("uuid")
         val name = serverAPIModel.name ?: missingField("name")
         val version = serverAPIModel.version ?: missingField("version")
         val runnerUUID = serverAPIModel.runnerUUID ?: missingField("runnerUUID")

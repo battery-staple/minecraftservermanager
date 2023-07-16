@@ -28,7 +28,7 @@ class DatabaseMinecraftServerPastRunRepository : MinecraftServerPastRunRepositor
             ?.toServerPastRun()
     }
 
-    override fun getAllPastRuns(
+    override fun getAllPastRuns( //TODO: Return with most recent first
         serverUUID: UUID?,
         runnerUUID: UUID?
     ): List<MinecraftServerPastRun> = transaction {

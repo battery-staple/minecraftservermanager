@@ -9,6 +9,7 @@ import com.rohengiralt.minecraftservermanager.util.ifNull
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
@@ -48,6 +49,7 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
     }
 
     override suspend fun runServer(server: MinecraftServer, environmentOverrides: MinecraftServerEnvironment): MinecraftServerCurrentRun? {
+        // TODO: If server already running (in same environment?), noop
         val environment = environmentOverrides.run { // TODO: Should use other default, get from config?
             copy(
                 port = port ?: MinecraftServerEnvironment.Port(Port(25565u)),
@@ -109,14 +111,23 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
             }
     }
 
-    override suspend fun stopRun(uuid: UUID): Boolean {
+    override suspend fun stopRun(uuid: UUID): Boolean =
         runningProcesses[uuid].ifNull {
             println("Cannot stop run $uuid, run not found")
-            return false
-        }.stop(5.seconds, 5.seconds).ifNull { //TODO: No magic number timeout
+            return false // TODO: Propagate that run was not found
+        }.stop()
+
+    override suspend fun stopAllRuns(): Boolean =
+        runningProcesses.all { (_, process) ->
+            process.stop()
+        }
+
+    private suspend fun MinecraftServerProcess.stop(): Boolean {
+        stop(5.seconds, 5.seconds).ifNull { //TODO: No magic number timeout
             println("Timed out while trying to stop run $uuid")
             return false
         }
+
         println("Successfully stopped run $uuid")
         return true
     }
@@ -126,6 +137,9 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
 
     override fun getAllCurrentRuns(server: MinecraftServer?): List<MinecraftServerCurrentRun> =
         currentRuns.getCurrentRuns(server)
+
+    override suspend fun getAllCurrentRunsFlow(server: MinecraftServer?): Flow<List<MinecraftServerCurrentRun>> =
+        currentRuns.getCurrentRunsFlow(server)
 
     private fun MinecraftServerProcess.archiveOnEndJob(run: MinecraftServerCurrentRun): Job = coroutineScope.launch {
         println("Started archive on end job")

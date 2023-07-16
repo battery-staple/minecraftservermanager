@@ -23,7 +23,7 @@ tailrec suspend fun initDatabase(tries: Int = 50) {
     println("Trying to connect to database at ${config[url]} with username ${config[username]} and password ${config[password]}")
 
     if(!connectToDatabase()) {
-        delay(500)
+        delay(500) // TODO: Exponential backoff
         if (tries > 0) {
             return initDatabase(tries - 1)
         } else {

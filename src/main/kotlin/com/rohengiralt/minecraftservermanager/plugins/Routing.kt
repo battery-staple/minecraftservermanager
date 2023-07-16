@@ -27,6 +27,7 @@ fun Application.configureRouting() {
         allowMethod(HttpMethod.Put)
         allowMethod(HttpMethod.Delete)
         allowMethod(HttpMethod.Patch)
+        allowMethod(HttpMethod.Post)
         allowHeader(HttpHeaders.Authorization)
         anyHost() //TODO: only for testing
     }
@@ -63,10 +64,6 @@ fun Application.configureRouting() {
     }
 
     routing {
-        get("/") {
-            call.respondRedirect("/index.html")
-        }
-
         route("api/v2") {
             authenticate {
                 route("/rest") {
@@ -83,8 +80,9 @@ fun Application.configureRouting() {
             }
         }
 
-        static("/") {
-            resources("static/react")
+        singlePageApplication {
+            useResources = true
+            react("static/react")
         }
     }
 }

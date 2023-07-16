@@ -1,8 +1,8 @@
 package com.rohengiralt.minecraftservermanager.domain.infrastructure
 
 import com.rohengiralt.minecraftservermanager.domain.model.Port
-import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.MinecraftServerJar
 import com.rohengiralt.minecraftservermanager.domain.model.local.MinecraftServerProcess
+import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.MinecraftServerJar
 import java.io.IOException
 import java.nio.file.Path
 import kotlin.io.path.absolutePathString
@@ -22,7 +22,7 @@ class LocalMinecraftServerDispatcher {
         println("Ensuring server content directory exists")
         contentDirectory.createDirectories()
 
-        println("Agreeing to EULA")
+        println("Agreeing to EULA") // TODO: Prompt user to agree to EULA instead of doing it automatically
         contentDirectory.eulaFile // TODO: use Java 'properties' API
             .writeText("eula=true") // Does this need to be run every time?
 

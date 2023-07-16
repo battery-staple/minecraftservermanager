@@ -1,5 +1,6 @@
 package com.rohengiralt.minecraftservermanager.domain.model
 
+import kotlinx.coroutines.flow.Flow
 import java.util.*
 
 interface MinecraftServerRepository {
@@ -10,4 +11,6 @@ interface MinecraftServerRepository {
     fun saveServer(minecraftServer: MinecraftServer): Boolean
 
     fun removeServer(uuid: UUID): Boolean
+
+    fun getServerUpdates(uuid: UUID): Flow<MinecraftServer?> // TODO: StateFlow
 }

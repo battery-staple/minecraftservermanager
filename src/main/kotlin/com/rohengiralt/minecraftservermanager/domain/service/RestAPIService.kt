@@ -17,10 +17,12 @@ interface RestAPIService {
     suspend fun getAllRunners(): List<MinecraftServerRunner>
     suspend fun getRunner(uuid: UUID): MinecraftServerRunner?
 
+//    suspend fun isRunning(serverUUID: UUID): Boolean?
     suspend fun getAllCurrentRuns(serverUUID: UUID?, runnerUUID: UUID?): List<MinecraftServerCurrentRun>?
     suspend fun createCurrentRun(serverUUID: UUID, environment: MinecraftServerEnvironment): MinecraftServerCurrentRun?
     suspend fun getCurrentRun(runnerUUID: UUID, runUUID: UUID): MinecraftServerCurrentRun?
     suspend fun stopCurrentRun(runnerUUID: UUID, runUUID: UUID): Boolean
+    suspend fun stopAllCurrentRuns(runnerUUID: UUID): Boolean
 
     suspend fun getAllPastRuns(serverUUID: UUID): List<MinecraftServerPastRun>
     suspend fun getPastRun(serverUUID: UUID, runUUID: UUID): MinecraftServerPastRun?
@@ -62,8 +64,11 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
     override suspend fun getRunner(uuid: UUID): MinecraftServerRunner? =
         runnerRepository.getRunner(uuid)
 
+//    override suspend fun isRunning(serverUUID: UUID): Boolean? =
+//        getAllCurrentRuns(serverUUID, runnerUUID = null)?.isNotEmpty()
+
     override suspend fun getAllCurrentRuns(serverUUID: UUID?, runnerUUID: UUID?): List<MinecraftServerCurrentRun>? {
-        val server = serverUUID?.let { serverRepository.getServer(it) }
+        val server = serverUUID?.let { serverRepository.getServer(it) ?: return null }
         val runner =
             runnerRepository
                 .getRunner(
@@ -102,6 +107,13 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
         val runner = runnerRepository.getRunner(runnerUUID) ?: return false
 
         return runner.stopRun(runUUID)
+    }
+
+    override suspend fun stopAllCurrentRuns(runnerUUID: UUID): Boolean {
+        println("Stopping all current runs for runner $runnerUUID")
+        val runner = runnerRepository.getRunner(runnerUUID)?: return false
+
+        return runner.stopAllRuns()
     }
 
     override suspend fun getAllPastRuns(serverUUID: UUID): List<MinecraftServerPastRun> =
