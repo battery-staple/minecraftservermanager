@@ -5,8 +5,8 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_USER=usr
-      - POSTGRES_PASSWORD=pwd
+      - 'POSTGRES_USER=${DATABASE_USERNAME}'
+      - 'POSTGRES_PASSWORD=${DATABASE_PASSWORD}'
     volumes:
       - ./db:/var/lib/postgresql/data
     restart: always
@@ -18,8 +18,12 @@ services:
       - "25566:25566"
       - "25567:25567"
     environment:
-      - DATABASE_USERNAME=usr
-      - DATABASE_PASSWORD=pwd
+      - 'DATABASE_USERNAME=${DATABASE_USERNAME}'
+      - 'DATABASE_PASSWORD=${DATABASE_PASSWORD}'
+      - 'SECURITY_cookieSecretEncryptKey=${COOKIE_ENCRYPT_KEY}'
+      - 'SECURITY_cookieSecretSignKey=${COOKIE_SIGN_KEY}'
+      - 'SECURITY_clientId=${GOOGLE_CLIENT_ID}'
+      - 'SECURITY_clientSecret=${GOOGLE_CLIENT_SECRET}'
     volumes:
     - ./rundata:/minecraftservermanager
     restart: always

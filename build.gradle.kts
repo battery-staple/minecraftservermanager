@@ -37,6 +37,7 @@ dependencies {
     implementation("io.ktor:ktor-server-content-negotiation:$ktor_version")
     implementation("io.ktor:ktor-server-cors:$ktor_version")
     implementation("io.ktor:ktor-server-status-pages:$ktor_version")
+    implementation("io.ktor:ktor-server-html-builder:$ktor_version")
     implementation("io.ktor:ktor-server-call-logging:$ktor_version")
     implementation("ch.qos.logback:logback-classic:$logback_version")
 
@@ -45,6 +46,7 @@ dependencies {
     implementation("io.ktor:ktor-client-okhttp:$ktor_version")
     implementation("io.ktor:ktor-client-serialization:$ktor_version")
     implementation("io.ktor:ktor-client-content-negotiation:$ktor_version")
+    implementation("io.ktor:ktor-client-auth:$ktor_version")
 
     implementation("io.ktor:ktor-serialization:$ktor_version")
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor_version")
@@ -66,6 +68,7 @@ dependencies {
     implementation("io.ktor:ktor-server-host-common-jvm:2.2.3")
     implementation("io.ktor:ktor-server-status-pages-jvm:2.2.3")
     implementation("io.ktor:ktor-server-call-logging-jvm:2.2.3")
+    implementation("io.ktor:ktor-client-okhttp-jvm:2.3.2")
 
     testImplementation(kotlin("test"))
     testImplementation("io.ktor:ktor-server-tests:$ktor_version")

@@ -2,6 +2,7 @@ package com.rohengiralt.minecraftservermanager.plugins
 
 import com.rohengiralt.minecraftservermanager.frontend.routes.runners.runnersRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.serversRoute
+import com.rohengiralt.minecraftservermanager.frontend.routes.statusRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.websockets
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -32,16 +33,6 @@ fun Application.configureRouting() {
         anyHost() //TODO: only for testing
     }
 
-    install(Authentication) {
-        basic {
-            validate { credentials ->
-                if (credentials.name == "User McUserface" && credentials.password == "Super secure password")
-                    UserIdPrincipal(credentials.name)
-                else null
-            }
-        }
-    }
-
     install(StatusPages) {
         exception<AuthenticationException> { call, _ ->
             call.respond(HttpStatusCode.Unauthorized)
@@ -64,8 +55,8 @@ fun Application.configureRouting() {
     }
 
     routing {
-        route("api/v2") {
-            authenticate {
+        authenticate("auth-session", "auth-debug") {
+            route("api/v2") {
                 route("/rest") {
                     route("/servers") {
                         serversRoute()
@@ -73,16 +64,19 @@ fun Application.configureRouting() {
                     route("/runners") {
                         runnersRoute()
                     }
+                    route("/status") {
+                        statusRoute()
+                    }
+                }
+                route("/websockets") {
+                    websockets()
                 }
             }
-            route("/websockets") {
-                websockets()
-            }
-        }
 
-        singlePageApplication {
-            useResources = true
-            react("static/react")
+            singlePageApplication {
+                useResources = true
+                react("static/react")
+            }
         }
     }
 }

@@ -1,5 +1,8 @@
 package com.rohengiralt.minecraftservermanager
 
+import GoogleAPIHTTPClients
+import com.rohengiralt.minecraftservermanager.auth.UserIdVerifier
+import com.rohengiralt.minecraftservermanager.auth.WhitelistFileUserIdVerifier
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.LocalMinecraftServerDispatcher
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.MinecraftJarAPI
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.RedundantFallbackAPI
@@ -58,6 +61,8 @@ fun Application.module() {
                         }
                     }
                 }
+                single<GoogleAPIHTTPClients> { GoogleAPIHTTPClients() }
+                single<UserIdVerifier> { WhitelistFileUserIdVerifier() }
                 single<Json> { Json { ignoreUnknownKeys = true } }
                 single<MinecraftServerRepository> { DatabaseMinecraftServerRepository() }
                 single<MinecraftJarAPI> { RedundantFallbackAPI() }
@@ -90,7 +95,7 @@ fun Application.module() {
         )
     }
 
-    configureRouting()
     configureSecurity()
+    configureRouting()
     configureMonitoring()
 }

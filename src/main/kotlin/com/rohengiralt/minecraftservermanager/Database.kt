@@ -10,17 +10,17 @@ import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.sql.SQLException
 
-internal val config = Config { addSpec(DatabaseSpec) }
+private val databaseConfig = Config { addSpec(DatabaseSpec) }
     .from.env()
 
-internal object DatabaseSpec : ConfigSpec() {
+private object DatabaseSpec : ConfigSpec() {
     val url by optional("jdbc:postgresql://database:5432/postgres")
     val username by required<String>()
     val password by required<String>()
 }
 
 tailrec suspend fun initDatabase(tries: Int = 50) {
-    println("Trying to connect to database at ${config[url]} with username ${config[username]} and password ${config[password]}")
+    println("Trying to connect to database at ${databaseConfig[url]} with username ${databaseConfig[username]} and password ${databaseConfig[password]}")
 
     if(!connectToDatabase()) {
         delay(500) // TODO: Exponential backoff
@@ -37,10 +37,10 @@ tailrec suspend fun initDatabase(tries: Int = 50) {
 private fun connectToDatabase(): Boolean {
     try {
         Database.connect(
-            config[url],
+            databaseConfig[url],
             driver = "org.postgresql.Driver",
-            user = config[username],
-            password = config[password]
+            user = databaseConfig[username],
+            password = databaseConfig[password]
         )
     } catch (e: SQLException) {
         return false
