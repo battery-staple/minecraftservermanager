@@ -1,0 +1,90 @@
+.App-header {
+  background: #404040;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: left;
+  font-size: calc(8px + 1vmin);
+  user-select: none;
+  padding-left: calc(10px + 1vmin);
+  color: white;
+}
+
+.App-header a {
+  color: inherit;
+  text-decoration: inherit;
+}
+
+.App-body {
+  max-height: 100vh;
+}
+
+.server-list {
+  display: flex;
+  /*flex-direction: column;*/
+  align-items: center;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.server-button {
+  display: flex;
+  flex-direction: column;
+  /*align-items: flex-start;*/
+  background: #DDEEEE;
+  border-radius: calc(10px /*+ 1vmin*/);
+  border: 3px solid #404040;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  margin: 3px 3px;
+  /*overflow: hidden;*/
+  width: calc(100px + 13vw);
+}
+
+.server-button > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.server-button:active {
+  transform: scale(0.9, 0.9);
+  color: inherit;
+}
+
+.server-button-title {
+/*  grid-column-start: 1;*/
+  font-family: 'Roboto Slab', sans-serif;
+  font-size: calc(7px + 1.4vw + 0.2vh);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  font-weight: bold;
+  min-width: 0;
+  /*max-width: calc(80px + 8vw);*/
+}
+
+.server-button-properties {
+  font-size: calc(4px + 0.7vw + 0.1vh);
+  align-self: center;
+  padding-left: inherit;
+}
+
+.server-button-properties > li {
+  list-style: none;
+  white-space: nowrap;
+}
+
+.server-button-status {
+  font-size: calc(5px + 0.9vw + 0.1vh);
+  align-self: center;
+  color: red;
+}
+
+.console {
+  font-family: monospace;
+  min-height: calc(120px + 1z0vh);
+  max-height: calc(150px + 20vh);
+  overflow-y: scroll;
+  border: 3px solid #404040;
+  margin: 5vw;
+}
