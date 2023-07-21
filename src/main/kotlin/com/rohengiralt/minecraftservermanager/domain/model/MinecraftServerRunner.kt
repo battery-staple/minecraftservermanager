@@ -18,9 +18,12 @@ interface MinecraftServerRunner {
         environmentOverrides: MinecraftServerEnvironment = MinecraftServerEnvironment.EMPTY
     ): MinecraftServerCurrentRun?
     suspend fun stopRun(uuid: UUID): Boolean
+    suspend fun stopRunByServer(serverUUID: UUID): Boolean
     suspend fun stopAllRuns(): Boolean
     fun getCurrentRun(uuid: UUID): MinecraftServerCurrentRun?
-    fun getAllCurrentRuns(server: MinecraftServer? = null): List<MinecraftServerCurrentRun>
+    fun getAllCurrentRuns(): List<MinecraftServerCurrentRun>
+
+    fun getCurrentRunByServer(serverUUID: UUID): MinecraftServerCurrentRun?
     suspend fun getAllCurrentRunsFlow(server: MinecraftServer? = null): Flow<List<MinecraftServerCurrentRun>>
 
 //    fun addEnvironment(serverRun: E)

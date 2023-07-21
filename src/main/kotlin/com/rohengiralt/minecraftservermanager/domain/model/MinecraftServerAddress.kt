@@ -18,4 +18,4 @@ value class MinecraftServerAddress(val url: Url) {
     )
 }
 
-val URLProtocol.Companion.minecraftProtocol: URLProtocol by lazy { URLProtocol("minecraft", defaultPort = 25565) }
+val URLProtocol.Companion.minecraftProtocol: URLProtocol by lazy { URLProtocol("mc", defaultPort = 25565) }

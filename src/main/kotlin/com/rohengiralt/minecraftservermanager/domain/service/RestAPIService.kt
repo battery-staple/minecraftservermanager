@@ -16,12 +16,12 @@ interface RestAPIService {
 
     suspend fun getAllRunners(): List<MinecraftServerRunner>
     suspend fun getRunner(uuid: UUID): MinecraftServerRunner?
-
-//    suspend fun isRunning(serverUUID: UUID): Boolean?
-    suspend fun getAllCurrentRuns(serverUUID: UUID?, runnerUUID: UUID?): List<MinecraftServerCurrentRun>?
+    suspend fun getAllCurrentRuns(runnerUUID: UUID): List<MinecraftServerCurrentRun>?
     suspend fun createCurrentRun(serverUUID: UUID, environment: MinecraftServerEnvironment): MinecraftServerCurrentRun?
     suspend fun getCurrentRun(runnerUUID: UUID, runUUID: UUID): MinecraftServerCurrentRun?
+    suspend fun getCurrentRunByServer(serverUUID: UUID): MinecraftServerCurrentRun?
     suspend fun stopCurrentRun(runnerUUID: UUID, runUUID: UUID): Boolean
+    suspend fun stopCurrentRunByServer(serverUUID: UUID): Boolean
     suspend fun stopAllCurrentRuns(runnerUUID: UUID): Boolean
 
     suspend fun getAllPastRuns(serverUUID: UUID): List<MinecraftServerPastRun>
@@ -67,20 +67,14 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
 //    override suspend fun isRunning(serverUUID: UUID): Boolean? =
 //        getAllCurrentRuns(serverUUID, runnerUUID = null)?.isNotEmpty()
 
-    override suspend fun getAllCurrentRuns(serverUUID: UUID?, runnerUUID: UUID?): List<MinecraftServerCurrentRun>? {
-        val server = serverUUID?.let { serverRepository.getServer(it) ?: return null }
+    override suspend fun getAllCurrentRuns(runnerUUID: UUID): List<MinecraftServerCurrentRun>? {
         val runner =
-            runnerRepository
-                .getRunner(
-                    runnerUUID
-                        ?: server?.runnerUUID
-                        ?: return null
-                ).ifNull {
-                    println("Could not find runner")
-                    return null
-                }
+            runnerRepository.getRunner(runnerUUID).ifNull {
+                println("Could not find runner")
+                return null
+            }
 
-        return runner.getAllCurrentRuns(server)
+        return runner.getAllCurrentRuns()
     }
 
     override suspend fun createCurrentRun(serverUUID: UUID, environment: MinecraftServerEnvironment): MinecraftServerCurrentRun? {
@@ -102,11 +96,25 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
         return runner.getCurrentRun(runUUID)
     }
 
+    override suspend fun getCurrentRunByServer(serverUUID: UUID): MinecraftServerCurrentRun? {
+        val runner = getRunnerByServer(serverUUID)
+
+        return runner?.getCurrentRunByServer(serverUUID)
+    }
+
     override suspend fun stopCurrentRun(runnerUUID: UUID, runUUID: UUID): Boolean {
         println("Stopping current run $runUUID")
         val runner = runnerRepository.getRunner(runnerUUID) ?: return false
 
         return runner.stopRun(runUUID)
+    }
+
+    override suspend fun stopCurrentRunByServer(serverUUID: UUID): Boolean {
+        println("Stopping current run of server $serverUUID")
+        val server = serverRepository.getServer(serverUUID) ?: return false
+        val runner = runnerRepository.getRunner(server.runnerUUID) ?: return false
+
+        return runner.stopRunByServer(serverUUID)
     }
 
     override suspend fun stopAllCurrentRuns(runnerUUID: UUID): Boolean {
@@ -121,6 +129,20 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
 
     override suspend fun getPastRun(serverUUID: UUID, runUUID: UUID): MinecraftServerPastRun? =
         pastRunRepository.getPastRun(serverUUID)
+
+    private fun getRunnerByServer(serverUUID: UUID): MinecraftServerRunner? {
+        val server = serverRepository.getServer(serverUUID).ifNull {
+            println("Couldn't find server for UUID $serverUUID")
+            return null
+        }
+
+        val runner = runnerRepository.getRunner(server.runnerUUID).ifNull {
+            println("Couldn't find runner for UUID $server.runnerUUID")
+            return null
+        }
+
+        return runner
+    }
 
     private val serverRepository: MinecraftServerRepository by inject()
     private val runnerRepository: MinecraftServerRunnerRepository by inject()

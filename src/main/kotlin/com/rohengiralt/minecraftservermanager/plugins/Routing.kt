@@ -68,14 +68,16 @@ fun Application.configureRouting() {
                         statusRoute()
                     }
                 }
-                route("/websockets") {
-                    websockets()
-                }
             }
 
             singlePageApplication {
                 useResources = true
                 react("static/react")
+            }
+        }
+        authenticate("auth-debug", "auth-session") {
+            route("api/v2/websockets") {
+                websockets()
             }
         }
     }

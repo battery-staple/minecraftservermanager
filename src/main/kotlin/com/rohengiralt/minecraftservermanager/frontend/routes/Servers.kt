@@ -2,6 +2,8 @@ package com.rohengiralt.minecraftservermanager.frontend.routes
 
 import com.rohengiralt.minecraftservermanager.domain.service.RestAPIService
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerAPIModel
+import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerCurrentRunAPIModel
+import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerEnvironmentAPIModel
 import com.rohengiralt.minecraftservermanager.plugins.ConflictException
 import com.rohengiralt.minecraftservermanager.plugins.NotAllowedException
 import com.rohengiralt.minecraftservermanager.util.routes.*
@@ -115,6 +117,48 @@ fun Route.serversRoute() { // TODO: Better response codes in general
                 call.respond(HttpStatusCode.OK)
             } else {
                 call.respond(HttpStatusCode.NotFound) // TODO: could also be 500 if server failed to delete
+            }
+        }
+
+        route("/currentRun") {
+            get {
+                println("Getting current run for server with id ${call.parameters["id"]}")
+                val serverUUID = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
+
+                val run = restApiService
+                    .getCurrentRunByServer(serverUUID)
+                    ?.let(::MinecraftServerCurrentRunAPIModel)
+                    ?: throw NotFoundException()
+
+                call.respond(run)
+            }
+
+            post {
+                println("Creating new run for server with id ${call.parameters["id"]}")
+                val serverUUID = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
+                val environment = call.receiveSerializable<MinecraftServerEnvironmentAPIModel>().toMinecraftServerEnvironment()
+
+                val createdRun = restApiService.createCurrentRun(serverUUID, environment)
+
+                if (createdRun == null) {
+                    call.respond(HttpStatusCode.InternalServerError)
+                } else {
+                    call.respond(MinecraftServerCurrentRunAPIModel(createdRun))
+                }
+            }
+
+            delete {
+                println("Stopping current run for server with id ${call.parameters["id"]}")
+
+                val serverUUID = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
+
+                val success = restApiService.stopCurrentRunByServer(serverUUID)
+
+                if (success) {
+                    call.respond(HttpStatusCode.OK) // TODO: Respond with past run
+                } else {
+                    call.respond(HttpStatusCode.InternalServerError)
+                }
             }
         }
     }

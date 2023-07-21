@@ -11,8 +11,9 @@ import kotlinx.coroutines.sync.withLock
 import java.util.*
 
 interface CurrentRunRepository {
-    fun getCurrentRun(uuid: UUID): MinecraftServerCurrentRun?
-    fun getCurrentRuns(server: MinecraftServer?): List<MinecraftServerCurrentRun>
+    fun getCurrentRunByUUID(uuid: UUID): MinecraftServerCurrentRun?
+    fun getCurrentRunByServer(serverUUID: UUID): MinecraftServerCurrentRun?
+    fun getAllCurrentRuns(): List<MinecraftServerCurrentRun>
     suspend fun addCurrentRun(run: MinecraftServerCurrentRun): Boolean
     suspend fun deleteCurrentRun(uuid: UUID): MinecraftServerCurrentRun?
     suspend fun getCurrentRunsFlow(server: MinecraftServer?): StateFlow<List<MinecraftServerCurrentRun>>
@@ -22,24 +23,30 @@ class InMemoryCurrentRunRepository : CurrentRunRepository { // TODO: Replace wit
     private val mutex = Mutex()
     private val coroutineScope = CoroutineScope(Dispatchers.Default) // TODO: Should this be defined here?
 
-    private val currentRuns = mutableMapOf<UUID, MinecraftServerCurrentRun>()
+    private val currentRunsByUUID = mutableMapOf<UUID, MinecraftServerCurrentRun>()
+    private val currentRunsByServerUUID = mutableMapOf<UUID, MinecraftServerCurrentRun>()
     private val allCurrentRuns = MutableStateFlow<List<MinecraftServerCurrentRun>>(emptyList())
 
-    override fun getCurrentRun(uuid: UUID): MinecraftServerCurrentRun? = currentRuns[uuid]
+    override fun getCurrentRunByUUID(uuid: UUID): MinecraftServerCurrentRun? =
+        currentRunsByUUID[uuid]
 
-    override fun getCurrentRuns(server: MinecraftServer?): List<MinecraftServerCurrentRun> =
-        if (server == null)
-            currentRuns.values.toList()
-        else currentRuns.values.filter { it.serverId == server.uuid }
+    override fun getCurrentRunByServer(serverUUID: UUID): MinecraftServerCurrentRun? =
+        currentRunsByServerUUID[serverUUID]
+
+    override fun getAllCurrentRuns(): List<MinecraftServerCurrentRun> =
+        allCurrentRuns.value
 
     override suspend fun addCurrentRun(run: MinecraftServerCurrentRun): Boolean = mutex.withLock {
-        currentRuns[run.uuid] = run
+        currentRunsByUUID[run.uuid] = run
+        currentRunsByServerUUID[run.serverId] = run
         updateAllCurrentRuns()
         return true
     }
 
     override suspend fun deleteCurrentRun(uuid: UUID): MinecraftServerCurrentRun? = mutex.withLock {
-        currentRuns.remove(uuid).also { updateAllCurrentRuns() }
+        currentRunsByUUID.remove(uuid)
+            ?.also { run -> currentRunsByServerUUID.remove(run.serverId) }
+            ?.also { updateAllCurrentRuns() }
     }
 
     override suspend fun getCurrentRunsFlow(server: MinecraftServer?): StateFlow<List<MinecraftServerCurrentRun>> =
@@ -48,5 +55,5 @@ class InMemoryCurrentRunRepository : CurrentRunRepository { // TODO: Replace wit
         else
             @OptIn(ExperimentalCoroutinesApi::class)
             allCurrentRuns.mapLatest { runsList -> runsList.filter { it.serverId == server.uuid } }.stateIn(coroutineScope)
-    private fun updateAllCurrentRuns() = allCurrentRuns.update { currentRuns.values.toList() }
+    private fun updateAllCurrentRuns() = allCurrentRuns.update { currentRunsByUUID.values.toList() }
 }

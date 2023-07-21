@@ -93,7 +93,6 @@ fun Application.configureSecurity() {
                                 +"The logged in user is not authorized."
                                 br()
                                 a(redirectUrl.toString()) { +"Try logging in again" }
-
                             }
                         }
                     }
@@ -114,7 +113,7 @@ fun Application.configureSecurity() {
                     defaultScopes = listOf("https://www.googleapis.com/auth/userinfo.profile"),
                     extraAuthParameters = listOf("access_type" to "offline"),
                     onStateCreated = { call, state ->
-                        redirects[state] = call.request.queryParameters["redirectUrl"] ?: "http:localhost:8080/asdfasdf"
+                        redirects[state] = call.request.queryParameters["redirectUrl"] ?: "http:localhost:8080/"
                     }
                 )
             }

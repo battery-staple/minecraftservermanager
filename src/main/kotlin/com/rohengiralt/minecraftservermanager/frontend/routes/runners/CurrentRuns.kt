@@ -18,17 +18,13 @@ fun Route.currentRuns() {
     val restApiService: RestAPIService by this@currentRuns.inject()
     get {
         println("Getting all runs")
-        val serverUUID = call.parameters["serverId"]?.parseUUIDOrBadRequest()
-        val runnerUUID = call.parameters["runnerId"]?.parseUUIDOrBadRequest()
+        val runnerUUID = call.getParameterOrBadRequest("runnerId").parseUUIDOrBadRequest()
 
-        if (serverUUID == null && runnerUUID == null)
-            throw BadRequestException("Must include either server or runner id (or both)")
+        val runs = restApiService.getAllCurrentRuns(runnerUUID)
+            ?.map(::MinecraftServerCurrentRunAPIModel)
+            ?: throw NotFoundException()
 
-        call.respond(
-            restApiService.getAllCurrentRuns(serverUUID, runnerUUID)
-                ?.map(::MinecraftServerCurrentRunAPIModel)
-                ?: throw NotFoundException()
-        )
+        call.respond(runs)
     }
 
     post {
