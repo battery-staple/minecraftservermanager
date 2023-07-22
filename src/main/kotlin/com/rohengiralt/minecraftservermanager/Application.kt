@@ -12,9 +12,9 @@ import com.rohengiralt.minecraftservermanager.domain.model.local.contentdirector
 import com.rohengiralt.minecraftservermanager.domain.model.local.currentruns.CurrentRunRepository
 import com.rohengiralt.minecraftservermanager.domain.model.local.currentruns.InMemoryCurrentRunRepository
 import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.APIMinecraftServerJarFactory
-import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.FilesystemCacheMinecraftServerJarRepository
+import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.FilesystemMinecraftServerJarResourceManager
 import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.MinecraftServerJarFactory
-import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.MinecraftServerJarRepository
+import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.MinecraftServerJarResourceManager
 import com.rohengiralt.minecraftservermanager.domain.service.RestAPIService
 import com.rohengiralt.minecraftservermanager.domain.service.RestAPIServiceImpl
 import com.rohengiralt.minecraftservermanager.domain.service.WebsocketAPIService
@@ -69,8 +69,8 @@ fun Application.module() {
                 single<MinecraftServerPastRunRepository> { DatabaseMinecraftServerPastRunRepository() }
                 single<LocalMinecraftServerDispatcher> { LocalMinecraftServerDispatcher() }
                 single<MinecraftServerJarFactory> { APIMinecraftServerJarFactory() }
-                single<MinecraftServerJarRepository> {
-                    FilesystemCacheMinecraftServerJarRepository("/minecraftservermanager/local/jars")
+                single<MinecraftServerJarResourceManager> {
+                    FilesystemMinecraftServerJarResourceManager("/minecraftservermanager/local/jars")
                 }
                 single<LocalMinecraftServerContentDirectoryRepository> {
                     LocalMinecraftServerContentDirectoryRepository()

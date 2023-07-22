@@ -4,8 +4,10 @@ import com.rohengiralt.minecraftservermanager.domain.infrastructure.LocalMinecra
 import com.rohengiralt.minecraftservermanager.domain.model.*
 import com.rohengiralt.minecraftservermanager.domain.model.local.contentdirectory.LocalMinecraftServerContentDirectoryRepository
 import com.rohengiralt.minecraftservermanager.domain.model.local.currentruns.CurrentRunRepository
-import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.MinecraftServerJarRepository
+import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.MinecraftServerJarResourceManager
 import com.rohengiralt.minecraftservermanager.util.ifNull
+import com.uchuhimo.konf.Config
+import com.uchuhimo.konf.ConfigSpec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -25,13 +27,20 @@ import kotlin.io.path.exists
 import kotlin.io.path.readLines
 import kotlin.time.Duration.Companion.seconds
 
+private val localRunnerConfig = Config { addSpec(LocalRunnerSpec) }
+    .from.env()
+
+private object LocalRunnerSpec : ConfigSpec() {
+    val domain by required<String>()
+}
+
+
 object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
     override val uuid: UUID = UUID.fromString("d72add0d-4746-4b46-9ecc-2dcd868062f9") // Randomly generated, but constant
     override var name: String = "Local"
-    override val domain: String = "home.translatorx.org" //TODO: Customizable (config?)
+    override val domain: String = localRunnerConfig[LocalRunnerSpec.domain]
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
-//    private val currentRuns: MutableList<MinecraftServerCurrentRunWithMetadata> = mutableListOf()
     private val currentRuns: CurrentRunRepository by inject()
     private val runningProcesses: MutableMap<UUID, MinecraftServerProcess> = mutableMapOf()
 
@@ -40,12 +49,48 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         // and archive them
     }
 
-    override suspend fun initializeServer(server: MinecraftServer) {
-        TODO("Not yet implemented")
+    override suspend fun initializeServer(server: MinecraftServer): Boolean {
+        println("Getting content directory for server ${server.name}")
+        val contentDirectorySuccess =
+            serverContentDirectoryPathRepository
+                .createContentDirectoryIfNotExists(server)
+
+        if (!contentDirectorySuccess) {
+            println("Couldn't access content directory")
+            return false
+        }
+
+        println("Getting jar for server ${server.name}")
+        val jarSuccess = serverJarResourceManager.prepareJar(server.version)
+
+        if (!jarSuccess) {
+            println("Couldn't create server jar")
+            return false
+        }
+
+        return true
     }
 
-    override suspend fun removeServer(server: MinecraftServer) {
-        TODO("Not yet implemented")
+    override suspend fun removeServer(server: MinecraftServer): Boolean {
+        val contentDirectorySuccess =
+            serverContentDirectoryPathRepository
+                .deleteContentDirectory(server)
+
+        val jarSuccess =
+            serverJarResourceManager
+                .freeJar(server.version, server.uuid)
+
+        if (!contentDirectorySuccess) {
+            println("Couldn't remove server content directory")
+            return false
+        }
+
+        if (!jarSuccess) {
+            println("Couldn't free server jar")
+            return false
+        }
+
+        return true
     }
 
     override suspend fun runServer(server: MinecraftServer, environmentOverrides: MinecraftServerEnvironment): MinecraftServerCurrentRun? {
@@ -70,8 +115,8 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
 
         println("Getting jar for server ${server.name}")
         val jar =
-            serverJarRepository
-                .getJar(server.version)
+            serverJarResourceManager
+                .accessJar(server.version, server.uuid)
                 .ifNull {
                     println("Couldn't get server jar")
                     return null
@@ -185,7 +230,7 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
             .firstOrNull()
     }
 
-    private suspend fun MinecraftServerCurrentRun.toPastRun(
+    private fun MinecraftServerCurrentRun.toPastRun(
         endTime: Instant = Clock.System.now()
     ) = MinecraftServerPastRun(
         uuid = uuid,
@@ -211,7 +256,7 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
     }
 
     private val serverDispatcher: LocalMinecraftServerDispatcher by inject()
-    private val serverJarRepository: MinecraftServerJarRepository by inject()
+    private val serverJarResourceManager: MinecraftServerJarResourceManager by inject()
     private val serverContentDirectoryPathRepository: LocalMinecraftServerContentDirectoryRepository by inject()
     private val pastRunRepository: MinecraftServerPastRunRepository by inject()
     private val minecraftServerRepository: MinecraftServerRepository by inject()

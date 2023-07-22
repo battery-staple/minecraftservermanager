@@ -32,15 +32,22 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
     override suspend fun getAllServers(): List<MinecraftServer> =
         serverRepository.getAllServers()
 
-    override suspend fun createServer(uuid: UUID?, name: String, version: MinecraftVersion, runnerUUID: UUID): Boolean =
-        serverRepository.addServer(
-            MinecraftServer(
-                uuid = uuid ?: UUID.randomUUID(),
-                name = name,
-                version = version,
-                runnerUUID
-            )
+    override suspend fun createServer(uuid: UUID?, name: String, version: MinecraftVersion, runnerUUID: UUID): Boolean {
+        val server = MinecraftServer(
+            uuid = uuid ?: UUID.randomUUID(),
+            name = name,
+            version = version,
+            runnerUUID
         )
+
+        val success = runnerRepository.getRunner(runnerUUID)?.initializeServer(server) ?: false
+
+        if (!success) {
+            return false
+        }
+
+        return serverRepository.addServer(server)
+    }
 
     override suspend fun getServer(uuid: UUID): MinecraftServer? =
         serverRepository.getServer(uuid)
@@ -55,8 +62,12 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
         return serverRepository.saveServer(server)
     }
 
-    override suspend fun deleteServer(uuid: UUID): Boolean = // TODO: Make sure EVERYTHING is deleted—for instance, the content directory is currently not being removed from the database & directory is also not being deleted from the filesystem.
-        serverRepository.removeServer(uuid)
+    override suspend fun deleteServer(uuid: UUID): Boolean {
+        val server = serverRepository.getServer(uuid) ?: return false
+        val runner = runnerRepository.getRunner(server.runnerUUID) ?: return false
+        runner.removeServer(server)
+        return serverRepository.removeServer(uuid)
+    }
 
     override suspend fun getAllRunners(): List<MinecraftServerRunner> =
         runnerRepository.getAllRunners()
@@ -84,6 +95,10 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
         }
         val runner = runnerRepository.getRunner(server.runnerUUID).ifNull {
             println("Couldn't find runner for UUID $server.runnerUUID")
+            return null
+        }
+
+        if (runner.isRunning(serverUUID)) { // TODO: possible concurrency issues if another run starts before this one?
             return null
         }
 

@@ -21,6 +21,9 @@ class LocalMinecraftServerContentDirectoryRepository : KoinComponent {
         }
     }
 
+    fun createContentDirectoryIfNotExists(server: MinecraftServer): Boolean =
+        getOrCreateContentDirectory(server) != null
+
     fun getOrCreateContentDirectory(server: MinecraftServer): Path? =
         getExistingContentDirectory(server.uuid) ?: getAndSaveNewContentDirectory(server)
 
@@ -64,7 +67,7 @@ class LocalMinecraftServerContentDirectoryRepository : KoinComponent {
     private fun deleteContentDirectoryFromFilesystem(directory: Path): Boolean = try {
         directory.deleteIfExists()
     } catch (e: DirectoryNotEmptyException) {
-      directory.deleteRecursively()
+        directory.deleteRecursively()
         true
     } catch (e: IOException) {
         println("Got exception when trying to delete content directory: ${e.message}")

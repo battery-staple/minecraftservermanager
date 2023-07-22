@@ -11,8 +11,8 @@ interface MinecraftServerRunner {
     var name: String
     val domain: String
 
-    suspend fun initializeServer(server: MinecraftServer)
-    suspend fun removeServer(server: MinecraftServer)
+    suspend fun initializeServer(server: MinecraftServer): Boolean
+    suspend fun removeServer(server: MinecraftServer): Boolean
     suspend fun runServer(
         server: MinecraftServer,
         environmentOverrides: MinecraftServerEnvironment = MinecraftServerEnvironment.EMPTY
@@ -24,6 +24,8 @@ interface MinecraftServerRunner {
     fun getAllCurrentRuns(): List<MinecraftServerCurrentRun>
 
     fun getCurrentRunByServer(serverUUID: UUID): MinecraftServerCurrentRun?
+    fun isRunning(serverUUID: UUID): Boolean = getCurrentRunByServer(serverUUID) != null
+
     suspend fun getAllCurrentRunsFlow(server: MinecraftServer? = null): Flow<List<MinecraftServerCurrentRun>>
 
 //    fun addEnvironment(serverRun: E)
