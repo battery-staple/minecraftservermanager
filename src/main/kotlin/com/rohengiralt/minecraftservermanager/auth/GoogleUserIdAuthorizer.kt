@@ -6,11 +6,11 @@ import kotlin.io.path.Path
 import kotlin.io.path.bufferedReader
 import kotlin.streams.asSequence
 
-interface UserIdVerifier {
+interface GoogleUserIdAuthorizer {
     fun isAuthorized(userId: String): Boolean
 }
 
-class WhitelistFileUserIdVerifier : UserIdVerifier {
+class WhitelistFileGoogleUserIdAuthorizer : GoogleUserIdAuthorizer {
     private val whitelistFile = Path(securityConfig[SecuritySpec.whitelistFile])
     override fun isAuthorized(userId: String): Boolean =
         whitelistFile

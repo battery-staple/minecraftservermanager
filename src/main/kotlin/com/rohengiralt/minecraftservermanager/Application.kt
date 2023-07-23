@@ -1,8 +1,7 @@
 package com.rohengiralt.minecraftservermanager
 
-import GoogleAPIHTTPClients
-import com.rohengiralt.minecraftservermanager.auth.UserIdVerifier
-import com.rohengiralt.minecraftservermanager.auth.WhitelistFileUserIdVerifier
+import com.rohengiralt.minecraftservermanager.auth.GoogleUserIdAuthorizer
+import com.rohengiralt.minecraftservermanager.auth.WhitelistFileGoogleUserIdAuthorizer
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.LocalMinecraftServerDispatcher
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.MinecraftJarAPI
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.RedundantFallbackAPI
@@ -10,7 +9,7 @@ import com.rohengiralt.minecraftservermanager.domain.model.*
 import com.rohengiralt.minecraftservermanager.domain.model.local.contentdirectory.LocalMinecraftServerContentDirectoryFactory
 import com.rohengiralt.minecraftservermanager.domain.model.local.contentdirectory.LocalMinecraftServerContentDirectoryRepository
 import com.rohengiralt.minecraftservermanager.domain.model.local.currentruns.CurrentRunRepository
-import com.rohengiralt.minecraftservermanager.domain.model.local.currentruns.InMemoryCurrentRunRepository
+import com.rohengiralt.minecraftservermanager.domain.model.local.currentruns.DatabaseCurrentRunRepository
 import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.APIMinecraftServerJarFactory
 import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.FilesystemMinecraftServerJarResourceManager
 import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.MinecraftServerJarFactory
@@ -61,8 +60,7 @@ fun Application.module() {
                         }
                     }
                 }
-                single<GoogleAPIHTTPClients> { GoogleAPIHTTPClients() }
-                single<UserIdVerifier> { WhitelistFileUserIdVerifier() }
+                single<GoogleUserIdAuthorizer> { WhitelistFileGoogleUserIdAuthorizer() }
                 single<Json> { Json { ignoreUnknownKeys = true } }
                 single<MinecraftServerRepository> { DatabaseMinecraftServerRepository() }
                 single<MinecraftJarAPI> { RedundantFallbackAPI() }

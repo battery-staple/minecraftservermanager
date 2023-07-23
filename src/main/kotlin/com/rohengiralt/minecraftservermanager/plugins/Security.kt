@@ -1,17 +1,23 @@
 package com.rohengiralt.minecraftservermanager.plugins
 
-import GoogleAPIHTTPClients
-import com.rohengiralt.minecraftservermanager.auth.UserIdVerifier
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
+import com.google.api.client.json.gson.GsonFactory
+import com.rohengiralt.minecraftservermanager.auth.GoogleUserIdAuthorizer
 import com.rohengiralt.minecraftservermanager.auth.UserSession
+import com.rohengiralt.minecraftservermanager.auth.verifyUserSessionIdToken
 import com.rohengiralt.minecraftservermanager.plugins.SecuritySpec.clientId
 import com.rohengiralt.minecraftservermanager.plugins.SecuritySpec.clientSecret
 import com.rohengiralt.minecraftservermanager.plugins.SecuritySpec.cookieSecretEncryptKey
 import com.rohengiralt.minecraftservermanager.plugins.SecuritySpec.cookieSecretSignKey
 import com.uchuhimo.konf.Config
 import com.uchuhimo.konf.ConfigSpec
-import io.ktor.client.call.*
-import io.ktor.client.request.*
+import io.ktor.client.*
+import io.ktor.client.engine.okhttp.*
+import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.html.*
@@ -25,11 +31,11 @@ import kotlinx.html.a
 import kotlinx.html.body
 import kotlinx.html.br
 import kotlinx.html.p
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import org.koin.ktor.ext.inject
 import java.io.File
+import kotlin.collections.set
 import kotlin.time.Duration.Companion.days
+
 
 internal val securityConfig = Config { addSpec(SecuritySpec) }
     .from.env()
@@ -43,16 +49,14 @@ internal object SecuritySpec : ConfigSpec() {
 }
 
 fun Application.configureSecurity() {
-    val httpClients: GoogleAPIHTTPClients by inject()
-    val userIdVerifier: UserIdVerifier by inject()
+    val authorizer: GoogleUserIdAuthorizer by inject()
 
     install(Sessions) {
-        cookie<UserSession>("user_session", directorySessionStorage(File(".ktor/sessions"))) {
+        cookie<UserSession>("user_session", directorySessionStorage(File("/minecraftservermanager/.ktor/sessions"))) {
             cookie.path = "/"
             cookie.maxAge = 30.days
             transform(SessionTransportTransformerEncrypt(hex(securityConfig[cookieSecretEncryptKey]), hex(securityConfig[cookieSecretSignKey])))
         }
-
     }
 
     val redirects = mutableMapOf<String, String>()
@@ -67,16 +71,19 @@ fun Application.configureSecurity() {
 
         session<UserSession>("auth-session") {
             validate {
-                val userInfo: UserInfo = httpClients.getClient(sessions)
-                    .get("https://www.googleapis.com/oauth2/v2/userinfo")
-                    .body()
+                println("Preparing to validate userinfo")
+                val idToken: GoogleIdToken = idTokenVerifier.verifyUserSessionIdToken(sessions) ?: return@validate null
 
-                println("Validating userinfo $userInfo")
+                val userInfo = UserInfo(
+                    userId = idToken.payload.subject,
+                    email = idToken.payload.email
+                )
 
-                if (userIdVerifier.isAuthorized(userInfo.id)) userInfo else null
+                if (authorizer.isAuthorized(userInfo.userId)) userInfo else null
             }
 
             challenge {
+                println("Received session authentication challenge")
                 val userSession = it ?: call.sessions.get<UserSession>()
 
                 val redirectUrl = URLBuilder("http://localhost:8080/login").run {
@@ -110,14 +117,14 @@ fun Application.configureSecurity() {
                     requestMethod = HttpMethod.Post,
                     clientId = securityConfig[clientId],
                     clientSecret = securityConfig[clientSecret],
-                    defaultScopes = listOf("https://www.googleapis.com/auth/userinfo.profile"),
+                    defaultScopes = listOf("openid", "profile", "email", "https://www.googleapis.com/auth/userinfo.profile"),
                     extraAuthParameters = listOf("access_type" to "offline"),
                     onStateCreated = { call, state ->
                         redirects[state] = call.request.queryParameters["redirectUrl"] ?: "http:localhost:8080/"
                     }
                 )
             }
-            client = httpClients.getClient()
+            client = oauthClient
         }
     }
 
@@ -134,24 +141,35 @@ fun Application.configureSecurity() {
 
                 call.sessions.set(
                     UserSession(
-                        state,
-                        principal.accessToken,
-                        principal.refreshToken ?: throw BadRequestException("Missing refresh token"),
+                        refreshToken = principal.refreshToken ?: throw BadRequestException("Missing refresh token"),
+                        idToken = principal.extraParameters["id_token"] ?: throw BadRequestException("Missing id token")
                     )
                 )
-                val redirect = redirects[state]
-                call.respondRedirect(redirect ?: "http://localhost:8080/")
+                val redirect = redirects[state] ?: throw BadRequestException("Unknown state")
+                call.respondRedirect(redirect)
             }
         }
     }
 }
 
-@Serializable
+private val oauthClient = HttpClient(OkHttp) {
+    engine {
+        config {
+            followRedirects(true)
+        }
+    }
+    install (ContentNegotiation) {
+        json()
+    }
+}
+
+private val idTokenVerifier: GoogleIdTokenVerifier = GoogleIdTokenVerifier.Builder(GoogleNetHttpTransport.newTrustedTransport(), GsonFactory.getDefaultInstance())
+    .setAudience(listOf(securityConfig[clientId]))
+    .build()
+
+
+
 private data class UserInfo(
-    val id: String,
-    val name: String,
-    @SerialName("given_name") val givenName: String,
-    @SerialName("family_name") val familyName: String,
-    val picture: String,
-    val locale: String
+    val userId: String,
+    val email: String
 ) : Principal
