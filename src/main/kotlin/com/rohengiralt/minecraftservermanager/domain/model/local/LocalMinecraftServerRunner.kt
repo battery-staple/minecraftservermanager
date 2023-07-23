@@ -5,6 +5,9 @@ import com.rohengiralt.minecraftservermanager.domain.model.*
 import com.rohengiralt.minecraftservermanager.domain.model.local.contentdirectory.LocalMinecraftServerContentDirectoryRepository
 import com.rohengiralt.minecraftservermanager.domain.model.local.currentruns.CurrentRunRepository
 import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.MinecraftServerJarResourceManager
+import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.accessJar
+import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.freeJar
+import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.prepareJar
 import com.rohengiralt.minecraftservermanager.util.ifNull
 import com.uchuhimo.konf.Config
 import com.uchuhimo.konf.ConfigSpec
@@ -61,7 +64,7 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         }
 
         println("Getting jar for server ${server.name}")
-        val jarSuccess = serverJarResourceManager.prepareJar(server.version)
+        val jarSuccess = serverJarResourceManager.prepareJar(server)
 
         if (!jarSuccess) {
             println("Couldn't create server jar")
@@ -78,7 +81,7 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
 
         val jarSuccess =
             serverJarResourceManager
-                .freeJar(server.version, server.uuid)
+                .freeJar(server)
 
         if (!contentDirectorySuccess) {
             println("Couldn't remove server content directory")
@@ -116,7 +119,7 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         println("Getting jar for server ${server.name}")
         val jar =
             serverJarResourceManager
-                .accessJar(server.version, server.uuid)
+                .accessJar(server)
                 .ifNull {
                     println("Couldn't get server jar")
                     return null
@@ -135,8 +138,8 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
 
         return MinecraftServerCurrentRun(
             uuid = UUID.randomUUID(),
-            serverId = server.uuid,
-            runnerId = uuid,
+            serverUUID = server.uuid,
+            runnerUUID = uuid,
             environment = environment,
             address = MinecraftServerAddress(
                 host = domain,
@@ -234,15 +237,15 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         endTime: Instant = Clock.System.now()
     ) = MinecraftServerPastRun(
         uuid = uuid,
-        serverId = serverId,
-        runnerId = runnerId,
+        serverUUID = serverUUID,
+        runnerUUID = runnerUUID,
         startTime = startTime,
         stopTime = endTime,
         log = getLog()
     )
 
     private fun MinecraftServerCurrentRun.getLog(): List<LogEntry> {
-        val contentDirectory = serverContentDirectoryPathRepository.getExistingContentDirectory(serverId)
+        val contentDirectory = serverContentDirectoryPathRepository.getExistingContentDirectory(serverUUID)
             ?: return emptyList() // TODO: Should distinguish between empty log and no log?
 
         val log = contentDirectory / "logs" / "latest.log" // TODO: Ensure works on all versions of Minecraft

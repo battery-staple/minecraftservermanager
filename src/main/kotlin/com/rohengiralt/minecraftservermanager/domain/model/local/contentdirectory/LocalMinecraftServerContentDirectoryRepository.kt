@@ -55,8 +55,26 @@ class LocalMinecraftServerContentDirectoryRepository : KoinComponent {
     }
 
     fun deleteContentDirectory(server: MinecraftServer): Boolean {
-        val directory = getExistingContentDirectory(server.uuid) ?: return false // TODO: Should be true since nonexistent?
-        return deleteContentDirectoryFromDatabase(server) && deleteContentDirectoryFromFilesystem(directory)
+        val directory = getExistingContentDirectory(server.uuid) ?: run {
+            println("Could not find content directory for server ${server.uuid}")
+            return true // TODO: Should this return true or false?
+        }
+
+        val databaseDeletionSuccess = deleteContentDirectoryFromDatabase(server)
+
+        if (!databaseDeletionSuccess) {
+            println("Could not delete content directory from database for server ${server.uuid}")
+            return false
+        }
+
+        val filesystemDeletionSuccess = deleteContentDirectoryFromFilesystem(directory)
+
+        if (!filesystemDeletionSuccess) {
+            println("Could not delete content directory from filesystem for server ${server.uuid}")
+            return false
+        }
+
+        return true
     }
     private fun deleteContentDirectoryFromDatabase(server: MinecraftServer): Boolean = transaction {
         val rowsDeleted = ContentDirectoryTable.deleteWhere { ContentDirectoryTable.serverUUID eq server.uuid }

@@ -17,8 +17,8 @@ data class MinecraftServerPastRunAPIModel(
 ) {
     constructor(pastRun: MinecraftServerPastRun) : this(
         uuid = pastRun.uuid,
-        serverId = pastRun.serverId,
-        runnerId = pastRun.runnerId,
+        serverId = pastRun.serverUUID,
+        runnerId = pastRun.runnerUUID,
         startTime = pastRun.startTime,
         stopTime = pastRun.stopTime,
         log = pastRun.log

@@ -15,8 +15,8 @@ data class MinecraftServerCurrentRunAPIModel(
 ) {
     constructor(run: MinecraftServerCurrentRun) : this(
         uuid = run.uuid,
-        serverId = run.serverId,
-        runnerId = run.runnerId,
+        serverId = run.serverUUID,
+        runnerId = run.runnerUUID,
         environment = MinecraftServerEnvironmentAPIModel(run.environment),
         address = MinecraftServerAddressAPIModel(run.address)
     )

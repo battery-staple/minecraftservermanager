@@ -99,6 +99,7 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
         }
 
         if (runner.isRunning(serverUUID)) { // TODO: possible concurrency issues if another run starts before this one?
+            println("Cannot create current run because server $serverUUID is already running")
             return null
         }
 

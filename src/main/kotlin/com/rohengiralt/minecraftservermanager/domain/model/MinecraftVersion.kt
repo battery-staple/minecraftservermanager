@@ -252,7 +252,7 @@ sealed class MinecraftVersion {
                     pattern.matchEntire(string)?.groupValues?.let { groups ->
                         val phase = groups[1]
                         val major = groups[2]
-                        val minor = groups.getOrNull(3)
+                        val minor = groups.getOrNull(3)?.ifBlank { null }
 
                         Release(
                             phase.toUIntOrNull() ?: return null,

@@ -13,3 +13,13 @@ public inline fun <T : Any> T?.ifNull(defaultValue: () -> T): T {
 
     return this ?: defaultValue()
 }
+
+@OptIn(ExperimentalContracts::class)
+public inline fun <T : Any> T?.ifNullAlso(block: () -> Unit): T? {
+    contract {
+        callsInPlace(block, InvocationKind.AT_MOST_ONCE)
+    }
+
+    if (this == null) block()
+    return this
+}

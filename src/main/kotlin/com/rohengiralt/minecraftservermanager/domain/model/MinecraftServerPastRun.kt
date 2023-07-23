@@ -5,8 +5,8 @@ import java.util.*
 
 data class MinecraftServerPastRun(
     val uuid: UUID,
-    val serverId: UUID,
-    val runnerId: UUID,
+    val serverUUID: UUID,
+    val runnerUUID: UUID,
     val startTime: Instant,
     val stopTime: Instant,
     val log: List<LogEntry>,

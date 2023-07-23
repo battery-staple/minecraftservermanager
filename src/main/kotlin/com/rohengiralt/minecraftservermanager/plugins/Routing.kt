@@ -52,6 +52,9 @@ fun Application.configureRouting() {
         exception<NotImplementedError> { call, _ ->
             call.respond(HttpStatusCode.NotImplemented)
         }
+        exception<Throwable> { _, e ->
+            println(e)
+        }
     }
 
     routing {

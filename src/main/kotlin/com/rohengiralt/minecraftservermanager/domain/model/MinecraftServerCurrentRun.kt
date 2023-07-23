@@ -7,8 +7,8 @@ import java.util.*
 
 data class MinecraftServerCurrentRun(
     val uuid: UUID,
-    val serverId: UUID,
-    val runnerId: UUID,
+    val serverUUID: UUID,
+    val runnerUUID: UUID,
     val environment: MinecraftServerEnvironment,
     val address: MinecraftServerAddress,
     val startTime: Instant,

@@ -24,6 +24,7 @@ services:
       - 'SECURITY_cookieSecretSignKey=${COOKIE_SIGN_KEY}'
       - 'SECURITY_clientId=${GOOGLE_CLIENT_ID}'
       - 'SECURITY_clientSecret=${GOOGLE_CLIENT_SECRET}'
+      - 'LOCALRUNNER_DOMAIN=${LOCAL_RUNNER_DOMAIN}'
     volumes:
     - ./rundata:/minecraftservermanager
     restart: always
