@@ -34,26 +34,17 @@ fun Application.configureRouting() {
     }
 
     install(StatusPages) {
-        exception<AuthenticationException> { call, _ ->
-            call.respond(HttpStatusCode.Unauthorized)
-        }
-        exception<AuthorizationException> { call, _ ->
-            call.respond(HttpStatusCode.Forbidden)
-        }
-        exception<BadRequestException> { call, exception ->
-            call.respond(HttpStatusCode.BadRequest, exception.message ?: "Bad request")
-        }
-        exception<ConflictException> { call, _ ->
-            call.respond(HttpStatusCode.Conflict)
-        }
-        exception<NotAllowedException> { call, _ ->
-            call.respond(HttpStatusCode.MethodNotAllowed)
-        }
-        exception<NotImplementedError> { call, _ ->
-            call.respond(HttpStatusCode.NotImplemented)
-        }
-        exception<Throwable> { _, e ->
-            println(e)
+        exception<Throwable> { call, e ->
+            when (e) {
+                is AuthenticationException -> call.respond(HttpStatusCode.Unauthorized, e.message ?: "Unauthorized")
+                is AuthorizationException -> call.respond(HttpStatusCode.Forbidden, e.message ?: "Forbidden")
+                is BadRequestException -> call.respond(HttpStatusCode.BadRequest, e.message ?: "Bad request")
+                is NotFoundException -> call.respond(HttpStatusCode.NotFound, e.message ?: "Not found")
+                is ConflictException -> call.respond(HttpStatusCode.Conflict, e.message ?: "Conflict")
+                is NotAllowedException -> call.respond(HttpStatusCode.MethodNotAllowed, e.message ?: "Not allowed")
+                is NotImplementedError -> call.respond(HttpStatusCode.NotImplemented, e.message ?: "Not implemented")
+                else -> e.printStackTrace()
+            }
         }
     }
 

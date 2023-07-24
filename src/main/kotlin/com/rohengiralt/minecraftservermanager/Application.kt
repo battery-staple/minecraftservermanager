@@ -9,7 +9,7 @@ import com.rohengiralt.minecraftservermanager.domain.model.*
 import com.rohengiralt.minecraftservermanager.domain.model.local.contentdirectory.LocalMinecraftServerContentDirectoryFactory
 import com.rohengiralt.minecraftservermanager.domain.model.local.contentdirectory.LocalMinecraftServerContentDirectoryRepository
 import com.rohengiralt.minecraftservermanager.domain.model.local.currentruns.CurrentRunRepository
-import com.rohengiralt.minecraftservermanager.domain.model.local.currentruns.DatabaseCurrentRunRepository
+import com.rohengiralt.minecraftservermanager.domain.model.local.currentruns.InMemoryCurrentRunRepository
 import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.APIMinecraftServerJarFactory
 import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.FilesystemMinecraftServerJarResourceManager
 import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.MinecraftServerJarFactory
@@ -30,6 +30,7 @@ import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
 import org.koin.logger.SLF4JLogger
 
@@ -41,7 +42,6 @@ fun main() {
     }
 
     println("Initializing server")
-
     embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = Application::module).start(wait = true)
 }
 
@@ -50,7 +50,7 @@ fun Application.module() {
         SLF4JLogger()
         @Suppress("RemoveExplicitTypeArguments")
         modules(
-            org.koin.dsl.module {
+            module(createdAtStart = true) {
                 single<HttpClient> {
                     HttpClient(OkHttp /*Java //JDK 11 only (or CIO when it supports HTTP 2)*/) {
                         expectSuccess = false
@@ -78,18 +78,15 @@ fun Application.module() {
                         "/minecraftservermanager/local/servers"
                     )
                 }
-                single<MinecraftServerRunnerRepository> { HardcodedMinecraftServerRunnerRepository() }
+                single<MinecraftServerRunnerRepository>(createdAtStart = true) { // Needs to be created at start to archive old currentRuns
+                    HardcodedMinecraftServerRunnerRepository()
+                }
                 single<CurrentRunRepository> { InMemoryCurrentRunRepository() }
+                single<MinecraftServerCurrentRunRecordRepository> { DatabaseMinecraftServerCurrentRunRecordRepository() }
 
                 single<RestAPIService> { RestAPIServiceImpl() }
                 single<WebsocketAPIService> { WebsocketAPIServiceImpl() }
             },
-
-//                MinecraftServerStorageRepository.koinModule,
-//                ServerRunningManager.koinModule,
-//                ServerJarRepository.koinModule,
-//                ServerRuntimeDirectoryRepository.koinModule,
-//                ServerJarFactory.koinModule
         )
     }
 

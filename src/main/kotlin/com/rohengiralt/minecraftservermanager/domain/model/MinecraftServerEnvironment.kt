@@ -4,7 +4,7 @@ data class MinecraftServerEnvironment(
     val port: Port? = null,
     val maxHeapSize: MaxHeapSize? = null,
     val minHeapSize: MinHeapSize? = null,
-//    val jre: MinecraftServerEnvironmentAspect.JRE? = null
+//    val jre: JRE? = null
 ) {
     class Port(val port: com.rohengiralt.minecraftservermanager.domain.model.Port)
     class MaxHeapSize(val memoryMB: UInt)

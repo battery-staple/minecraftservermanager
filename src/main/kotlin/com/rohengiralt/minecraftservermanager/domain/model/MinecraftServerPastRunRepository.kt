@@ -6,4 +6,5 @@ interface MinecraftServerPastRunRepository {
     fun getPastRun(uuid: UUID): MinecraftServerPastRun?
     fun getAllPastRuns(serverUUID: UUID? = null, runnerUUID: UUID? = null): List<MinecraftServerPastRun>
     fun savePastRun(run: MinecraftServerPastRun): Boolean
+    fun savePastRuns(runs: Iterable<MinecraftServerPastRun>): Boolean
 }

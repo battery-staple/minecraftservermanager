@@ -45,11 +45,39 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
     private val currentRuns: CurrentRunRepository by inject()
+    private val currentRunRecordRepository: MinecraftServerCurrentRunRecordRepository by inject()
     private val runningProcesses: MutableMap<UUID, MinecraftServerProcess> = mutableMapOf()
 
+    private val serverDispatcher: LocalMinecraftServerDispatcher by inject()
+    private val serverJarResourceManager: MinecraftServerJarResourceManager by inject()
+    private val serverContentDirectoryPathRepository: LocalMinecraftServerContentDirectoryRepository by inject()
+    private val pastRunRepository: MinecraftServerPastRunRepository by inject()
+
     init {
-        // TODO: Check for current runs in the repository (leftovers from before in case of unexpected program quit)
-        // and archive them
+        try {
+            println("Archiving left over current runs")
+            val runsToArchive = currentRunRecordRepository.getAllRecords()
+                .map { record ->
+                    MinecraftServerPastRun(
+                        uuid = record.runUUID,
+                        serverUUID = record.serverUUID,
+                        runnerUUID = record.runnerUUID,
+                        startTime = record.startTime,
+                        stopTime = null,
+                        log = getLatestLog(record.serverUUID) ?: emptyList() // Assumes that the current run record was the last one, TODO: alternative approach?
+                    )
+                }
+
+            if (pastRunRepository.savePastRuns(runsToArchive)) {
+                println("Archived ${runsToArchive.size} left over current run(s)")
+                currentRunRecordRepository.removeAllRecords()
+            } else {
+                println("Failed to archive left over current run(s)")
+            }
+        } catch (e: Throwable) {
+            println("Failed to archive left over current run(s), got error:")
+            e.printStackTrace()
+        }
     }
 
     override suspend fun initializeServer(server: MinecraftServer): Boolean {
@@ -75,6 +103,7 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
     }
 
     override suspend fun removeServer(server: MinecraftServer): Boolean {
+        println("Removing server ${server.name} from local runner")
         val contentDirectorySuccess =
             serverContentDirectoryPathRepository
                 .deleteContentDirectory(server)
@@ -153,9 +182,10 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
                 println("Adding new current run ${run.uuid}")
                 currentRuns.addCurrentRun(run)
                 runningProcesses[run.uuid] = process
+                currentRunRecordRepository.addRecord(MinecraftServerCurrentRunRecord.fromCurrentRun(run))
             }
-            .also { currentRun ->
-                process.archiveOnEndJob(currentRun) // TODO: HOW DO I ARCHIVE CURRENT RUNS WHEN (e.g) JVM QUITS??? (edit: Maybe save current runs to database and archive if any current runs exist on startup)
+            .also { run ->
+                process.archiveOnEndJob(run) // TODO: HOW DO I ARCHIVE CURRENT RUNS WHEN (e.g) JVM QUITS??? (edit: Maybe save current runs to database and archive if any current runs exist on startup)
             }
     }
 
@@ -198,13 +228,15 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         currentRuns.getCurrentRunsFlow(server)
 
     private fun MinecraftServerProcess.archiveOnEndJob(run: MinecraftServerCurrentRun): Job = coroutineScope.launch {
-        println("Started archive on end job")
+        println("Started archive on end job for run ${run.uuid}")
         waitForEnd()
 
         val endTime = Clock.System.now()
         println("Current run ${run.uuid} ended at instant $endTime, about to archive")
+
         runningProcesses.remove(run.uuid)
         currentRuns.deleteCurrentRun(run.uuid)
+        currentRunRecordRepository.removeRecord(run.uuid)
 
         println("Removed current run ${run.uuid}, about to save past run")
 
@@ -241,26 +273,20 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         runnerUUID = runnerUUID,
         startTime = startTime,
         stopTime = endTime,
-        log = getLog()
+        log = getLatestLog(serverUUID) ?: emptyList()
     )
 
-    private fun MinecraftServerCurrentRun.getLog(): List<LogEntry> {
+    private fun getLatestLog(serverUUID: UUID): List<LogEntry>? {
         val contentDirectory = serverContentDirectoryPathRepository.getExistingContentDirectory(serverUUID)
-            ?: return emptyList() // TODO: Should distinguish between empty log and no log?
+            ?: return null // TODO: Should distinguish between empty log and no log?
 
         val log = contentDirectory / "logs" / "latest.log" // TODO: Ensure works on all versions of Minecraft
-        if (!log.exists()) return emptyList()
+        if (!log.exists()) return null
 
         return try {
             log.readLines()
         } catch (e: IOException) {
-            emptyList()
+            null
         }
     }
-
-    private val serverDispatcher: LocalMinecraftServerDispatcher by inject()
-    private val serverJarResourceManager: MinecraftServerJarResourceManager by inject()
-    private val serverContentDirectoryPathRepository: LocalMinecraftServerContentDirectoryRepository by inject()
-    private val pastRunRepository: MinecraftServerPastRunRepository by inject()
-    private val minecraftServerRepository: MinecraftServerRepository by inject()
 }

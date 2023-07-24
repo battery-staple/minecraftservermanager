@@ -12,7 +12,7 @@ data class MinecraftServerPastRunAPIModel(
     @Serializable(with = UUIDSerializer::class) val serverId: UUID,
     @Serializable(with = UUIDSerializer::class) val runnerId: UUID,
     @Serializable val startTime: Instant,
-    @Serializable val stopTime: Instant,
+    @Serializable val stopTime: Instant?,
     @Serializable val log: List<String>,
 ) {
     constructor(pastRun: MinecraftServerPastRun) : this(

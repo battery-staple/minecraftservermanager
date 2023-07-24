@@ -40,10 +40,10 @@ class DatabaseMinecraftServerPastRunRepository : MinecraftServerPastRunRepositor
                 with(MinecraftServerPastRunTable) {
                     MinecraftServerPastRun(
                         uuid = it[uuid],
-                        serverId = it[serverId],
-                        runnerId = it[runnerId],
+                        serverUUID = it[serverId],
+                        runnerUUID = it[runnerId],
                         startTime = it[start].toInstant(ZoneOffset.UTC).toKotlinInstant(),
-                        stopTime = it[stop].toInstant(ZoneOffset.UTC).toKotlinInstant(),
+                        stopTime = it[stop]?.toInstant(ZoneOffset.UTC)?.toKotlinInstant(),
                         log = it[log]
                     )
                 }
@@ -62,10 +62,10 @@ class DatabaseMinecraftServerPastRunRepository : MinecraftServerPastRunRepositor
             transaction {
                 MinecraftServerPastRunTable.upsert(uuid) { // TODO: Should be insert instead of upsert?
                     it[uuid] = run.uuid
-                    it[serverId] = run.serverId
-                    it[runnerId] = run.runnerId
+                    it[serverId] = run.serverUUID
+                    it[runnerId] = run.runnerUUID
                     it[start] = run.startTime.toLocalDateTime(TimeZone.UTC).toJavaLocalDateTime()
-                    it[stop] = run.stopTime.toLocalDateTime(TimeZone.UTC).toJavaLocalDateTime()
+                    it[stop] = run.stopTime?.toLocalDateTime(TimeZone.UTC)?.toJavaLocalDateTime()
                     it[log] = run.log
                 }
             }
@@ -83,13 +83,16 @@ class DatabaseMinecraftServerPastRunRepository : MinecraftServerPastRunRepositor
         }
     }
 
+    override fun savePastRuns(runs: Iterable<MinecraftServerPastRun>): Boolean =
+        runs.all(::savePastRun) // TODO: Database operation instead
+
     private fun ResultRow.toServerPastRun(): MinecraftServerPastRun = with(MinecraftServerPastRunTable) {
         MinecraftServerPastRun(
             uuid = get(uuid),
-            serverId = get(serverId),
-            runnerId = get(runnerId),
+            serverUUID = get(serverId),
+            runnerUUID = get(runnerId),
             startTime = get(start).toInstant(ZoneOffset.UTC).toKotlinInstant(),
-            stopTime = get(stop).toInstant(ZoneOffset.UTC).toKotlinInstant(),
+            stopTime = get(stop)?.toInstant(ZoneOffset.UTC)?.toKotlinInstant(),
             log = get(log)
         )
     }
@@ -101,7 +104,7 @@ object MinecraftServerPastRunTable : Table() {
     val serverId = uuid("server_uuid").index()
     val runnerId = uuid("runner_uuid").index()
     val start = datetime("start_time_utc")
-    val stop = datetime("stop_time_utc")
+    val stop = datetime("stop_time_utc").nullable()
     val log = jsonb("log", serializer = ListSerializer(String.serializer())) //TODO: Better data type?
 
     override val primaryKey = PrimaryKey(uuid)

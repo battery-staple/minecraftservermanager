@@ -8,7 +8,7 @@ data class MinecraftServerPastRun(
     val serverUUID: UUID,
     val runnerUUID: UUID,
     val startTime: Instant,
-    val stopTime: Instant,
+    val stopTime: Instant?,
     val log: List<LogEntry>,
 )
 

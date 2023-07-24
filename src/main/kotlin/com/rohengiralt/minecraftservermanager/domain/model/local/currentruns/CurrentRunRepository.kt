@@ -19,7 +19,7 @@ interface CurrentRunRepository {
     suspend fun getCurrentRunsFlow(server: MinecraftServer?): StateFlow<List<MinecraftServerCurrentRun>>
 }
 
-class InMemoryCurrentRunRepository : CurrentRunRepository { // TODO: Replace with database backing
+class InMemoryCurrentRunRepository : CurrentRunRepository {
     private val mutex = Mutex()
     private val coroutineScope = CoroutineScope(Dispatchers.Default) // TODO: Should this be defined here?
 
@@ -38,14 +38,14 @@ class InMemoryCurrentRunRepository : CurrentRunRepository { // TODO: Replace wit
 
     override suspend fun addCurrentRun(run: MinecraftServerCurrentRun): Boolean = mutex.withLock {
         currentRunsByUUID[run.uuid] = run
-        currentRunsByServerUUID[run.serverId] = run
+        currentRunsByServerUUID[run.serverUUID] = run
         updateAllCurrentRuns()
         return true
     }
 
     override suspend fun deleteCurrentRun(uuid: UUID): MinecraftServerCurrentRun? = mutex.withLock {
         currentRunsByUUID.remove(uuid)
-            ?.also { run -> currentRunsByServerUUID.remove(run.serverId) }
+            ?.also { run -> currentRunsByServerUUID.remove(run.serverUUID) }
             ?.also { updateAllCurrentRuns() }
     }
 
@@ -54,6 +54,6 @@ class InMemoryCurrentRunRepository : CurrentRunRepository { // TODO: Replace wit
             allCurrentRuns.asStateFlow()
         else
             @OptIn(ExperimentalCoroutinesApi::class)
-            allCurrentRuns.mapLatest { runsList -> runsList.filter { it.serverId == server.uuid } }.stateIn(coroutineScope)
+            allCurrentRuns.mapLatest { runsList -> runsList.filter { it.serverUUID == server.uuid } }.stateIn(coroutineScope)
     private fun updateAllCurrentRuns() = allCurrentRuns.update { currentRunsByUUID.values.toList() }
 }
