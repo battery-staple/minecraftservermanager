@@ -1,6 +1,6 @@
 package com.rohengiralt.minecraftservermanager.frontend.model
 
-import com.rohengiralt.minecraftservermanager.domain.model.MinecraftServerPastRun
+import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerPastRun
 import com.rohengiralt.minecraftservermanager.util.extensions.uuid.UUIDSerializer
 import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable

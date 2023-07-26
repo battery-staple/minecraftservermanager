@@ -1,19 +1,19 @@
 package com.rohengiralt.minecraftservermanager
 
-import com.rohengiralt.minecraftservermanager.auth.GoogleUserIdAuthorizer
-import com.rohengiralt.minecraftservermanager.auth.WhitelistFileGoogleUserIdAuthorizer
+import com.rohengiralt.minecraftservermanager.user.auth.google.GoogleUserIdAuthorizer
+import com.rohengiralt.minecraftservermanager.user.auth.google.WhitelistFileGoogleUserIdAuthorizer
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.LocalMinecraftServerDispatcher
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.MinecraftJarAPI
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.RedundantFallbackAPI
-import com.rohengiralt.minecraftservermanager.domain.model.*
-import com.rohengiralt.minecraftservermanager.domain.model.local.contentdirectory.LocalMinecraftServerContentDirectoryFactory
-import com.rohengiralt.minecraftservermanager.domain.model.local.contentdirectory.LocalMinecraftServerContentDirectoryRepository
-import com.rohengiralt.minecraftservermanager.domain.model.local.currentruns.CurrentRunRepository
-import com.rohengiralt.minecraftservermanager.domain.model.local.currentruns.InMemoryCurrentRunRepository
-import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.APIMinecraftServerJarFactory
-import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.FilesystemMinecraftServerJarResourceManager
-import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.MinecraftServerJarFactory
-import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.MinecraftServerJarResourceManager
+import com.rohengiralt.minecraftservermanager.domain.model.runner.local.contentdirectory.LocalMinecraftServerContentDirectoryFactory
+import com.rohengiralt.minecraftservermanager.domain.model.runner.local.contentdirectory.LocalMinecraftServerContentDirectoryRepository
+import com.rohengiralt.minecraftservermanager.domain.model.runner.local.currentruns.CurrentRunRepository
+import com.rohengiralt.minecraftservermanager.domain.model.runner.local.currentruns.InMemoryCurrentRunRepository
+import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.APIMinecraftServerJarFactory
+import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.FilesystemMinecraftServerJarResourceManager
+import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJarFactory
+import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJarResourceManager
+import com.rohengiralt.minecraftservermanager.domain.repository.*
 import com.rohengiralt.minecraftservermanager.domain.service.RestAPIService
 import com.rohengiralt.minecraftservermanager.domain.service.RestAPIServiceImpl
 import com.rohengiralt.minecraftservermanager.domain.service.WebsocketAPIService
@@ -38,7 +38,7 @@ fun main() {
     println("Starting")
     runBlocking {
         println("Initializing database")
-        initDatabase()
+        initDatabase(50)
     }
 
     println("Initializing server")

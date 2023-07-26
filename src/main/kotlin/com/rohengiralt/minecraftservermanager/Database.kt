@@ -9,6 +9,8 @@ import kotlinx.coroutines.delay
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.sql.SQLException
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 private val databaseConfig = Config { addSpec(DatabaseSpec) }
     .from.env()
@@ -19,19 +21,19 @@ private object DatabaseSpec : ConfigSpec() {
     val password by required<String>()
 }
 
-tailrec suspend fun initDatabase(tries: Int = 50) {
-    println("Trying to connect to database at ${databaseConfig[url]} with username ${databaseConfig[username]} and password ${databaseConfig[password]}")
+tailrec suspend fun initDatabase(maxTries: Int, delayTime: Duration = 10.milliseconds) {
+    println("Trying to connect to database at ${databaseConfig[url]}")
 
-    if(!connectToDatabase()) {
-        delay(500) // TODO: Exponential backoff
-        if (tries > 0) {
-            return initDatabase(tries - 1)
+    if (connectToDatabase()) {
+        println("Connected to database")
+    } else {
+        delay(delayTime)
+        if (maxTries > 0) {
+            return initDatabase(maxTries = maxTries - 1, delayTime = delayTime * 2)
         } else {
             error("Could not connect to database")
         }
     }
-
-    println("Connected to database")
 }
 
 private fun connectToDatabase(): Boolean {
@@ -47,7 +49,7 @@ private fun connectToDatabase(): Boolean {
     }
 
     return transaction {
-        try { // have to catch inside the transaction
+        try { // have to catch inside the transaction to prevent logging for some reason
             !connection.isClosed
         } catch (e: SQLException) {
             false

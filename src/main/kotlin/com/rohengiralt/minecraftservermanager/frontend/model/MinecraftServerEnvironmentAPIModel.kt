@@ -1,7 +1,7 @@
 package com.rohengiralt.minecraftservermanager.frontend.model
 
-import com.rohengiralt.minecraftservermanager.domain.model.MinecraftServerEnvironment
-import com.rohengiralt.minecraftservermanager.domain.model.Port
+import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerEnvironment
+import com.rohengiralt.minecraftservermanager.domain.model.server.Port
 import kotlinx.serialization.Serializable
 
 @Serializable

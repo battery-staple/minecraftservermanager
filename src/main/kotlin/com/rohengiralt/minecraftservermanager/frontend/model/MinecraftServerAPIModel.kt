@@ -1,8 +1,8 @@
 package com.rohengiralt.minecraftservermanager.frontend.model
 
-import com.rohengiralt.minecraftservermanager.domain.model.MinecraftServer
-import com.rohengiralt.minecraftservermanager.domain.model.MinecraftVersion
-import com.rohengiralt.minecraftservermanager.domain.model.versionType
+import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
+import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
+import com.rohengiralt.minecraftservermanager.domain.model.server.versionType
 import com.rohengiralt.minecraftservermanager.util.extensions.uuid.UUIDSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

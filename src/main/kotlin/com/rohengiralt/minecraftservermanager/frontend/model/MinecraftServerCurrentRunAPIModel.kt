@@ -1,6 +1,6 @@
 package com.rohengiralt.minecraftservermanager.frontend.model
 
-import com.rohengiralt.minecraftservermanager.domain.model.MinecraftServerCurrentRun
+import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
 import com.rohengiralt.minecraftservermanager.util.extensions.uuid.UUIDSerializer
 import kotlinx.serialization.Serializable
 import java.util.*

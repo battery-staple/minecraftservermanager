@@ -1,7 +1,7 @@
 package com.rohengiralt.minecraftservermanager.frontend.model
 
-import com.rohengiralt.minecraftservermanager.domain.model.MinecraftServerAddress
-import com.rohengiralt.minecraftservermanager.domain.model.minecraftProtocol
+import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerAddress
+import com.rohengiralt.minecraftservermanager.domain.model.server.minecraftProtocol
 import io.ktor.http.*
 import kotlinx.serialization.Serializable
 

@@ -1,6 +1,6 @@
 package com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi
 
-import com.rohengiralt.minecraftservermanager.domain.model.MinecraftVersion
+import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
 import java.nio.file.Path
 
 class RedundantFallbackAPI : MinecraftJarAPI {

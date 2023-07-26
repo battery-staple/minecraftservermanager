@@ -1,6 +1,14 @@
 package com.rohengiralt.minecraftservermanager.domain.service
 
-import com.rohengiralt.minecraftservermanager.domain.model.*
+import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
+import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerPastRun
+import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerRunner
+import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
+import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerEnvironment
+import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
+import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerPastRunRepository
+import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerRepository
+import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerRunnerRepository
 import com.rohengiralt.minecraftservermanager.util.ifNull
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -74,9 +82,6 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
 
     override suspend fun getRunner(uuid: UUID): MinecraftServerRunner? =
         runnerRepository.getRunner(uuid)
-
-//    override suspend fun isRunning(serverUUID: UUID): Boolean? =
-//        getAllCurrentRuns(serverUUID, runnerUUID = null)?.isNotEmpty()
 
     override suspend fun getAllCurrentRuns(runnerUUID: UUID): List<MinecraftServerCurrentRun>? {
         val runner =

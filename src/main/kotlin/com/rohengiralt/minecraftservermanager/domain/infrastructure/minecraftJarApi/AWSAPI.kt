@@ -1,6 +1,6 @@
 package com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi
 
-import com.rohengiralt.minecraftservermanager.domain.model.MinecraftVersion
+import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
 import com.rohengiralt.minecraftservermanager.util.extensions.httpClient.appendGetToFile
 import com.rohengiralt.minecraftservermanager.util.ifTrue.ifFalse
 import io.ktor.client.*

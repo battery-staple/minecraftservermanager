@@ -1,16 +1,16 @@
 package com.rohengiralt.minecraftservermanager.plugins
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
-import com.google.api.client.json.gson.GsonFactory
-import com.rohengiralt.minecraftservermanager.auth.GoogleUserIdAuthorizer
-import com.rohengiralt.minecraftservermanager.auth.UserSession
-import com.rohengiralt.minecraftservermanager.auth.verifyUserSessionIdToken
 import com.rohengiralt.minecraftservermanager.plugins.SecuritySpec.clientId
 import com.rohengiralt.minecraftservermanager.plugins.SecuritySpec.clientSecret
 import com.rohengiralt.minecraftservermanager.plugins.SecuritySpec.cookieSecretEncryptKey
 import com.rohengiralt.minecraftservermanager.plugins.SecuritySpec.cookieSecretSignKey
+import com.rohengiralt.minecraftservermanager.user.UserID
+import com.rohengiralt.minecraftservermanager.user.UserInfo
+import com.rohengiralt.minecraftservermanager.user.auth.UserSession
+import com.rohengiralt.minecraftservermanager.user.auth.google.GoogleUserIdAuthorizer
+import com.rohengiralt.minecraftservermanager.user.auth.google.idTokenVerifier
+import com.rohengiralt.minecraftservermanager.user.auth.google.verifyUserSessionIdToken
 import com.uchuhimo.konf.Config
 import com.uchuhimo.konf.ConfigSpec
 import io.ktor.client.*
@@ -75,8 +75,8 @@ fun Application.configureSecurity() {
                 val idToken: GoogleIdToken = idTokenVerifier.verifyUserSessionIdToken(sessions) ?: return@validate null
 
                 val userInfo = UserInfo(
-                    userId = idToken.payload.subject,
-                    email = idToken.payload.email
+                    userId = UserID(idToken.payload.subject ?: return@validate null),
+                    email = idToken.payload.email ?: return@validate null
                 )
 
                 if (authorizer.isAuthorized(userInfo.userId)) userInfo else null
@@ -162,14 +162,3 @@ private val oauthClient = HttpClient(OkHttp) {
         json()
     }
 }
-
-private val idTokenVerifier: GoogleIdTokenVerifier = GoogleIdTokenVerifier.Builder(GoogleNetHttpTransport.newTrustedTransport(), GsonFactory.getDefaultInstance())
-    .setAudience(listOf(securityConfig[clientId]))
-    .build()
-
-
-
-private data class UserInfo(
-    val userId: String,
-    val email: String
-) : Principal

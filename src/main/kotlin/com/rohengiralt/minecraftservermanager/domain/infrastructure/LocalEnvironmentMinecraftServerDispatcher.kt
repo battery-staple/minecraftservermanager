@@ -1,8 +1,8 @@
 package com.rohengiralt.minecraftservermanager.domain.infrastructure
 
-import com.rohengiralt.minecraftservermanager.domain.model.Port
-import com.rohengiralt.minecraftservermanager.domain.model.local.MinecraftServerProcess
-import com.rohengiralt.minecraftservermanager.domain.model.local.serverjar.MinecraftServerJar
+import com.rohengiralt.minecraftservermanager.domain.model.server.Port
+import com.rohengiralt.minecraftservermanager.domain.model.runner.local.MinecraftServerProcess
+import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJar
 import java.io.IOException
 import java.nio.file.Path
 import kotlin.io.path.absolutePathString
