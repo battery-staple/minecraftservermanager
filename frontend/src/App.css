@@ -1,44 +1,72 @@
 .App-header {
-  background: #404040;
+  color: white;
+  user-select: none;
+}
+
+.header-main-bar {
+  background: var(--theme-color);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: left;
-  font-size: calc(8px + 1vmin);
-  user-select: none;
-  padding-left: calc(10px + 1vmin);
-  color: white;
+  padding-left: 0.8em;
 }
 
 .App-header a {
+  font-size: xx-large;
   color: inherit;
   text-decoration: inherit;
 }
 
+.App-header h1 {
+  font-family: 'Roboto Slab', sans-serif;
+  font-weight: 700;
+}
+
 .App-body {
   max-height: 100vh;
+  overflow-y: scroll;
 }
 
 .server-list {
   display: flex;
-  /*flex-direction: column;*/
+  flex-direction: column;
   align-items: center;
   overflow-x: hidden;
-  overflow-y: auto;
+  margin-bottom: 5em;
+}
+
+.sort-dropdown-bar {
+  background: #DDDDDD;
+  /*noinspection CssOverwrittenProperties*/
+  border: 1px solid black;
+  /*noinspection CssOverwrittenProperties*/
+  border-width: 1px 0;
+  display: flex;
+  justify-content: right;
+  width: 100vw;
+  margin-bottom: 6px;
+  user-select: none;
+}
+
+.sort-dropdown-bar > .dropdown > a {
+  font-size: medium;
+  color: black;
+  margin: 0 1em;
 }
 
 .server-button {
   display: flex;
   flex-direction: column;
-  /*align-items: flex-start;*/
   background: #DDEEEE;
-  border-radius: calc(10px /*+ 1vmin*/);
+  border-radius: calc(10px);
   border: 3px solid #404040;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
-  margin: 3px 3px;
-  /*overflow: hidden;*/
-  width: calc(100px + 13vw);
+  justify-content: center;
+  width: 250px;
+  margin: 0;
+  user-select: none;
 }
 
 .server-button > * {
@@ -52,19 +80,15 @@
 }
 
 .server-button-title {
-/*  grid-column-start: 1;*/
   font-family: 'Roboto Slab', sans-serif;
-  font-size: calc(7px + 1.4vw + 0.2vh);
+  font-size: x-large;
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
   font-weight: bold;
-  min-width: 0;
-  /*max-width: calc(80px + 8vw);*/
 }
 
 .server-button-properties {
-  font-size: calc(4px + 0.7vw + 0.1vh);
   align-self: center;
   padding-left: inherit;
 }
@@ -75,14 +99,13 @@
 }
 
 .server-button-status {
-  font-size: calc(5px + 0.9vw + 0.1vh);
   align-self: center;
   color: red;
 }
 
 .console {
   font-family: monospace;
-  min-height: calc(120px + 1z0vh);
+  min-height: calc(120px + 10vh);
   max-height: calc(150px + 20vh);
   overflow-y: scroll;
   border: 3px solid #404040;

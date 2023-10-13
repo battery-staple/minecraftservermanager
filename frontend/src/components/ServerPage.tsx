@@ -1,18 +1,19 @@
 import React, {useEffect, useRef, useState} from "react";
-import {CurrentRun, Runner, Server} from "../APIModels";
+import {CurrentRun, Server} from "../APIModels";
 import {
     AccessError,
-    defaultHeaders,
     fetchCurrentRun,
     fetchServer,
     getConsoleWebsocket,
-    getCurrentRunWebsocket
+    getCurrentRunWebsocket, startServer, stopServer
 } from "../Networking";
-
+import {useAutoAnimate} from "@formkit/auto-animate/react";
 export function ServerPage(props: { serverUUID: string }) {
     const [server, setServer] = useState<Server | AccessError>("loading");
     const [currentRun, setCurrentRun] = useState<CurrentRun | null | AccessError>("loading");
     const [logHistory, _setLogHistory] = useState<string[]>([]);
+
+    const [parent, enableAnimation] = useAutoAnimate()
 
     const _logHistory = useRef<string[]>([]);
     function setLogHistory(newLogHistory: string[]) {
@@ -95,38 +96,18 @@ export function ServerPage(props: { serverUUID: string }) {
             <p>Loading...</p>
         );
     } else {
-        return (
-            <>
-                <p>Server: {server.name}</p>
-                <p>Version: {server.version}</p>
-                <p>running? {`${isRunning()}`}</p>
-                <button onClick={() => {
-                    fetch("http://localhost:8080/api/v2/rest/servers/" + server?.uuid + "/currentRun", {
-                        headers: startServerHeaders,
-                        method: "POST",
-                        body: JSON.stringify({
-                            "port": 25565,  // TODO: Customizable
-                            "maxHeapSizeMB": 2048,
-                            "minHeapSizeMB": 1024
-                        })
-                    })
-                }}>Start</button>
-                <button onClick={() => {
-                    fetch("http://localhost:8080/api/v2/rest/servers/" + server?.uuid + "/currentRun", {
-                        headers: defaultHeaders,
-                        method: "DELETE"
-                    })
-                }}>Stop</button>
-                <p>Log:</p>
-                <div className="console">
-                    {
-                        logHistory.map(line => <p>{line}</p>)
-                    }
-                </div>
-            </>
-        );
+        return <>
+            <p>Server: {server.name}</p>
+            <p>Version: {server.version}</p>
+            <p>running? {`${isRunning()}`}</p>
+            <button onClick={() => startServer(server)}>Start</button>
+            <button onClick={() => stopServer(server)}>Stop</button>
+            <p>Log:</p>
+            <div className="console" ref={parent}>
+                {
+                    logHistory.map(line => <p>{line}</p>)
+                }
+            </div>
+        </>;
     }
 }
-
-const startServerHeaders: Headers = new Headers(defaultHeaders)
-startServerHeaders.append("Content-Type", "application/json")

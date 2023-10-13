@@ -1,8 +1,9 @@
 package com.rohengiralt.minecraftservermanager.plugins
 
-import com.rohengiralt.minecraftservermanager.frontend.routes.runners.runnersRoute
-import com.rohengiralt.minecraftservermanager.frontend.routes.serversRoute
-import com.rohengiralt.minecraftservermanager.frontend.routes.statusRoute
+import com.rohengiralt.minecraftservermanager.frontend.routes.rest.runners.runnersRoute
+import com.rohengiralt.minecraftservermanager.frontend.routes.rest.serversRoute
+import com.rohengiralt.minecraftservermanager.frontend.routes.rest.statusRoute
+import com.rohengiralt.minecraftservermanager.frontend.routes.rest.usersRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.websockets
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -43,6 +44,7 @@ fun Application.configureRouting() {
                 is ConflictException -> call.respond(HttpStatusCode.Conflict, e.message ?: "Conflict")
                 is NotAllowedException -> call.respond(HttpStatusCode.MethodNotAllowed, e.message ?: "Not allowed")
                 is NotImplementedError -> call.respond(HttpStatusCode.NotImplemented, e.message ?: "Not implemented")
+                is InternalServerException -> call.respond(HttpStatusCode.InternalServerError, e.message ?: "Internal Server Error")
                 else -> e.printStackTrace()
             }
         }
@@ -61,6 +63,9 @@ fun Application.configureRouting() {
                     route("/status") {
                         statusRoute()
                     }
+                    route("/users") {
+                        usersRoute()
+                    }
                 }
             }
 
@@ -69,6 +74,7 @@ fun Application.configureRouting() {
                 react("static/react")
             }
         }
+
         authenticate("auth-debug", "auth-session") {
             route("api/v2/websockets") {
                 websockets()
@@ -81,3 +87,4 @@ class AuthenticationException : RuntimeException()
 class AuthorizationException : RuntimeException()
 class ConflictException : RuntimeException()
 class NotAllowedException : RuntimeException()
+class InternalServerException : RuntimeException()

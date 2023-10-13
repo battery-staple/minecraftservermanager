@@ -1,5 +1,9 @@
 @import url("https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@700&display=swap");
 
+:root {
+  --theme-color: #404040
+}
+
 body {
   background: #EEFFFF fixed;
   overflow: hidden;
@@ -10,4 +14,3 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-

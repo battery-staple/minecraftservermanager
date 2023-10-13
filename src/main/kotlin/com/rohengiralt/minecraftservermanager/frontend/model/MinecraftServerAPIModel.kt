@@ -4,6 +4,7 @@ import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServe
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
 import com.rohengiralt.minecraftservermanager.domain.model.server.versionType
 import com.rohengiralt.minecraftservermanager.util.extensions.uuid.UUIDSerializer
+import kotlinx.datetime.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.util.*
@@ -15,13 +16,15 @@ data class MinecraftServerAPIModel(
     val versionPhase: MinecraftVersion.VersionType?,
     @SerialName("version") val versionString: String?,
     @Serializable(with = UUIDSerializer::class) val runnerUUID: UUID?,
+    val creationTime: Instant? = null,
 ) {
     constructor(minecraftServer: MinecraftServer) : this(
         uuid = minecraftServer.uuid,
         name = minecraftServer.name,
         versionPhase = minecraftServer.version.versionType,
         versionString = minecraftServer.version.versionString,
-        runnerUUID = minecraftServer.runnerUUID
+        runnerUUID = minecraftServer.runnerUUID,
+        creationTime = minecraftServer.creationTime
     )
 
     val version: MinecraftVersion? get() =
@@ -30,12 +33,13 @@ data class MinecraftServerAPIModel(
         else null
 
     fun toMinecraftServer(): MinecraftServer? {
-        return if (uuid != null && name != null && runnerUUID != null) {
+        return if (uuid != null && name != null && runnerUUID != null && creationTime != null) {
             MinecraftServer(
                 uuid = uuid,
                 name = name,
                 version = version ?: return null,
                 runnerUUID = runnerUUID,
+                creationTime = creationTime
             )
         } else null
     }

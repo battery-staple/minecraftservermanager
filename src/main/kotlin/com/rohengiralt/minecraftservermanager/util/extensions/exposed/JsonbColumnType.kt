@@ -2,6 +2,7 @@ package com.rohengiralt.minecraftservermanager.util.extensions.exposed
 
 // Lightly edited from https://gist.github.com/qoomon/70bbbedc134fd2a149f1f2450667dc9d
 // TODO: Consider switching to https://gist.github.com/xtexChooser/5ead6ff7f7b419c57efaa59cf2fef492
+// TODO: nvm, there's an officially supported version: https://github.com/JetBrains/Exposed/wiki/DataTypes#how-to-use-json-and-jsonb-types
 
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.JsonbColumnType.Companion.JSONB
 import kotlinx.serialization.KSerializer

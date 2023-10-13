@@ -6,7 +6,7 @@ import kotlin.contracts.contract
 
 // https://youtrack.jetbrains.com/issue/KT-15962
 @OptIn(ExperimentalContracts::class)
-public inline fun <T : Any> T?.ifNull(defaultValue: () -> T): T {
+inline fun <T : Any> T?.ifNull(defaultValue: () -> T): T {
     contract {
         callsInPlace(defaultValue, InvocationKind.AT_MOST_ONCE)
     }
@@ -15,7 +15,7 @@ public inline fun <T : Any> T?.ifNull(defaultValue: () -> T): T {
 }
 
 @OptIn(ExperimentalContracts::class)
-public inline fun <T : Any> T?.ifNullAlso(block: () -> Unit): T? {
+inline fun <T : Any> T?.ifNullAlso(block: () -> Unit): T? {
     contract {
         callsInPlace(block, InvocationKind.AT_MOST_ONCE)
     }

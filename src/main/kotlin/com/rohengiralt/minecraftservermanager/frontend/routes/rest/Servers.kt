@@ -1,4 +1,4 @@
-package com.rohengiralt.minecraftservermanager.frontend.routes
+package com.rohengiralt.minecraftservermanager.frontend.routes.rest
 
 import com.rohengiralt.minecraftservermanager.domain.service.RestAPIService
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerAPIModel
@@ -28,6 +28,7 @@ fun Route.serversRoute() { // TODO: Better response codes in general
         val serverAPIModel: MinecraftServerAPIModel = call.receiveSerializable()
 
         if (serverAPIModel.uuid != null) cannotUpdateField("uuid")
+        if (serverAPIModel.creationTime != null) cannotUpdateField("creationTime")
         val name = serverAPIModel.name ?: missingField("name")
         val version = serverAPIModel.version ?: missingField("version")
         val runnerUUID = serverAPIModel.runnerUUID ?: missingField("runnerUUID")
@@ -63,8 +64,7 @@ fun Route.serversRoute() { // TODO: Better response codes in general
             println("Patching server with id ${call.parameters["id"]}")
             val serverUUID = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
 
-            val serverAPIModel: MinecraftServerAPIModel =
-                call.receiveSerializable() // TODO: Can be replaced with body() call?
+            val serverAPIModel: MinecraftServerAPIModel = call.receiveSerializable()
 
             if (serverAPIModel.uuid != null) cannotUpdateField("uuid")
             if (serverAPIModel.version != null) cannotUpdateField("version")

@@ -3,17 +3,13 @@
 import React, {useEffect, useState} from 'react';
 import { Switch, Route, RouteComponentProps } from 'react-router-dom'
 import './App.css';
-import {CurrentRun, Runner, Server} from "./APIModels";
 import {
     fetchWithTimeout,
-    defaultHeaders,
-    fetchServer,
-    fetchCurrentRun,
-    fetchRunner,
-    getCurrentRunWebsocket, getConsoleWebsocket
+    defaultHeaders, getBackendStatus, BackendStatus,
 } from "./Networking";
 import {ServerList} from "./components/ServerList";
 import {ServerPage} from "./components/ServerPage";
+
 
 function Page() {
     return (
@@ -27,31 +23,25 @@ function Page() {
 function Header() {
     return (
         <header className="App-header">
-            <a href="/">
-                <h1>Server Manager</h1>
-            </a>
+            <div className="header-main-bar">
+                <a href="/">
+                    <h1>Server Manager</h1>
+                </a>
+            </div>
         </header>
     )
 }
 
 function Body() {
-    type BackendStatus = "up" | "offline" | "unauthorized"
     let [backendStatus, setBackendStatus] = useState<BackendStatus>('offline')
 
     useEffect(() => {
-        fetchWithTimeout("http://localhost:8080/api/v2/rest/status", 3000, {
-            method: "GET",
-            headers: defaultHeaders
-        }).then(response => {
-            if (response.ok) {
-                setBackendStatus('up')
-            } else if (response.status === 401 || response.status === 403) {
-                setBackendStatus('unauthorized')
-            }
-        }).catch(() => {
-            setBackendStatus('offline')
-        })
-    })
+        getBackendStatus().then(setBackendStatus)
+    }, [])
+
+    if (backendStatus === 'offline') {
+        return <main><p>Couldn't connect! Are you sure your internet is working?</p></main>
+    }
 
     return (
         <main className="App-body">

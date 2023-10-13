@@ -6,13 +6,14 @@ val logback_version: String by project
 
 plugins {
     application
-    kotlin("jvm") version "1.8.0"
-    kotlin("plugin.serialization") version "1.8.0"
+    kotlin("jvm") version "1.9.20-Beta2"
+    kotlin("plugin.serialization") version "1.9.0"
     id("com.github.johnrengelman.shadow") version "6.1.0"
 }
 
 group = "com.rohengiralt"
 version = "0.0.1"
+
 application {
     mainClass.set("com.rohengiralt.minecraftservermanager.ApplicationKt")
 }
@@ -21,6 +22,7 @@ project.setProperty("mainClassName", "com.rohengiralt.minecraftservermanager.App
 
 tasks.withType<KotlinCompile> {
     kotlinOptions.jvmTarget = "1.8"
+    kotlinOptions.freeCompilerArgs += "-Xcontext-receivers"
 }
 
 repositories {
@@ -57,7 +59,7 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-jdbc:0.34.1")
     implementation("org.jetbrains.exposed:exposed-java-time:0.34.1")
 
-    implementation("com.google.api-client:google-api-client:1.32.1")
+    implementation("com.google.api-client:google-api-client:2.2.0")
 
     implementation("org.postgresql:postgresql:42.2.27")
     implementation("io.insert-koin:koin-ktor:3.3.1")

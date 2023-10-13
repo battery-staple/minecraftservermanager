@@ -6,13 +6,14 @@ import com.rohengiralt.minecraftservermanager.plugins.SecuritySpec.clientSecret
 import com.rohengiralt.minecraftservermanager.plugins.SecuritySpec.cookieSecretEncryptKey
 import com.rohengiralt.minecraftservermanager.plugins.SecuritySpec.cookieSecretSignKey
 import com.rohengiralt.minecraftservermanager.user.UserID
-import com.rohengiralt.minecraftservermanager.user.UserInfo
+import com.rohengiralt.minecraftservermanager.user.UserLoginInfo
 import com.rohengiralt.minecraftservermanager.user.auth.UserSession
-import com.rohengiralt.minecraftservermanager.user.auth.google.GoogleUserIdAuthorizer
+import com.rohengiralt.minecraftservermanager.user.auth.google.UserIDAuthorizer
 import com.rohengiralt.minecraftservermanager.user.auth.google.idTokenVerifier
 import com.rohengiralt.minecraftservermanager.user.auth.google.verifyUserSessionIdToken
 import com.uchuhimo.konf.Config
 import com.uchuhimo.konf.ConfigSpec
+import com.uchuhimo.konf.notEmptyOr
 import io.ktor.client.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.contentnegotiation.*
@@ -49,7 +50,7 @@ internal object SecuritySpec : ConfigSpec() {
 }
 
 fun Application.configureSecurity() {
-    val authorizer: GoogleUserIdAuthorizer by inject()
+    val authorizer: UserIDAuthorizer by inject()
 
     install(Sessions) {
         cookie<UserSession>("user_session", directorySessionStorage(File("/minecraftservermanager/.ktor/sessions"))) {
@@ -63,28 +64,34 @@ fun Application.configureSecurity() {
     install(Authentication) {
         basic("auth-debug") {
             validate { credentials ->
-                if (credentials.name == "User McUserface" && credentials.password == "Super secure password")
-                    UserIdPrincipal(credentials.name)
-                else null
+                if (credentials.name.startsWith("User McUserface") && credentials.password == "Super secure password") {
+                    println("Authenticating debug user with credentials $credentials")
+                    UserLoginInfo(
+                        userId = UserID(credentials.name.removePrefix("User McUserface").notEmptyOr("1")),
+                        email = "user@example.com"
+                    )
+                } else null
             }
         }
 
         session<UserSession>("auth-session") {
-            validate {
+            validate { session ->
                 println("Preparing to validate userinfo")
-                val idToken: GoogleIdToken = idTokenVerifier.verifyUserSessionIdToken(sessions) ?: return@validate null
+                val idToken: GoogleIdToken = idTokenVerifier.verifyUserSessionIdToken(
+                    userSession = session,
+                    sessions = sessions
+                ) ?: return@validate null
 
-                val userInfo = UserInfo(
+                val userLoginInfo = UserLoginInfo(
                     userId = UserID(idToken.payload.subject ?: return@validate null),
                     email = idToken.payload.email ?: return@validate null
                 )
 
-                if (authorizer.isAuthorized(userInfo.userId)) userInfo else null
+                return@validate if (authorizer.isAuthorized(userLoginInfo.userId)) userLoginInfo else null
             }
 
-            challenge {
+            challenge { userSession ->
                 println("Received session authentication challenge")
-                val userSession = it ?: call.sessions.get<UserSession>()
 
                 val redirectUrl = URLBuilder("http://localhost:8080/login").run {
                     parameters.append("redirectUrl", call.request.uri)

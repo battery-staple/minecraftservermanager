@@ -1,7 +1,5 @@
 package com.rohengiralt.minecraftservermanager
 
-import com.rohengiralt.minecraftservermanager.user.auth.google.GoogleUserIdAuthorizer
-import com.rohengiralt.minecraftservermanager.user.auth.google.WhitelistFileGoogleUserIdAuthorizer
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.LocalMinecraftServerDispatcher
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.MinecraftJarAPI
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.RedundantFallbackAPI
@@ -21,6 +19,10 @@ import com.rohengiralt.minecraftservermanager.domain.service.WebsocketAPIService
 import com.rohengiralt.minecraftservermanager.plugins.configureMonitoring
 import com.rohengiralt.minecraftservermanager.plugins.configureRouting
 import com.rohengiralt.minecraftservermanager.plugins.configureSecurity
+import com.rohengiralt.minecraftservermanager.user.auth.google.UserIDAuthorizer
+import com.rohengiralt.minecraftservermanager.user.auth.google.WhitelistFileUserIDAuthorizer
+import com.rohengiralt.minecraftservermanager.user.preferences.DatabaseUserPreferencesRepository
+import com.rohengiralt.minecraftservermanager.user.preferences.UserPreferencesRepository
 import io.ktor.client.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.contentnegotiation.*
@@ -36,6 +38,9 @@ import org.koin.logger.SLF4JLogger
 
 fun main() {
     println("Starting")
+
+    println("Asserts are " + if (assertsEnabled()) "ENABLED" else "DISABLED")
+
     runBlocking {
         println("Initializing database")
         initDatabase(50)
@@ -48,7 +53,6 @@ fun main() {
 fun Application.module() {
     install(Koin) {
         SLF4JLogger()
-        @Suppress("RemoveExplicitTypeArguments")
         modules(
             module(createdAtStart = true) {
                 single<HttpClient> {
@@ -60,8 +64,8 @@ fun Application.module() {
                         }
                     }
                 }
-                single<GoogleUserIdAuthorizer> { WhitelistFileGoogleUserIdAuthorizer() }
-                single<Json> { Json { ignoreUnknownKeys = true } }
+                single<UserIDAuthorizer> { WhitelistFileUserIDAuthorizer() }
+                single<Json> { Json { ignoreUnknownKeys = false } }
                 single<MinecraftServerRepository> { DatabaseMinecraftServerRepository() }
                 single<MinecraftJarAPI> { RedundantFallbackAPI() }
                 single<MinecraftServerPastRunRepository> { DatabaseMinecraftServerPastRunRepository() }
@@ -83,6 +87,7 @@ fun Application.module() {
                 }
                 single<CurrentRunRepository> { InMemoryCurrentRunRepository() }
                 single<MinecraftServerCurrentRunRecordRepository> { DatabaseMinecraftServerCurrentRunRecordRepository() }
+                single<UserPreferencesRepository> { DatabaseUserPreferencesRepository() }
 
                 single<RestAPIService> { RestAPIServiceImpl() }
                 single<WebsocketAPIService> { WebsocketAPIServiceImpl() }
@@ -93,4 +98,11 @@ fun Application.module() {
     configureSecurity()
     configureRouting()
     configureMonitoring()
+}
+
+private fun assertsEnabled(): Boolean = try {
+    assert(false)
+    false
+} catch (e: AssertionError) {
+    true
 }

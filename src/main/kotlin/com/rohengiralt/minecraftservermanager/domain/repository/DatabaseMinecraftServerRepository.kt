@@ -12,10 +12,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toJavaLocalDateTime
+import kotlinx.datetime.toKotlinInstant
+import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.`java-time`.datetime
 import org.jetbrains.exposed.sql.statements.InsertStatement
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.sql.SQLException
+import java.time.ZoneOffset
 import java.util.*
 
 class DatabaseMinecraftServerRepository : MinecraftServerRepository {
@@ -65,6 +71,7 @@ class DatabaseMinecraftServerRepository : MinecraftServerRepository {
             name = get(MinecraftServerTable.name),
             version = get(MinecraftServerTable.version),
             runnerUUID = get(MinecraftServerTable.runnerUUID),
+            creationTime = get(MinecraftServerTable.creationTime).toInstant(ZoneOffset.UTC).toKotlinInstant()
         )
 
     private fun MinecraftServerTable.insertBody(insertStatement: InsertStatement<Number>, server: MinecraftServer) {
@@ -72,6 +79,7 @@ class DatabaseMinecraftServerRepository : MinecraftServerRepository {
         insertStatement[name] = server.name
         insertStatement[version] = server.version
         insertStatement[runnerUUID] = server.runnerUUID
+        insertStatement[creationTime] = server.creationTime.toLocalDateTime(TimeZone.UTC).toJavaLocalDateTime()
     }
 
     private inline fun succeeds(block: () -> Unit): Boolean =
@@ -108,6 +116,7 @@ object MinecraftServerTable : Table() {
     val name = text("name")
     val version = jsonb("version", MinecraftVersion.serializer())
     val runnerUUID = uuid("runner_uuid")
+    val creationTime = datetime("creation_time_utc")
 
     override val primaryKey = PrimaryKey(uuid)
 }

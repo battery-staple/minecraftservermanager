@@ -21,5 +21,6 @@ internal fun String.parseUUIDOrBadRequest(): UUID = uuidFromStringOrBadRequest(t
 internal suspend inline fun <reified T> ApplicationCall.receiveSerializable(): T = try {
     receive()
 } catch (e: Exception) { // receive can throw various exceptions, not just SerializationException
+    println("Failed to receive serializable, got exception $e")
     throw BadRequestException("Couldn't parse body")
 }

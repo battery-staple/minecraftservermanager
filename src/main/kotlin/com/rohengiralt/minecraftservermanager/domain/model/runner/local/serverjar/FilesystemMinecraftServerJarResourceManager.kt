@@ -42,7 +42,12 @@ class FilesystemMinecraftServerJarResourceManager(private val directoryName: Str
         return directory.useDirectoryEntries { entries ->
             entries
                 .map {
-                    it to JarFileName.fromString(it.nameWithoutExtension).ifNullAlso { println("Could not parse jar file name of ${it.nameWithoutExtension}") }
+                    it to JarFileName
+                        .fromString(it.nameWithoutExtension)
+                        .ifNullAlso {
+                            // TODO: Add scanning (periodic? on startup?) to ensure directory has no strangely named jars
+                            println("Could not parse jar file name of ${it.nameWithoutExtension}")
+                        }
                 }
                 .firstOrNull { (_, name) ->
                     version == name?.version
@@ -113,11 +118,16 @@ class FilesystemMinecraftServerJarResourceManager(private val directoryName: Str
             @JvmStatic
             fun fromString(string: String): JarFileName? {
                 val (versionString, versionTypeString) = parsingRegex.matchEntire(string)?.destructured ?: return null
+                val versionType = try {
+                    MinecraftVersion.VersionType.valueOf(versionTypeString)
+                } catch (e: IllegalArgumentException) {
+                    return null
+                }
 
                 return JarFileName(
                     MinecraftVersion.fromString(
                         versionString,
-                        MinecraftVersion.VersionType.valueOf(versionTypeString)
+                        versionType
                     ) ?: return null
                 )
             }

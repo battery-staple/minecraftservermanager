@@ -3,7 +3,6 @@ package com.rohengiralt.minecraftservermanager.util.extensions.httpClient
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
-import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.utils.io.*
 import io.ktor.utils.io.core.*
@@ -25,7 +24,6 @@ suspend inline fun HttpClient.appendGetToFile(urlString: String, file: Path): Bo
     while (!channel.isClosedForRead) {
         val packet = channel.readRemaining(DEFAULT_BUFFER_SIZE.toLong())
 
-        @Suppress("BlockingMethodInNonBlockingContext")
         withContext(Dispatchers.IO) {
             while (packet.isNotEmpty) {
                 val bytes = packet.readBytes()

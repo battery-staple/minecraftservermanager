@@ -251,12 +251,10 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         println("Removed current run ${run.uuid}, about to save past run")
 
         val success: Boolean = try {
-            println("Getting past run repository")
-            val prr = pastRunRepository
             println("Converting run to past run")
             val pastRun = run.toPastRun(endTime)
-            println("Actually saving past run")
-            prr.savePastRun(pastRun)
+            println("Saving past run")
+            pastRunRepository.savePastRun(pastRun)
         } catch (e: Throwable) {
             println("Error archiving past run: $e")
             false

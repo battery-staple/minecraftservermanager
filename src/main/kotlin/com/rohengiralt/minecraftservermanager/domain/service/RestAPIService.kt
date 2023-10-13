@@ -9,11 +9,26 @@ import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersi
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerPastRunRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerRunnerRepository
+import com.rohengiralt.minecraftservermanager.frontend.model.UserPreferencesAPIModel
+import com.rohengiralt.minecraftservermanager.user.UserID
+import com.rohengiralt.minecraftservermanager.user.UserLoginInfo
+import com.rohengiralt.minecraftservermanager.user.preferences.UserPreferences
+import com.rohengiralt.minecraftservermanager.user.preferences.UserPreferencesRepository
 import com.rohengiralt.minecraftservermanager.util.ifNull
+import io.ktor.server.application.*
+import io.ktor.server.auth.*
+import io.ktor.util.pipeline.*
+import kotlinx.datetime.Clock
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.*
 
+/**
+ * An interface defining all the methods used by the Rest API.
+ * This interface provides a bridge between the domain and the frontend code
+ * directly handling client connections.
+ * The frontend should delegate immediately to an implementation of this interface.
+ */
 interface RestAPIService {
     suspend fun getAllServers(): List<MinecraftServer>
     suspend fun createServer(uuid: UUID? = null, name: String, version: MinecraftVersion, runnerUUID: UUID): Boolean
@@ -34,6 +49,20 @@ interface RestAPIService {
 
     suspend fun getAllPastRuns(serverUUID: UUID): List<MinecraftServerPastRun>
     suspend fun getPastRun(serverUUID: UUID, runUUID: UUID): MinecraftServerPastRun?
+
+    context(PipelineContext<*, ApplicationCall>)
+    suspend fun getCurrentUserLoginInfo(): UserLoginInfo?
+
+    context(PipelineContext<*, ApplicationCall>)
+    suspend fun deleteCurrentUser(): Boolean
+
+    context(PipelineContext<*, ApplicationCall>)
+    suspend fun getCurrentUserPreferences(): UserPreferences?
+    context(PipelineContext<*, ApplicationCall>)
+    suspend fun updateCurrentUserPreferences(sortStrategy: UserPreferences.SortStrategy? = null): Boolean
+
+    context(PipelineContext<*, ApplicationCall>)
+    suspend fun deleteCurrentUserPreferences(): Boolean
 }
 
 class RestAPIServiceImpl : RestAPIService, KoinComponent {
@@ -45,7 +74,8 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
             uuid = uuid ?: UUID.randomUUID(),
             name = name,
             version = version,
-            runnerUUID
+            runnerUUID = runnerUUID,
+            creationTime = Clock.System.now()
         )
 
         val success = runnerRepository.getRunner(runnerUUID)?.initializeServer(server) ?: false
@@ -61,7 +91,15 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
         serverRepository.getServer(uuid)
 
     override suspend fun setServer(uuid: UUID, name: String, version: MinecraftVersion, runnerUUID: UUID): Boolean =
-        serverRepository.saveServer(MinecraftServer(uuid = uuid, name = name, version = version, runnerUUID = runnerUUID))
+        serverRepository.saveServer(
+            MinecraftServer(
+                uuid = uuid,
+                name = name,
+                version = version,
+                runnerUUID = runnerUUID,
+                creationTime = Clock.System.now()
+            )
+        )
 
     override suspend fun updateServer(uuid: UUID, name: String?): Boolean {
         val server = serverRepository.getServer(uuid) ?: return false // TODO: CONCURRENCY CONTROL/TRANSACTION MANAGEMENT
@@ -98,6 +136,7 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
             println("Couldn't find server for UUID $serverUUID")
             return null
         }
+
         val runner = runnerRepository.getRunner(server.runnerUUID).ifNull {
             println("Couldn't find runner for UUID $server.runnerUUID")
             return null
@@ -151,6 +190,47 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
     override suspend fun getPastRun(serverUUID: UUID, runUUID: UUID): MinecraftServerPastRun? =
         pastRunRepository.getPastRun(serverUUID)
 
+    context(PipelineContext<*, ApplicationCall>)
+    override suspend fun getCurrentUserLoginInfo(): UserLoginInfo? = call.principal<UserLoginInfo>()
+
+    context(PipelineContext<*, ApplicationCall>)
+    override suspend fun deleteCurrentUser(): Boolean {
+        return true // Users aren't actually stored at this point
+    }
+
+    context(PipelineContext<*, ApplicationCall>)
+    override suspend fun getCurrentUserPreferences(): UserPreferences? {
+        val loginInfo = getCurrentUserLoginInfo() ?: return null
+
+        return getUserPreferences(loginInfo.userId)
+    }
+
+    private suspend fun getUserPreferences(userId: UserID): UserPreferences? =
+        userPreferencesRepository.getUserPreferencesOrSetDefaultOrNull(userId = userId)
+
+    context(PipelineContext<*, ApplicationCall>)
+    override suspend fun updateCurrentUserPreferences(sortStrategy: UserPreferences.SortStrategy?): Boolean {
+        val loginInfo = getCurrentUserLoginInfo() ?: return false
+
+        return updateUserPreferences(loginInfo.userId, sortStrategy)
+    }
+
+    private suspend fun updateUserPreferences(userId: UserID, sortStrategy: UserPreferences.SortStrategy?): Boolean {
+        val oldPreferences = userPreferencesRepository.getUserPreferencesOrSetDefaultOrNull(userId = userId) ?: return false
+
+        val preferencesModel = UserPreferencesAPIModel(oldPreferences)
+        sortStrategy?.let { preferencesModel.serverSortStrategy = it }
+        val newPreferences = preferencesModel.toUserPreferences() ?: return false
+
+        return userPreferencesRepository.setUserPreferences(userId = userId, preferences = newPreferences)
+    }
+
+    context(PipelineContext<*, ApplicationCall>)
+    override suspend fun deleteCurrentUserPreferences(): Boolean {
+        val userLoginInfo = getCurrentUserLoginInfo() ?: return false
+        return userPreferencesRepository.deleteUserPreferences(userLoginInfo.userId)
+    }
+
     private fun getRunnerByServer(serverUUID: UUID): MinecraftServerRunner? {
         val server = serverRepository.getServer(serverUUID).ifNull {
             println("Couldn't find server for UUID $serverUUID")
@@ -168,4 +248,5 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
     private val serverRepository: MinecraftServerRepository by inject()
     private val runnerRepository: MinecraftServerRunnerRepository by inject()
     private val pastRunRepository: MinecraftServerPastRunRepository by inject()
+    private val userPreferencesRepository: UserPreferencesRepository by inject()
 }

@@ -22,7 +22,6 @@ class MinecraftServerProcess(private val name: String, private val process: Proc
     }
 
     private val _input: Channel<String?> = Channel()
-    @Suppress("BlockingMethodInNonBlockingContext")
     private suspend fun Process.inputChannelJob() {
         println("Input channel job started")
         _input
@@ -107,5 +106,5 @@ class MinecraftServerProcess(private val name: String, private val process: Proc
 
     @JvmInline
     value class TextOutput(val text: String) : ServerOutput
-    object OutputEnd : ServerOutput
+    data object OutputEnd : ServerOutput
 }

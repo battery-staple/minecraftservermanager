@@ -3,7 +3,8 @@ export type Server = {
     name: string,
     versionPhase: string,
     version: string,
-    runnerUUID: string
+    runnerUUID: string,
+    creationTime: Date
 }
 
 export type CurrentRun = {
@@ -32,3 +33,10 @@ export type Runner = {
     name: string,
     domain: string,
 }
+
+export type UserPreferences = {
+    serverSortStrategy: SortStrategy
+}
+
+export type SortStrategy = "NEWEST" | "OLDEST" | "ALPHABETICAL"
+export let DEFAULT_SORT_STRATEGY: SortStrategy = "ALPHABETICAL"

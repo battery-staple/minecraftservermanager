@@ -4,9 +4,9 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
-import com.rohengiralt.minecraftservermanager.user.auth.UserSession
 import com.rohengiralt.minecraftservermanager.plugins.SecuritySpec
 import com.rohengiralt.minecraftservermanager.plugins.securityConfig
+import com.rohengiralt.minecraftservermanager.user.auth.UserSession
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.forms.*
@@ -21,23 +21,40 @@ val idTokenVerifier: GoogleIdTokenVerifier = GoogleIdTokenVerifier.Builder(Googl
     .build()
 
 //val GoogleIdToken.Payload.userId get() = UserID(subject) TODO: Add when deprecated conflict is removed from Google library
-suspend fun GoogleIdTokenVerifier.verifyUserSessionIdToken(sessions: CurrentSession, refresh: Boolean = true): GoogleIdToken? {
-    val userSession = sessions.get<UserSession>() ?: return null
+
+/**
+ * Verifies a user session. If the session's token is invalid, attempt to refresh it.
+ *
+ * @return a valid [GoogleIdToken] if the user session is valid (or becomes valid after refresh); otherwise, null.
+ */
+suspend fun GoogleIdTokenVerifier.verifyUserSessionIdToken(
+    userSession: UserSession,
+    sessions: CurrentSession,
+    refresh: Boolean = true
+): GoogleIdToken? {
 
     return verify(userSession.idToken) ?: if (refresh) {
-        refreshUserSessionTokens(sessions)
-        verifyUserSessionIdToken(sessions = sessions, refresh = false)
+        val newSession = refreshUserSessionTokens(oldSession = userSession, sessions = sessions) ?: return null
+        verifyUserSessionIdToken(userSession = newSession, sessions = sessions, refresh = false)
     } else null
-
 }
 
-private suspend fun refreshUserSessionTokens(sessions: CurrentSession): Boolean {
-    val oldSession = sessions.get<UserSession>() ?: return false
-    val tokens = getRefreshedGoogleTokens(oldSession.refreshToken) ?: return false
-    sessions.set(oldSession.copy(idToken = tokens.idToken))
-    return true
+/**
+ * Attempts to refresh the idToken of the current [UserSession].
+ *
+ * @return the new, refreshed [GoogleIdToken], or null if unable to refresh
+ */
+private suspend fun refreshUserSessionTokens(oldSession: UserSession, sessions: CurrentSession): UserSession? {
+    val tokens = getRefreshedGoogleTokens(oldSession.refreshToken) ?: return null
+    val newSession = oldSession.copy(idToken = tokens.idToken)
+
+    sessions.set(newSession)
+    return newSession
 }
 
+/**
+ * A class holding the id and refresh token returned by the Google API.
+ */
 private data class GoogleTokens(
     val accessToken: String,
     val idToken: String
