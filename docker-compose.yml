@@ -1,4 +1,4 @@
-version: "3.9"
+version: "3.8"
 services:
   database:
     image: "library/postgres:latest"
@@ -11,7 +11,9 @@ services:
       - ./db:/var/lib/postgresql/data
     restart: always
   servermanager:
-    build: .
+    build:
+      context: .
+      dockerfile: ${DOCKERFILE}
     ports:
       - "8080:8080"
       - "25565:25565"

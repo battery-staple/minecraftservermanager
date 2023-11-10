@@ -1,0 +1,5 @@
+.git
+.idea
+frontend/node_modules
+db
+rundata
