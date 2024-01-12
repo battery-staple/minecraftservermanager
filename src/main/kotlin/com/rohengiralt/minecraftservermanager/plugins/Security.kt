@@ -1,6 +1,7 @@
 package com.rohengiralt.minecraftservermanager.plugins
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken
+import com.rohengiralt.minecraftservermanager.hostname
 import com.rohengiralt.minecraftservermanager.plugins.SecuritySpec.clientId
 import com.rohengiralt.minecraftservermanager.plugins.SecuritySpec.clientSecret
 import com.rohengiralt.minecraftservermanager.plugins.SecuritySpec.cookieSecretEncryptKey
@@ -65,7 +66,7 @@ fun Application.configureSecurity() {
         basic("auth-debug") {
             validate { credentials ->
                 if (credentials.name.startsWith("User McUserface") && credentials.password == "Super secure password") {
-                    println("Authenticating debug user with credentials $credentials")
+                    println("Authenticating debug user with credentials $credentials") // TODO: definitely remove the logging of credentials
                     UserLoginInfo(
                         userId = UserID(credentials.name.removePrefix("User McUserface").notEmptyOr("1")),
                         email = "user@example.com"
@@ -93,7 +94,7 @@ fun Application.configureSecurity() {
             challenge { userSession ->
                 println("Received session authentication challenge")
 
-                val redirectUrl = URLBuilder("http://localhost:8080/login").run {
+                val redirectUrl = URLBuilder("http://$hostname/login").run {
                     parameters.append("redirectUrl", call.request.uri)
                     build()
                 }
@@ -115,7 +116,7 @@ fun Application.configureSecurity() {
         }
 
         oauth("auth-oauth-google") {
-            urlProvider = { "http://localhost:8080/callback" }
+            urlProvider = { "http://$hostname/callback" }
             providerLookup = {
                 OAuthServerSettings.OAuth2ServerSettings(
                     name = "google",
@@ -127,7 +128,7 @@ fun Application.configureSecurity() {
                     defaultScopes = listOf("openid", "profile", "email", "https://www.googleapis.com/auth/userinfo.profile"),
                     extraAuthParameters = listOf("access_type" to "offline"),
                     onStateCreated = { call, state ->
-                        redirects[state] = call.request.queryParameters["redirectUrl"] ?: "http:localhost:8080/"
+                        redirects[state] = call.request.queryParameters["redirectUrl"] ?: "http:$hostname/"
                     }
                 )
             }

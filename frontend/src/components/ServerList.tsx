@@ -1,7 +1,7 @@
-import React, {useEffect, useState} from "react";
+import React, {JSX, useEffect, useState} from "react";
 import {CurrentRun, DEFAULT_SORT_STRATEGY, Server, SortStrategy} from "../APIModels";
-import {fetchCurrentRun, getPreferences, getServers, updatePreferences} from "../Networking";
 import {useAutoAnimate} from "@formkit/auto-animate/react";
+import {getCurrentRun, getPreferences, getServers, updatePreferences} from "../networking/BackendAPI";
 
 export function ServerList() {
     const [servers, setServers] = useState<Server[] | null | undefined>(undefined);
@@ -85,24 +85,29 @@ function ServerOption(props: { server: Server, onClick: () => void }): React.JSX
     const [currentRun, setCurrentRun] = useState<CurrentRun | null>(null);
 
     useEffect(() => {
-        fetchCurrentRun(props.server.uuid)
+        getCurrentRun(props.server.uuid)
             .then(currentRun => setCurrentRun(currentRun))
     }, [props.server.uuid])
 
     const isRunning = () => currentRun !== null
 
-    let address = null
-    if (currentRun?.address) {
-        address = <li><strong>address: </strong> {currentRun.address.fullAddress}</li>
+    let propertiesList: JSX.Element
+    if (currentRun?.address) { // Server is running
+        propertiesList = <ul className="server-button-properties">
+            <li><strong>host: </strong> {currentRun.address.host}</li>
+            <li><strong>port: </strong> {currentRun.address.port}</li>
+        </ul>
+    } else { // Server is not running
+        propertiesList = <ul className="server-button-properties">
+            <li><strong>version: </strong> {props.server.version}</li>
+            <li><br/></li>
+        </ul>
     }
 
     return (
         <button className="server-button" onClick={props.onClick}>
             <div className="server-button-title">{props.server.name}</div>
-            <ul className="server-button-properties">
-                <li><strong>version: </strong> {props.server.version}</li>
-                <li>{address}</li>
-            </ul>
+            {propertiesList}
             <div className="server-button-status" style={{
                 color: isRunning() ? "green" : "red"
             }}>{isRunning() ? "Running" : "Not Running"}</div>

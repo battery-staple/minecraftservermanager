@@ -64,7 +64,7 @@
   cursor: pointer;
   transition: all 0.2s ease-in-out;
   justify-content: center;
-  width: 250px;
+  min-width: 250px;
   margin: 0;
   user-select: none;
 }
@@ -80,6 +80,7 @@
 }
 
 .server-button-title {
+  align-self: center;
   font-family: 'Roboto Slab', sans-serif;
   font-size: x-large;
   white-space: nowrap;
@@ -91,6 +92,7 @@
 .server-button-properties {
   align-self: center;
   padding-left: inherit;
+  margin-bottom: 0;
 }
 
 .server-button-properties > li {
@@ -103,6 +105,18 @@
   color: red;
 }
 
+.server-page p {
+  margin: 0.2rem 1rem;
+}
+
+.server-button p:first-of-type {
+  margin-top: 1rem;
+}
+
+.server-button p:last-of-type {
+  margin-bottom: 1rem;
+}
+
 .console {
   font-family: monospace;
   min-height: calc(120px + 10vh);
@@ -110,4 +124,13 @@
   overflow-y: scroll;
   border: 3px solid #404040;
   margin: 5vw;
+}
+
+.console-line {
+  margin-bottom: 0;
+  border-bottom: 0.5px solid #808080;
+}
+
+.console-line:last-of-type {
+  border-bottom: none;
 }

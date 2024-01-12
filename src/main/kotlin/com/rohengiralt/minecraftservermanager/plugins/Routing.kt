@@ -1,5 +1,6 @@
 package com.rohengiralt.minecraftservermanager.plugins
 
+import com.rohengiralt.minecraftservermanager.frontend.routes.frontendConfig
 import com.rohengiralt.minecraftservermanager.frontend.routes.rest.runners.runnersRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.rest.serversRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.rest.statusRoute
@@ -72,6 +73,10 @@ fun Application.configureRouting() {
             singlePageApplication {
                 useResources = true
                 react("static/react")
+            }
+
+            route("/config") {
+                frontendConfig()
             }
         }
 

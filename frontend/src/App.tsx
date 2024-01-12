@@ -3,13 +3,9 @@
 import React, {useEffect, useState} from 'react';
 import { Switch, Route, RouteComponentProps } from 'react-router-dom'
 import './App.css';
-import {
-    fetchWithTimeout,
-    defaultHeaders, getBackendStatus, BackendStatus,
-} from "./Networking";
 import {ServerList} from "./components/ServerList";
 import {ServerPage} from "./components/ServerPage";
-
+import {BackendStatus, getBackendStatus} from "./networking/BackendAPI";
 
 function Page() {
     return (
