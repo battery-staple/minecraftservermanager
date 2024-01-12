@@ -7,8 +7,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.Instant
 import java.util.*
 
+/**
+ * Represents a run of a server currently in process
+ */
 data class MinecraftServerCurrentRun(
-    val uuid: UUID,
+    val uuid: UUID, // UUID of the run itself, not of the server or runner
     val serverUUID: UUID,
     val runnerUUID: UUID,
     val environment: MinecraftServerEnvironment,

@@ -18,15 +18,15 @@ import org.koin.core.component.inject
 import java.util.*
 
 interface WebsocketAPIService {
-    fun getRunConsoleChannel(runnerId: UUID, runUUID: UUID): Channel<String>?
+    suspend fun getRunConsoleChannel(runnerId: UUID, runUUID: UUID): Channel<String>?
 //    fun getRunLogChannel(runnerId: UUID, runUUID: UUID): Channel<String>?  // Use FileWatcher
-    fun getServerUpdatesFlow(serverId: UUID): Flow<MinecraftServer?>
+    suspend fun getServerUpdatesFlow(serverId: UUID): Flow<MinecraftServer?>
     suspend fun getAllCurrentRunsFlow(serverId: UUID): Flow<List<MinecraftServerCurrentRun>>?
 }
 
 class WebsocketAPIServiceImpl : WebsocketAPIService, KoinComponent {
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
-    override fun getRunConsoleChannel(runnerId: UUID, runUUID: UUID): Channel<String>? {
+    override suspend fun getRunConsoleChannel(runnerId: UUID, runUUID: UUID): Channel<String>? {
         val runner = runnerRepository.getRunner(runnerId) ?: return null
         val run = runner.getCurrentRun(runUUID) ?: return null
 
@@ -46,7 +46,7 @@ class WebsocketAPIServiceImpl : WebsocketAPIService, KoinComponent {
         return object : Channel<String>, SendChannel<String> by input, ReceiveChannel<String> by output {}
     }
 
-    override fun getServerUpdatesFlow(serverId: UUID): Flow<MinecraftServer?> { // TODO: Stateflow to remove the need to GET before websocket
+    override suspend fun getServerUpdatesFlow(serverId: UUID): Flow<MinecraftServer?> { // TODO: Stateflow to remove the need to GET before websocket
         return serverRepository.getServerUpdates(serverId)
     }
 

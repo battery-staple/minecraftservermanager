@@ -11,7 +11,7 @@ data class MinecraftServerAddressAPIModel(val host: String, val port: Int, val p
         minecraftServerAddress.url.host,
         minecraftServerAddress.url.port,
         minecraftServerAddress.url.encodedPath,
-        minecraftServerAddress.url.toString()
+        minecraftServerAddress.url.toString(),
     )
 
     fun toMinecraftServerAddress(): MinecraftServerAddress =

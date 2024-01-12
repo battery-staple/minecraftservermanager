@@ -225,17 +225,17 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         return true
     }
 
-    override fun getCurrentRun(uuid: UUID): MinecraftServerCurrentRun? =
+    override suspend fun getCurrentRun(uuid: UUID): MinecraftServerCurrentRun? =
         currentRuns.getCurrentRunByUUID(uuid)
 
-    override fun getCurrentRunByServer(serverUUID: UUID): MinecraftServerCurrentRun? =
+    override suspend fun getCurrentRunByServer(serverUUID: UUID): MinecraftServerCurrentRun? =
         currentRuns.getCurrentRunByServer(serverUUID)
 
-    override fun getAllCurrentRuns(): List<MinecraftServerCurrentRun> =
+    override suspend fun getAllCurrentRuns(): List<MinecraftServerCurrentRun> =
         currentRuns.getAllCurrentRuns()
 
     override suspend fun getAllCurrentRunsFlow(server: MinecraftServer?): Flow<List<MinecraftServerCurrentRun>> =
-        currentRuns.getCurrentRunsFlow(server)
+        currentRuns.getCurrentRunsState(server)
 
     private fun MinecraftServerProcess.archiveOnEndJob(run: MinecraftServerCurrentRun): Job = coroutineScope.launch {
         println("Started archive on end job for run ${run.uuid}")
