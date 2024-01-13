@@ -27,7 +27,7 @@ fun Route.websockets() {
 
     route("runners/{runnerId}/runs/current") {
         webSocket {
-            println("Received current runs updates websocket connection request for server ${call.parameters["serverId"]}")
+            call.application.environment.log.info("Received current runs updates websocket connection request for server ${call.parameters["serverId"]}")
             coroutineScope {
                 val serverUUID = call.parameters["serverId"]?.parseUUIDOrNull()
                     ?: return@coroutineScope close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Could not parse server UUID"))
@@ -35,25 +35,34 @@ fun Route.websockets() {
                 val currentRunsFlow = websocketAPIService.getAllCurrentRunsFlow(serverUUID)
                     ?: return@coroutineScope close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Could not find server with UUID $serverUUID"))
 
-                println("Opening current runs updates websocket for server $serverUUID")
+                call.application.environment.log.debug(
+                    "Opening current runs updates websocket for server {}",
+                    serverUUID
+                )
 
                 withContext(Dispatchers.IO) {
-                    println("Collecting current runs updates for server $serverUUID")
+                    call.application.environment.log.trace("Collecting current runs updates for server {}", serverUUID)
                     currentRunsFlow.collect { runs: List<MinecraftServerCurrentRun> ->
                         val runAPIModels = runs.map(::MinecraftServerCurrentRunAPIModel)
                         val serializedRuns = json.encodeToString(runAPIModels)
                         outgoing.send(Frame.Text(serializedRuns))
                     }
-                    println("Finished collecting current runs updates for server $serverUUID")
+                    call.application.environment.log.trace(
+                        "Finished collecting current runs updates for server {}",
+                        serverUUID
+                    )
                 }
 
-                println("Closing current runs updates websocket for server $serverUUID")
+                call.application.environment.log.debug(
+                    "Closing current runs updates websocket for server {}",
+                    serverUUID
+                )
             }
         }
 
         route("{runId}") {
             webSocket("/console") {
-                println("Received console websocket connection request for runner ${call.parameters["runnerId"]}, run ${call.parameters["runId"]}")
+                call.application.environment.log.info("Received console websocket connection request for runner ${call.parameters["runnerId"]}, run ${call.parameters["runId"]}")
 
                 coroutineScope {
                     val runnerUUID = call
@@ -64,7 +73,11 @@ fun Route.websockets() {
                     val runChannel = websocketAPIService.getRunConsoleChannel(runnerId = runnerUUID, runUUID = runUUID)
                         ?: throw NotFoundException()
 
-                    println("Opening console websocket for runner $runnerUUID, run $runUUID")
+                    call.application.environment.log.debug(
+                        "Opening console websocket for runner {}, run {}",
+                        runnerUUID,
+                        runUUID
+                    )
 
                     launch(Dispatchers.IO) {
                         runChannel.consumeAsFlow().collect {
@@ -76,19 +89,23 @@ fun Route.websockets() {
                         incoming.consumeEach {
                             launch {
                                 (it as? Frame.Text)?.let { frame ->
-                                    println("Received ${frame.readText()}")
+                                    call.application.environment.log.trace("Received ${frame.readText()}")
                                     runChannel.send(frame.readText()) ?: close(
                                         CloseReason(
                                             CloseReason.Codes.NORMAL,
                                             "No running process"
                                         )
                                     )
-                                } ?: println("Received non-text frame with type ${it.frameType}")
+                                } ?: call.application.environment.log.warn("Received non-text frame with type ${it.frameType}")
                             }
                         }
                     }
 
-                    println("Closing console websocket for runner $runnerUUID, run $runUUID")
+                    call.application.environment.log.debug(
+                        "Closing console websocket for runner {}, run {}",
+                        runnerUUID,
+                        runUUID
+                    )
                 }
             }
         }
@@ -96,12 +113,12 @@ fun Route.websockets() {
 
     route("servers/{serverId}") {
         webSocket {
-            println("Received server updates websocket connection request for server ${call.parameters["serverId"]}")
+            call.application.environment.log.info("Received server updates websocket connection request for server ${call.parameters["serverId"]}")
             coroutineScope {
                 val serverUUID = call.getParameterOrBadRequest("serverId").parseUUIDOrBadRequest()
                 val serverUpdatesFlow = websocketAPIService.getServerUpdatesFlow(serverUUID)
 
-                println("Opening server updates websocket for server $serverUUID")
+                call.application.environment.log.debug("Opening server updates websocket for server $serverUUID")
 
                 launch(Dispatchers.IO) {
                     serverUpdatesFlow.collect { server ->
@@ -111,7 +128,7 @@ fun Route.websockets() {
                     }
                 }
 
-                println("Closing server updates websocket for server $serverUUID")
+                call.application.environment.log.debug("Closing server updates websocket for server $serverUUID")
             }
         }
     }

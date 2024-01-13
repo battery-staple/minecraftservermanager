@@ -8,30 +8,35 @@ import io.ktor.utils.io.*
 import io.ktor.utils.io.core.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.slf4j.LoggerFactory
 import java.nio.file.Path
 import kotlin.io.path.appendBytes
 
-suspend inline fun HttpClient.appendGetToFile(urlString: String, file: Path): Boolean {
+suspend inline fun HttpClient.appendGetToPath(urlString: String, path: Path): Boolean {
+    logger.debug("Appending contents from url ({}) to path ({})", urlString, path)
     val httpResponse = get(urlString)
     if (!httpResponse.status.isSuccess()) {
-        println("get failed with code ${httpResponse.status}")
+        logger.warn("Failed to get file, got code ${httpResponse.status}")
         return false
     }
 
     val channel: ByteReadChannel = httpResponse.body()
 
-    println("Writing to file")
+    logger.trace("Writing to file")
     while (!channel.isClosedForRead) {
         val packet = channel.readRemaining(DEFAULT_BUFFER_SIZE.toLong())
 
         withContext(Dispatchers.IO) {
             while (packet.isNotEmpty) {
                 val bytes = packet.readBytes()
-                file.appendBytes(bytes)
+                path.appendBytes(bytes)
             }
         }
     }
-    println("Appended content to file")
+    logger.trace("Successfully appended content to path")
 
     return true
 }
+
+@PublishedApi
+internal val logger = LoggerFactory.getLogger("appendGetToFile")

@@ -14,7 +14,7 @@ import org.koin.ktor.ext.inject
 fun Route.runnersRoute() {
     val restApiService: RestAPIService by this@runnersRoute.inject()
     get {
-        println("Getting all runners")
+        call.application.environment.log.info("Getting all runners")
         call.respond(restApiService.getAllRunners().map(::MinecraftServerRunnerAPIModel))
     }
 
@@ -24,7 +24,7 @@ fun Route.runnersRoute() {
 
     route("/{runnerId}") {
         get {
-            println("Getting runner with id ${call.parameters["runnerId"]}")
+            call.application.environment.log.info("Getting runner with id ${call.parameters["runnerId"]}")
             val runnerUUID = call.getParameterOrBadRequest("runnerId").parseUUIDOrBadRequest()
 
             call.respond(

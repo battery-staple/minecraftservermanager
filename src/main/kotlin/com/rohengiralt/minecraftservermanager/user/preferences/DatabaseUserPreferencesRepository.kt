@@ -6,6 +6,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.slf4j.LoggerFactory
 import java.sql.SQLException
 
 /**
@@ -18,20 +19,20 @@ class DatabaseUserPreferencesRepository : UserPreferencesRepository {
         }
     }
     override fun getUserPreferencesOrNull(userId: UserID): UserPreferences? = transaction {
-        println("Trying to get user preferences for user $userId")
+        logger.debug("Trying to get user preferences for user $userId")
         try {
             UserPreferencesTable
                 .select { UserPreferencesTable.userId eq userId.idString }
                 .singleOrNull()
                 ?.toUserPreferences()
         } catch (e: SQLException) {
-            println("Getting user preferences for user $userId failed with exception:\n$e")
+            logger.error("Getting user preferences for user $userId failed with exception:\n$e")
             null
         }
     }
 
     override suspend fun getUserPreferencesOrSetDefaultOrNull(userId: UserID): UserPreferences? = mutex.withLock {
-        println("Trying to get user preferences or set default for user $userId")
+        logger.debug("Trying to get user preferences or set default for user $userId")
         val storedPreferences = getUserPreferencesOrNull(userId = userId)
         if (storedPreferences != null) {
             return storedPreferences
@@ -55,7 +56,7 @@ class DatabaseUserPreferencesRepository : UserPreferencesRepository {
      */
     private fun setUserPreferencesUnsynchronized(userId: UserID, preferences: UserPreferences): Boolean = transaction {
         try {
-            println("Trying to set user preferences for user $userId")
+            logger.debug("Trying to set user preferences for user $userId")
 
             @Suppress("RemoveRedundantQualifierName")
             UserPreferencesTable.upsert(UserPreferencesTable.userId) {
@@ -65,7 +66,7 @@ class DatabaseUserPreferencesRepository : UserPreferencesRepository {
 
             true
         } catch (e: SQLException) {
-            println("Setting user preferences for user $userId failed with exception:\n$e")
+            logger.error("Setting user preferences for user $userId failed with exception:\n$e")
             false
         }
     }
@@ -73,14 +74,14 @@ class DatabaseUserPreferencesRepository : UserPreferencesRepository {
     override suspend fun deleteUserPreferences(userId: UserID): Boolean = mutex.withLock {
         transaction {
             try {
-                println("Trying to delete user preferences for user $userId")
+                logger.debug("Trying to delete user preferences for user $userId")
 
                 // Don't check if >=1 rows deleted because we don't care if preferences weren't in the database to begin with
                 UserPreferencesTable.deleteWhere { UserPreferencesTable.userId eq userId.idString }
 
                 true
             } catch (e: SQLException) {
-                println("Deleting user preferences for user $userId failed with exception:\n$e")
+                logger.error("Deleting user preferences for user $userId failed with exception:\n$e")
                 false
             }
         }
@@ -91,6 +92,7 @@ class DatabaseUserPreferencesRepository : UserPreferencesRepository {
     )
 
     private val mutex = Mutex()
+    private val logger = LoggerFactory.getLogger(this::class.java)
 }
 
 private object UserPreferencesTable : Table() {

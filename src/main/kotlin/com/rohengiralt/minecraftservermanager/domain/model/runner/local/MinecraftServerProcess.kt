@@ -4,6 +4,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.flow.*
+import org.slf4j.LoggerFactory
 import java.io.IOException
 import kotlin.time.Duration
 
@@ -23,50 +24,50 @@ class MinecraftServerProcess(private val name: String, private val process: Proc
 
     private val _input: Channel<String?> = Channel()
     private suspend fun Process.inputChannelJob() {
-        println("Input channel job started")
+        logger.info("Input channel job started")
         _input
             .consumeAsFlow()
             .flowOn(Dispatchers.IO)
             .collect { input ->
-                println("process got new input $input")
-                (outputStream ?: return@collect println("No output stream"))
+                logger.debug("Process got new input: $input")
+                (outputStream ?: return@collect logger.error("Cannot write to process stdin; could not get output stream")) // TODO: propagate this error to the user?
                     .bufferedWriter()
                     .run {
                         try {
                             append("${input?.trimEnd()}\n")
                             flush()
                         } catch (e: IOException) {
-                            println("Cannot send input $input to server, got exception $e")
+                            logger.warn("Cannot send input $input to server, got exception $e")
                         }
                     }
-                    .also { println("Inputted $input") }
+                    .also { logger.trace("Sent input to server: $input") }
             }
     }
 
     private val _outputFlow: MutableSharedFlow<ServerOutput> = MutableSharedFlow(Channel.UNLIMITED)
     private suspend fun Process.outputChannelJob() = coroutineScope {
-        println("Piping output")
+        logger.info("Output channel job started")
         try {
-            (inputStream ?: return@coroutineScope println("No output stream"))
+            (inputStream ?: return@coroutineScope logger.error("Cannot read from process stdout; could not get input stream")) // TODO: propagate this error to the user?
                 .bufferedReader()
                 .lineSequence()
                 .forEach {
                     try {
-                        println("[SERVER $name]: $it")
+                        logger.debug("[SERVER $name]: $it")
                         _outputFlow.emit(TextOutput(it))
                     } catch (e: IOException) {
-                        println("Cannot read server output, got exception $e")
+                        logger.warn("Cannot read server output, got exception $e")
                         return@coroutineScope
                     }
                 }
         } catch (e: CancellationException) {
-            println("Output channel job cancelled")
+            logger.info("Output channel job cancelled")
             return@coroutineScope
         } catch (e: Throwable) {
-            println("Stream threw error $e")
+            logger.error("Output stream threw error $e")
             return@coroutineScope
         } finally {
-            println("Stream ended")
+            logger.info("Stream ended")
             @OptIn(ExperimentalCoroutinesApi::class)
             _outputFlow.resetReplayCache()
             _outputFlow.emit(OutputEnd)
@@ -76,11 +77,11 @@ class MinecraftServerProcess(private val name: String, private val process: Proc
     private fun Process.endJob() {
         try {
             waitFor()
-            println("Minecraft Server process ended with exit code ${exitValue()}")
+            logger.info("Minecraft Server (name: $name) ended with exit code ${exitValue()}")
             cancelAllJobs()
         } catch (e: Throwable) {
             if (e !is CancellationException) {
-                println("Process ended with error $e")
+                logger.error("Process ended with error $e")
                 cancelAllJobs()
             }
         }
@@ -107,4 +108,6 @@ class MinecraftServerProcess(private val name: String, private val process: Proc
     @JvmInline
     value class TextOutput(val text: String) : ServerOutput
     data object OutputEnd : ServerOutput
+
+    private val logger = LoggerFactory.getLogger(this::class.java)
 }

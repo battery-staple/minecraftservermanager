@@ -15,7 +15,7 @@ fun Route.pastRuns() {
     val restApiService: RestAPIService by this@pastRuns.inject()
 
     get {
-        println("Getting all past runs")
+        call.application.environment.log.info("Getting all past runs")
         val serverUUID = call.getParameterOrBadRequest("serverId").parseUUIDOrBadRequest()
 
         call.respond(restApiService.getAllPastRuns(serverUUID).map(::MinecraftServerPastRunAPIModel))

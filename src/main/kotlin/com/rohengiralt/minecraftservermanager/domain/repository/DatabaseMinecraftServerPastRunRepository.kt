@@ -10,6 +10,7 @@ import kotlinx.serialization.builtins.serializer
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.`java-time`.datetime
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.slf4j.LoggerFactory
 import java.sql.SQLException
 import java.time.ZoneOffset
 import java.util.*
@@ -58,7 +59,7 @@ class DatabaseMinecraftServerPastRunRepository : MinecraftServerPastRunRepositor
         MinecraftServerPastRunTable.runnerId eq uuid
 
     override fun savePastRun(run: MinecraftServerPastRun): Boolean = with(MinecraftServerPastRunTable) {
-        println("Saving past run ${run.uuid}")
+        logger.debug("Saving past run ${run.uuid}")
         try {
             transaction {
                 MinecraftServerPastRunTable.upsert(uuid) { // TODO: Should be insert instead of upsert?
@@ -70,16 +71,16 @@ class DatabaseMinecraftServerPastRunRepository : MinecraftServerPastRunRepositor
                     it[log] = run.log
                 }
             }
-            println("Successfully saved past run ${run.uuid}")
+            logger.info("Successfully saved past run ${run.uuid}")
             true
         } catch (e: SQLException) {
-            println("Encountered error saving past run ${run.uuid}: $e")
+            logger.error("Encountered error saving past run ${run.uuid}: $e")
             false
         } catch (e: DateTimeArithmeticException) {
-            println("Encountered error saving past run ${run.uuid}: $e")
+            logger.error("Encountered error saving past run ${run.uuid}: $e")
             false
         } catch (e: Throwable) {
-            println("Encountered error saving past run ${run.uuid}: $e")
+            logger.error("Encountered error saving past run ${run.uuid}: $e")
             false
         }
     }
@@ -98,6 +99,7 @@ class DatabaseMinecraftServerPastRunRepository : MinecraftServerPastRunRepositor
         )
     }
 
+    private val logger = LoggerFactory.getLogger(this::class.java)
 }
 
 object MinecraftServerPastRunTable : Table() {

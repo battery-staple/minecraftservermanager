@@ -3,6 +3,7 @@ package com.rohengiralt.minecraftservermanager.util.routes
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*
 import io.ktor.server.request.*
+import org.slf4j.LoggerFactory
 import java.util.*
 
 internal fun uuidFromStringOrNull(string: String): UUID? = //TODO: Static extension of UUID when introduced
@@ -21,6 +22,8 @@ internal fun String.parseUUIDOrBadRequest(): UUID = uuidFromStringOrBadRequest(t
 internal suspend inline fun <reified T> ApplicationCall.receiveSerializable(): T = try {
     receive()
 } catch (e: Exception) { // receive can throw various exceptions, not just SerializationException
-    println("Failed to receive serializable, got exception $e")
+    logger.warn("Failed to receive serializable, got exception $e")
     throw BadRequestException("Couldn't parse body")
 }
+
+private val logger = LoggerFactory.getLogger("Utils")

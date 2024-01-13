@@ -21,6 +21,7 @@ import io.ktor.util.pipeline.*
 import kotlinx.datetime.Clock
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import org.slf4j.LoggerFactory
 import java.util.*
 
 /**
@@ -124,7 +125,7 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
     override suspend fun getAllCurrentRuns(runnerUUID: UUID): List<MinecraftServerCurrentRun>? {
         val runner =
             runnerRepository.getRunner(runnerUUID).ifNull {
-                println("Could not find runner")
+                logger.trace("Could not find runner")
                 return null
             }
 
@@ -133,17 +134,17 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
 
     override suspend fun createCurrentRun(serverUUID: UUID, environment: MinecraftServerEnvironment): MinecraftServerCurrentRun? {
         val server = serverRepository.getServer(serverUUID).ifNull {
-            println("Couldn't find server for UUID $serverUUID")
+            logger.trace("Couldn't find server for UUID {}", serverUUID)
             return null
         }
 
         val runner = runnerRepository.getRunner(server.runnerUUID).ifNull {
-            println("Couldn't find runner for UUID $server.runnerUUID")
+            logger.trace("Couldn't find runner for UUID {}.runnerUUID", server)
             return null
         }
 
         if (runner.isRunning(serverUUID)) { // TODO: possible concurrency issues if another run starts before this one?
-            println("Cannot create current run because server $serverUUID is already running")
+            logger.trace("Cannot create current run because server {} is already running", serverUUID)
             return null
         }
 
@@ -163,14 +164,14 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
     }
 
     override suspend fun stopCurrentRun(runnerUUID: UUID, runUUID: UUID): Boolean {
-        println("Stopping current run $runUUID")
+        logger.info("Stopping current run $runUUID")
         val runner = runnerRepository.getRunner(runnerUUID) ?: return false
 
         return runner.stopRun(runUUID)
     }
 
     override suspend fun stopCurrentRunByServer(serverUUID: UUID): Boolean {
-        println("Stopping current run of server $serverUUID")
+        logger.info("Stopping current run of server $serverUUID")
         val server = serverRepository.getServer(serverUUID) ?: return false
         val runner = runnerRepository.getRunner(server.runnerUUID) ?: return false
 
@@ -178,7 +179,7 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
     }
 
     override suspend fun stopAllCurrentRuns(runnerUUID: UUID): Boolean {
-        println("Stopping all current runs for runner $runnerUUID")
+        logger.info("Stopping all current runs for runner $runnerUUID")
         val runner = runnerRepository.getRunner(runnerUUID)?: return false
 
         return runner.stopAllRuns()
@@ -233,12 +234,12 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
 
     private fun getRunnerByServer(serverUUID: UUID): MinecraftServerRunner? {
         val server = serverRepository.getServer(serverUUID).ifNull {
-            println("Couldn't find server for UUID $serverUUID")
+            logger.trace("Couldn't find server for UUID {}", serverUUID)
             return null
         }
 
         val runner = runnerRepository.getRunner(server.runnerUUID).ifNull {
-            println("Couldn't find runner for UUID $server.runnerUUID")
+            logger.trace("Couldn't find runner for UUID {}.runnerUUID", server)
             return null
         }
 
@@ -249,4 +250,6 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
     private val runnerRepository: MinecraftServerRunnerRepository by inject()
     private val pastRunRepository: MinecraftServerPastRunRepository by inject()
     private val userPreferencesRepository: UserPreferencesRepository by inject()
+
+    private val logger = LoggerFactory.getLogger(this::class.java)
 }

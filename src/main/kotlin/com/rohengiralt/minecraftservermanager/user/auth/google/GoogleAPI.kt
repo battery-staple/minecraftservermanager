@@ -15,6 +15,7 @@ import io.ktor.server.sessions.*
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.koin.java.KoinJavaComponent.getKoin
+import org.slf4j.LoggerFactory
 
 val idTokenVerifier: GoogleIdTokenVerifier = GoogleIdTokenVerifier.Builder(GoogleNetHttpTransport.newTrustedTransport(), GsonFactory.getDefaultInstance())
     .setAudience(listOf(securityConfig[SecuritySpec.clientId]))
@@ -61,7 +62,7 @@ private data class GoogleTokens(
 )
 
 private suspend fun getRefreshedGoogleTokens(refreshToken: String): GoogleTokens? {
-    println("Refreshing token")
+    logger.debug("Refreshing token")
     val httpClient: HttpClient = getKoin().get()
     val tokenInfo: TokenInfo = httpClient.submitForm(
         url = "https://accounts.google.com/o/oauth2/token",
@@ -87,3 +88,5 @@ private data class TokenInfo(
     @SerialName("token_type") val tokenType: String,
     @SerialName("id_token") val idToken: String,
 )
+
+private val logger = LoggerFactory.getLogger("GoogleAPI")

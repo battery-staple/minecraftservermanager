@@ -19,14 +19,14 @@ fun Route.usersRoute() {
         val restApiService: RestAPIService by this@usersRoute.inject()
 
         get {
-            println("Getting user login info with id ${call.principal<UserLoginInfo>()?.userId}")
+            call.application.environment.log.info("Getting user login info with id ${call.principal<UserLoginInfo>()?.userId}")
             val user = restApiService.getCurrentUserLoginInfo() ?: throw AuthorizationException()
 
             call.respond(UserLoginInfoAPIModel(user))
         }
 
         delete {
-            println("Deleting user with id: ${call.principal<UserLoginInfo>()?.userId}")
+            call.application.environment.log.info("Deleting user with id: ${call.principal<UserLoginInfo>()?.userId}")
             val userInfoDeletionSuccess = restApiService.deleteCurrentUser()
             val userPreferencesDeletionSuccess = restApiService.deleteCurrentUserPreferences()
 
@@ -39,7 +39,7 @@ fun Route.usersRoute() {
 
         route("/preferences") {
             get {
-                println("Getting user preferences for user with id ${call.principal<UserLoginInfo>()?.userId}")
+                call.application.environment.log.info("Getting user preferences for user with id ${call.principal<UserLoginInfo>()?.userId}")
 
                 val preferences = restApiService
                     .getCurrentUserPreferences()
@@ -50,7 +50,7 @@ fun Route.usersRoute() {
             }
 
             patch {
-                println("Patching user preferences for user with id ${call.principal<UserLoginInfo>()?.userId}")
+                call.application.environment.log.info("Patching user preferences for user with id ${call.principal<UserLoginInfo>()?.userId}")
                 val userPreferencesAPIModel: UserPreferencesAPIModel = call.receiveSerializable()
 
                 val success = restApiService.updateCurrentUserPreferences(

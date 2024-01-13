@@ -33,6 +33,7 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.util.*
 import kotlin.io.path.div
@@ -63,9 +64,10 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
     private val serverContentDirectoryPathRepository: LocalMinecraftServerContentDirectoryRepository by inject()
     private val pastRunRepository: MinecraftServerPastRunRepository by inject()
 
+    private val logger = LoggerFactory.getLogger(this::class.java)
     init {
         try {
-            println("Archiving left over current runs")
+            logger.info("Archiving left over current runs")
             val runsToArchive = currentRunRecordRepository.getAllRecords()
                 .map { record ->
                     MinecraftServerPastRun(
@@ -79,33 +81,32 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
                 }
 
             if (pastRunRepository.savePastRuns(runsToArchive)) {
-                println("Archived ${runsToArchive.size} left over current run(s)")
+                logger.info("Archived ${runsToArchive.size} left over current run(s)")
                 currentRunRecordRepository.removeAllRecords()
             } else {
-                println("Failed to archive left over current run(s)")
+                logger.error("Failed to archive left over current run(s)")
             }
         } catch (e: Throwable) {
-            println("Failed to archive left over current run(s), got error:")
-            e.printStackTrace()
+            logger.error("Failed to archive left over current run(s), got error: {}", e.message)
         }
     }
 
     override suspend fun initializeServer(server: MinecraftServer): Boolean {
-        println("Getting content directory for server ${server.name}")
+        logger.debug("Getting content directory for server ${server.name}")
         val contentDirectorySuccess =
             serverContentDirectoryPathRepository
                 .createContentDirectoryIfNotExists(server)
 
         if (!contentDirectorySuccess) {
-            println("Couldn't access content directory")
+            logger.error("Couldn't access content directory")
             return false
         }
 
-        println("Getting jar for server ${server.name}")
+        logger.trace("Getting jar for server ${server.name}")
         val jarSuccess = serverJarResourceManager.prepareJar(server)
 
         if (!jarSuccess) {
-            println("Couldn't create server jar")
+            logger.error("Couldn't create server jar")
             return false
         }
 
@@ -113,7 +114,7 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
     }
 
     override suspend fun removeServer(server: MinecraftServer): Boolean {
-        println("Removing server ${server.name} from local runner")
+        logger.debug("Removing server ${server.name} from local runner")
         val contentDirectorySuccess =
             serverContentDirectoryPathRepository
                 .deleteContentDirectory(server)
@@ -123,12 +124,12 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
                 .freeJar(server)
 
         if (!contentDirectorySuccess) {
-            println("Couldn't remove server content directory")
+            logger.error("Couldn't remove server content directory")
             return false
         }
 
         if (!jarSuccess) {
-            println("Couldn't free server jar")
+            logger.error("Couldn't free server jar")
             return false
         }
 
@@ -146,25 +147,25 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         }
         environment.port!!; environment.maxHeapSize!!; environment.minHeapSize!! // Allows smart casts
 
-        println("Getting content directory for server ${server.name}")
+        logger.trace("Getting content directory for server ${server.name}")
         val contentDirectory =
             serverContentDirectoryPathRepository
                 .getOrCreateContentDirectory(server)
                 .ifNull {
-                    println("Couldn't access content directory")
+                    logger.error("Couldn't access content directory")
                     return null
                 }
 
-        println("Getting jar for server ${server.name}")
+        logger.trace("Getting jar for server ${server.name}")
         val jar =
             serverJarResourceManager
                 .accessJar(server)
                 .ifNull {
-                    println("Couldn't get server jar")
+                    logger.error("Couldn't get server jar")
                     return null
                 }
 
-        println("Starting server ${server.name}")
+        logger.info("Starting server ${server.name}")
         val startTime = Clock.System.now()
         val process = serverDispatcher.runServer(
             name = server.name,
@@ -189,7 +190,7 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
             output = process.output.filterIsInstance<MinecraftServerProcess.TextOutput>().map { it.text },
         )
             .also { run ->
-                println("Adding new current run ${run.uuid}")
+                logger.trace("Adding new current run {}", run.uuid)
                 currentRuns.addCurrentRun(run)
                 runningProcesses[run.uuid] = process
                 currentRunRecordRepository.addRecord(MinecraftServerCurrentRunRecord.fromCurrentRun(run))
@@ -201,7 +202,7 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
 
     override suspend fun stopRun(uuid: UUID): Boolean =
         runningProcesses[uuid].ifNull {
-            println("Cannot stop run $uuid, run not found")
+            logger.trace("Cannot stop run {}, run not found", uuid)
             return false // TODO: Propagate that run was not found
         }.stop()
 
@@ -216,12 +217,12 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         }
 
     private suspend fun MinecraftServerProcess.stop(): Boolean {
-        stop(5.seconds, 5.seconds).ifNull { //TODO: No magic number timeout
-            println("Timed out while trying to stop run $uuid")
+        stop(softTimeout = 5.seconds, additionalForcibleTimeout = 5.seconds).ifNull { //TODO: No magic number timeout
+            logger.error("Timed out while trying to stop run $uuid")
             return false
         }
 
-        println("Successfully stopped run $uuid")
+        logger.trace("Successfully stopped run {}", uuid)
         return true
     }
 
@@ -238,32 +239,32 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         currentRuns.getCurrentRunsState(server)
 
     private fun MinecraftServerProcess.archiveOnEndJob(run: MinecraftServerCurrentRun): Job = coroutineScope.launch {
-        println("Started archive on end job for run ${run.uuid}")
+        logger.debug("Starting archive on end job for run {}", run.uuid)
         waitForEnd()
 
         val endTime = Clock.System.now()
-        println("Current run ${run.uuid} ended at instant $endTime, about to archive")
+        logger.info("Current run ${run.uuid} ended at instant $endTime, about to archive")
 
         runningProcesses.remove(run.uuid)
         currentRuns.deleteCurrentRun(run.uuid)
         currentRunRecordRepository.removeRecord(run.uuid)
 
-        println("Removed current run ${run.uuid}, about to save past run")
+        logger.trace("Removed current run {}, about to save past run", run.uuid)
 
         val success: Boolean = try {
-            println("Converting run to past run")
+            logger.trace("Converting run to past run")
             val pastRun = run.toPastRun(endTime)
-            println("Saving past run")
+            logger.trace("Saving past run")
             pastRunRepository.savePastRun(pastRun)
         } catch (e: Throwable) {
-            println("Error archiving past run: $e")
+            logger.error("Error archiving past run: $e")
             false
         }
 
         if (success) {
-            println("Successfully archived run ${run.uuid}")
+            logger.trace("Successfully archived run {}", run.uuid)
         } else {
-            println("Couldn't archive run ${run.uuid}")
+            logger.error("Couldn't archive run ${run.uuid}")
         }
     }
 

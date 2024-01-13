@@ -8,6 +8,7 @@ import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.`java-time`.datetime
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.slf4j.LoggerFactory
 import java.sql.SQLException
 import java.time.ZoneOffset
 import java.util.*
@@ -36,7 +37,7 @@ class DatabaseMinecraftServerCurrentRunRecordRepository : MinecraftServerCurrent
 
             true
         } catch (e: SQLException) {
-            println("Couldn't add current run record, got $e")
+            logger.error("Couldn't add current run record, got $e")
             false
         }
     }
@@ -46,7 +47,7 @@ class DatabaseMinecraftServerCurrentRunRecordRepository : MinecraftServerCurrent
             val rowsDeleted = CurrentRunRecordTable.deleteWhere { CurrentRunRecordTable.runUUID eq runUUID }
             rowsDeleted > 0
         } catch (e: SQLException) {
-            println("Couldn't add current run record, got $e")
+            logger.error("Couldn't add current run record, got $e")
             false
         }
     }
@@ -68,6 +69,8 @@ class DatabaseMinecraftServerCurrentRunRecordRepository : MinecraftServerCurrent
         val rowsDeleted = CurrentRunRecordTable.deleteAll()
         rowsDeleted > 0
     }
+
+    private val logger = LoggerFactory.getLogger(this::class.java)
 }
 
 private object CurrentRunRecordTable : Table() {

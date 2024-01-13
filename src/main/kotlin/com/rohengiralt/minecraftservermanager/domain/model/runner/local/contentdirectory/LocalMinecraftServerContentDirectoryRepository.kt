@@ -5,6 +5,7 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.nio.file.DirectoryNotEmptyException
 import java.nio.file.Path
@@ -56,21 +57,21 @@ class LocalMinecraftServerContentDirectoryRepository : KoinComponent {
 
     fun deleteContentDirectory(server: MinecraftServer): Boolean {
         val directory = getExistingContentDirectory(server.uuid) ?: run {
-            println("Could not find content directory for server ${server.uuid}")
+            logger.warn("Could not find content directory for server ${server.uuid}")
             return true // TODO: Should this return true or false?
         }
 
         val databaseDeletionSuccess = deleteContentDirectoryFromDatabase(server)
 
         if (!databaseDeletionSuccess) {
-            println("Could not delete content directory from database for server ${server.uuid}")
+            logger.error("Could not delete content directory from database for server ${server.uuid}")
             return false
         }
 
         val filesystemDeletionSuccess = deleteContentDirectoryFromFilesystem(directory)
 
         if (!filesystemDeletionSuccess) {
-            println("Could not delete content directory from filesystem for server ${server.uuid}")
+            logger.error("Could not delete content directory from filesystem for server ${server.uuid}")
             return false
         }
 
@@ -88,11 +89,12 @@ class LocalMinecraftServerContentDirectoryRepository : KoinComponent {
         directory.deleteRecursively()
         true
     } catch (e: IOException) {
-        println("Got exception when trying to delete content directory: ${e.message}")
+        logger.error("Got exception when trying to delete content directory: ${e.message}")
         false
     }
 
     private val contentDirectoryFactory: LocalMinecraftServerContentDirectoryFactory by inject()
+    private val logger = LoggerFactory.getLogger(this::class.java)
 }
 
 private object ContentDirectoryTable : Table() {

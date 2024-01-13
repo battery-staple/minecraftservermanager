@@ -38,7 +38,6 @@ class WebsocketAPIServiceImpl : WebsocketAPIService, KoinComponent {
         val input = Channel<String>()
         coroutineScope.launch {
             input.consumeEach {
-                println("got input $it")
                 run.input.send(it)
             }
         }

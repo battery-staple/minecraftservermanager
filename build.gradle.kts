@@ -41,7 +41,9 @@ dependencies {
     implementation("io.ktor:ktor-server-status-pages:$ktor_version")
     implementation("io.ktor:ktor-server-html-builder:$ktor_version")
     implementation("io.ktor:ktor-server-call-logging:$ktor_version")
-    implementation("ch.qos.logback:logback-classic:$logback_version")
+    implementation("ch.qos.logback:logback-classic:$logback_version") {
+        exclude(group = "pull-parser", module = "pull-parser") // https://stackoverflow.com/questions/71910861/failed-to-auto-configure-default-logger-context-joranexception-parser-configu
+    }
 
     implementation("io.ktor:ktor-client-core:$ktor_version")
     implementation("io.ktor:ktor-client-java:$ktor_version")
@@ -64,7 +66,9 @@ dependencies {
     implementation("org.postgresql:postgresql:42.2.27")
     implementation("io.insert-koin:koin-ktor:3.3.1")
     implementation("io.insert-koin:koin-logger-slf4j:3.3.1")
-    implementation("com.uchuhimo:konf:1.1.2")
+    implementation("com.uchuhimo:konf:1.1.2") {
+        exclude(group = "pull-parser", module = "pull-parser") // https://stackoverflow.com/questions/71910861/failed-to-auto-configure-default-logger-context-joranexception-parser-configu
+    }
 
     implementation("io.ktor:ktor-server-auth-jvm:$ktor_version")
     implementation("io.ktor:ktor-server-core-jvm:$ktor_version")

@@ -17,7 +17,7 @@ import org.koin.ktor.ext.inject
 fun Route.currentRuns() {
     val restApiService: RestAPIService by this@currentRuns.inject()
     get {
-        println("Getting all runs")
+        call.application.environment.log.info("Getting all runs")
         val runnerUUID = call.getParameterOrBadRequest("runnerId").parseUUIDOrBadRequest()
 
         val runs = restApiService.getAllCurrentRuns(runnerUUID)
@@ -28,7 +28,7 @@ fun Route.currentRuns() {
     }
 
     post {
-        println("Creating new run")
+        call.application.environment.log.info("Creating new run")
         val serverUUID = call.getParameterOrBadRequest("serverId").parseUUIDOrBadRequest()
         val environment = call.receiveSerializable<MinecraftServerEnvironmentAPIModel>().toMinecraftServerEnvironment()
 
@@ -42,7 +42,7 @@ fun Route.currentRuns() {
     }
 
     delete {
-        println("Stopping current runs")
+        call.application.environment.log.info("Stopping current runs")
 
         val runnerUUID = call.getParameterOrBadRequest("runnerId").parseUUIDOrBadRequest()
 
@@ -80,7 +80,7 @@ fun Route.currentRuns() {
         }
 
         delete {
-            println("Ending run")
+            call.application.environment.log.info("Ending run")
             val runnerUUID = call.getParameterOrBadRequest("runnerId").parseUUIDOrBadRequest()
             val runUUID = call.getParameterOrBadRequest("runId").parseUUIDOrBadRequest()
 

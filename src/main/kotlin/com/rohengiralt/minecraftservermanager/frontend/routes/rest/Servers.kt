@@ -18,12 +18,12 @@ fun Route.serversRoute() { // TODO: Better response codes in general
     val restApiService: RestAPIService by this@serversRoute.inject()
 
     get {
-        println("Getting all servers")
+        call.application.environment.log.info("Getting all servers")
         call.respond(restApiService.getAllServers().map(::MinecraftServerAPIModel))
     }
 
     post {
-        println("Adding new server")
+        call.application.environment.log.info("Adding new server")
 
         val serverAPIModel: MinecraftServerAPIModel = call.receiveSerializable()
 
@@ -50,7 +50,7 @@ fun Route.serversRoute() { // TODO: Better response codes in general
 
     route("/{id}") {
         get {
-            println("Getting server with id ${call.parameters["id"]}")
+            call.application.environment.log.info("Getting server with id ${call.parameters["id"]}")
             val serverUUID = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
 
             call.respond(
@@ -61,7 +61,7 @@ fun Route.serversRoute() { // TODO: Better response codes in general
         }
 
         patch {
-            println("Patching server with id ${call.parameters["id"]}")
+            call.application.environment.log.info("Patching server with id ${call.parameters["id"]}")
             val serverUUID = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
 
             val serverAPIModel: MinecraftServerAPIModel = call.receiveSerializable()
@@ -83,7 +83,7 @@ fun Route.serversRoute() { // TODO: Better response codes in general
         }
 
         put {
-            println("Putting server with id ${call.parameters["id"]}")
+            call.application.environment.log.info("Putting server with id ${call.parameters["id"]}")
             val uuid = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
 
             val serverAPIModel: MinecraftServerAPIModel = call.receiveSerializable()
@@ -108,7 +108,7 @@ fun Route.serversRoute() { // TODO: Better response codes in general
         }
 
         delete {
-            println("Deleting server with id ${call.parameters["id"]}")
+            call.application.environment.log.info("Deleting server with id ${call.parameters["id"]}")
             val uuid = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
 
             val success = restApiService.deleteServer(uuid)
@@ -122,7 +122,7 @@ fun Route.serversRoute() { // TODO: Better response codes in general
 
         route("/currentRun") {
             get {
-                println("Getting current run for server with id ${call.parameters["id"]}")
+                call.application.environment.log.info("Getting current run for server with id ${call.parameters["id"]}")
                 val serverUUID = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
 
                 val run = restApiService
@@ -134,7 +134,7 @@ fun Route.serversRoute() { // TODO: Better response codes in general
             }
 
             post {
-                println("Creating new run for server with id ${call.parameters["id"]}")
+                call.application.environment.log.info("Creating new run for server with id ${call.parameters["id"]}")
                 val serverUUID = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
                 val environment = call.receiveSerializable<MinecraftServerEnvironmentAPIModel>().toMinecraftServerEnvironment()
 
@@ -148,7 +148,7 @@ fun Route.serversRoute() { // TODO: Better response codes in general
             }
 
             delete {
-                println("Stopping current run for server with id ${call.parameters["id"]}")
+                call.application.environment.log.info("Stopping current run for server with id ${call.parameters["id"]}")
 
                 val serverUUID = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
 

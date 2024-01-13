@@ -35,22 +35,24 @@ import kotlinx.serialization.json.Json
 import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
 import org.koin.logger.SLF4JLogger
+import org.slf4j.LoggerFactory
 
 fun main() {
-    println("Starting")
+    logger.info("Starting")
 
-    println("Asserts are " + if (assertsEnabled()) "ENABLED" else "DISABLED")
+    logger.info("Asserts are " + if (assertsEnabled()) "ENABLED" else "DISABLED")
 
     runBlocking {
-        println("Initializing database")
+        logger.info("Initializing database")
         initDatabase(50)
     }
 
-    println("Initializing server")
+    logger.info("Initializing server")
     embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = Application::module).start(wait = true)
 }
 
 fun Application.module() {
+    logger.info("Configuring koin")
     install(Koin) {
         SLF4JLogger()
         modules(
@@ -95,8 +97,11 @@ fun Application.module() {
         )
     }
 
+    logger.info("Configuring security")
     configureSecurity()
+    logger.info("Configuring routing")
     configureRouting()
+    logger.info("Configuring monitoring")
     configureMonitoring()
 }
 
@@ -106,3 +111,5 @@ private fun assertsEnabled(): Boolean = try {
 } catch (e: AssertionError) {
     true
 }
+
+private val logger = LoggerFactory.getLogger("Main")

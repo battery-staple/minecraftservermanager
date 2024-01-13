@@ -46,7 +46,7 @@ fun Application.configureRouting() {
                 is NotAllowedException -> call.respond(HttpStatusCode.MethodNotAllowed, e.message ?: "Not allowed")
                 is NotImplementedError -> call.respond(HttpStatusCode.NotImplemented, e.message ?: "Not implemented")
                 is InternalServerException -> call.respond(HttpStatusCode.InternalServerError, e.message ?: "Internal Server Error")
-                else -> e.printStackTrace()
+                else -> call.application.environment.log.error("Uncaught exception:\n${e.stackTraceToString()}")
             }
         }
     }

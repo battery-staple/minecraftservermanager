@@ -1,7 +1,7 @@
 package com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi
 
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
-import com.rohengiralt.minecraftservermanager.util.extensions.httpClient.appendGetToFile
+import com.rohengiralt.minecraftservermanager.util.extensions.httpClient.appendGetToPath
 import com.rohengiralt.minecraftservermanager.util.ifNull
 import io.ktor.client.*
 import io.ktor.client.call.*
@@ -11,28 +11,29 @@ import io.ktor.http.*
 import kotlinx.serialization.Serializable
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import org.slf4j.LoggerFactory
 import java.nio.file.Path
 
 class LauncherAPI : MinecraftJarAPI, KoinComponent {
     override suspend fun appendServerToPath(path: Path, version: MinecraftVersion): Boolean {
         val manifest = getManifest().ifNull {
-            println("Couldn't get manifest")
+            logger.error("Couldn't get manifest")
             throw IllegalStateException("Cannot get manifest")
         }
         val versionURL = getVersionURL(version, manifest).ifNull {
-            println("Couldn't find jar of version ${version.versionString} in manifest")
+            logger.error("Couldn't find jar of version ${version.versionString} in manifest")
             throw IllegalArgumentException("No such version ${version.versionString}")
         }
         val launcher = getLauncher(versionURL).ifNull {
-            println("Couldn't get launcher json")
+            logger.error("Couldn't get launcher json")
             throw IllegalStateException("Cannot get launcher json")
         }
         val serverURL = launcher.serverURL.ifNull {
-            println("Couldn't find server jar for version ${version.versionString}")
+            logger.error("Couldn't find server jar for version ${version.versionString}")
             throw IllegalArgumentException("No server for version ${version.versionString}")
         }
 
-        return httpClient.appendGetToFile(serverURL, path)
+        return httpClient.appendGetToPath(serverURL, path)
     }
 
     private suspend fun getManifest(): Manifest? =
@@ -40,7 +41,7 @@ class LauncherAPI : MinecraftJarAPI, KoinComponent {
             .get(MANIFEST_URL)
             .bodyOrNull()
 
-    private suspend fun getVersionURL(version: MinecraftVersion, manifest: Manifest): String? =
+    private fun getVersionURL(version: MinecraftVersion, manifest: Manifest): String? =
         manifest.versions.firstOrNull {
             it.id == version.versionString
         }?.url
@@ -52,7 +53,7 @@ class LauncherAPI : MinecraftJarAPI, KoinComponent {
 
     private val Launcher.serverURL get(): String? = downloads.server?.url
 
-    private infix fun Path.matchesHash(sha1: String): Boolean = true //TODO: Implement
+    private infix fun Path.matchesHash(sha1: String): Boolean = true //TODO: Implement and use
 
     private suspend inline fun <reified T> HttpResponse.bodyOrNull(): T? =
         if (status.isSuccess()) body() else null
@@ -73,6 +74,8 @@ class LauncherAPI : MinecraftJarAPI, KoinComponent {
 
     @Serializable
     data class Download(val sha1: String, val url: String)
+
+    private val logger = LoggerFactory.getLogger(this::class.java)
 
     companion object {
         private const val MANIFEST_URL = "https://launchermeta.mojang.com/mc/game/version_manifest.json"

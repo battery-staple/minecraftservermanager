@@ -34,6 +34,7 @@ import kotlinx.html.body
 import kotlinx.html.br
 import kotlinx.html.p
 import org.koin.ktor.ext.inject
+import org.slf4j.LoggerFactory
 import java.io.File
 import kotlin.collections.set
 import kotlin.time.Duration.Companion.days
@@ -50,6 +51,7 @@ internal object SecuritySpec : ConfigSpec() {
     val whitelistFile by optional<String>("/minecraftservermanager/whitelist.txt")
 }
 
+@Suppress("InjectedReferences")
 fun Application.configureSecurity() {
     val authorizer: UserIDAuthorizer by inject()
 
@@ -66,7 +68,7 @@ fun Application.configureSecurity() {
         basic("auth-debug") {
             validate { credentials ->
                 if (credentials.name.startsWith("User McUserface") && credentials.password == "Super secure password") {
-                    println("Authenticating debug user with credentials $credentials") // TODO: definitely remove the logging of credentials
+                    logger.info("Authenticating debug user with credentials $credentials") // TODO: definitely remove the logging of credentials
                     UserLoginInfo(
                         userId = UserID(credentials.name.removePrefix("User McUserface").notEmptyOr("1")),
                         email = "user@example.com"
@@ -77,7 +79,7 @@ fun Application.configureSecurity() {
 
         session<UserSession>("auth-session") {
             validate { session ->
-                println("Preparing to validate userinfo")
+                logger.debug("Preparing to validate userinfo")
                 val idToken: GoogleIdToken = idTokenVerifier.verifyUserSessionIdToken(
                     userSession = session,
                     sessions = sessions
@@ -92,7 +94,7 @@ fun Application.configureSecurity() {
             }
 
             challenge { userSession ->
-                println("Received session authentication challenge")
+                logger.debug("Received session authentication challenge")
 
                 val redirectUrl = URLBuilder("http://$hostname/login").run {
                     parameters.append("redirectUrl", call.request.uri)
@@ -170,3 +172,5 @@ private val oauthClient = HttpClient(OkHttp) {
         json()
     }
 }
+
+private val logger = LoggerFactory.getLogger("Security")
