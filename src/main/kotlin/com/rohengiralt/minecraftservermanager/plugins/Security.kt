@@ -145,6 +145,7 @@ fun Application.configureSecurity() {
             }
 
             get("/callback") {
+                logger.debug("Auth callback received")
                 val principal: OAuthAccessTokenResponse.OAuth2? = call.principal()
                 principal ?: throw BadRequestException("Invalid token response")
                 val state = principal.state ?: throw BadRequestException("Missing state")

@@ -2,7 +2,6 @@ package com.rohengiralt.minecraftservermanager.domain.service
 
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
-import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerPastRunRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerRunnerRepository
 import kotlinx.coroutines.CoroutineScope
@@ -58,5 +57,4 @@ class WebsocketAPIServiceImpl : WebsocketAPIService, KoinComponent {
 
     private val serverRepository: MinecraftServerRepository by inject()
     private val runnerRepository: MinecraftServerRunnerRepository by inject()
-    private val pastRunRepository: MinecraftServerPastRunRepository by inject()
 }

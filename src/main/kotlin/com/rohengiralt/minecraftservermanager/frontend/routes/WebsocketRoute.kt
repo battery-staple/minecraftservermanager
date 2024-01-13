@@ -42,11 +42,13 @@ fun Route.websockets() {
 
                 withContext(Dispatchers.IO) {
                     call.application.environment.log.trace("Collecting current runs updates for server {}", serverUUID)
+
                     currentRunsFlow.collect { runs: List<MinecraftServerCurrentRun> ->
                         val runAPIModels = runs.map(::MinecraftServerCurrentRunAPIModel)
                         val serializedRuns = json.encodeToString(runAPIModels)
                         outgoing.send(Frame.Text(serializedRuns))
                     }
+
                     call.application.environment.log.trace(
                         "Finished collecting current runs updates for server {}",
                         serverUUID
@@ -82,7 +84,7 @@ fun Route.websockets() {
                     launch(Dispatchers.IO) {
                         runChannel.consumeAsFlow().collect {
                             outgoing.send(Frame.Text(it)) // TODO: handle process ending
-                        } ?: return@launch close(CloseReason(CloseReason.Codes.NORMAL, "No running process"))
+                        }
                     }
 
                     launch(Dispatchers.IO) {
@@ -90,12 +92,7 @@ fun Route.websockets() {
                             launch {
                                 (it as? Frame.Text)?.let { frame ->
                                     call.application.environment.log.trace("Received ${frame.readText()}")
-                                    runChannel.send(frame.readText()) ?: close(
-                                        CloseReason(
-                                            CloseReason.Codes.NORMAL,
-                                            "No running process"
-                                        )
-                                    )
+                                    runChannel.send(frame.readText())
                                 } ?: call.application.environment.log.warn("Received non-text frame with type ${it.frameType}")
                             }
                         }

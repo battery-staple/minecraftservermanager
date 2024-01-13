@@ -66,7 +66,6 @@ export function ServerPage(props: { serverUUID: string }) {
                         isCurrentRun(currentRun) ?
                             <p>Address: {currentRun.address.host + ":" + currentRun.address.port}</p> : null
                     }
-                    <p>running? {`${isRunning}`}</p>
                     <button onClick={() => startServer(server)}>Start</button>
                     <button onClick={() => stopServer(server)}>Stop</button>
                     <Console serverUUID={props.serverUUID} currentRun={currentRun}/>
@@ -76,38 +75,37 @@ export function ServerPage(props: { serverUUID: string }) {
 }
 
 function Console(props: { serverUUID: string, currentRun: CurrentRun | AccessError | null }) {
-    const [logHistoryState, setLogHistoryState] = useState<string[]>([])
+    const [logHistoryState, setLogHistoryState] = useState<LogLine[]>([])
     const [autoScroll, setAutoScroll] = useState<boolean>(true)
-    const consoleBottomRef = useRef<HTMLDivElement | null>(null)
-    const logHistoryRef = useRef<string[]>([]);
-    const [animationParent, enableAnimation] = useAutoAnimate()
+    const logHistoryRef = useRef<LogLine[]>([]);
+    const consoleWebsocket = useRef<WebSocket | undefined>(undefined);
 
-    function setLogHistory(newLogHistory: string[]) {
+    function setLogHistory(newLogHistory: LogLine[]) {
         logHistoryRef.current = newLogHistory // Allows immediate update of the underlying property
         setLogHistoryState(logHistoryRef.current)
     }
 
-    const appendToLogHistory = useCallback((newLine: string) => {
+    const appendToLogHistory = useCallback((newLine: LogLine) => {
         setLogHistory([...logHistoryRef.current, newLine])
     }, []);
-
-    const consoleWebsocket = useRef<WebSocket | undefined>(undefined);
 
     const setConsoleWebsocket = useCallback(async (currentRun: CurrentRun | null | AccessError) => {
         if (isCurrentRun(currentRun)) {
             await setConsoleWebsocket(null) // Clear current websocket, if any
 
             consoleWebsocket.current = await getConsoleWebsocket(currentRun.runnerId, currentRun.uuid, (event: MessageEvent<string>) => {
-                appendToLogHistory(event.data)
+                appendToLogHistory({
+                    source: "output",
+                    text: event.data
+                })
             })
         } else { // currentRun is an AccessError or null
             consoleWebsocket.current?.close()
-            appendToLogHistory("\n")
             consoleWebsocket.current = undefined
         }
     }, [appendToLogHistory])
 
-    useEffect(() => {
+    useEffect(() => { // Setup
         // noinspection JSIgnoredPromiseFromCall
         setConsoleWebsocket(props.currentRun)
 
@@ -116,35 +114,96 @@ function Console(props: { serverUUID: string, currentRun: CurrentRun | AccessErr
         }
     }, [props.currentRun, setConsoleWebsocket])
 
-    useEffect(() => { // Autoscroll when log updates
-        if (autoScroll) {
-            consoleBottomRef.current?.scrollIntoView()
+    return (
+        <div className="console">
+            <ConsoleHistory logHistory={logHistoryState} autoScroll={autoScroll}/>
+            <ConsoleInput consoleWebsocket={consoleWebsocket.current} appendToLogHistory={appendToLogHistory}/>
+            <AutoscrollButton autoScroll={autoScroll} setAutoScroll={setAutoScroll}/>
+        </div>
+    )
+}
+
+function ConsoleHistory(props: { logHistory: LogLine[], autoScroll: boolean }) {
+    const consoleHistoryBottomRef = useRef<HTMLDivElement | null>(null)
+    const [animationParent, enableAnimation] = useAutoAnimate()
+
+    useEffect(() => { // Autoscroll
+        if (props.autoScroll) {
+            consoleHistoryBottomRef.current?.scrollIntoView()
         }
-    }, [autoScroll, logHistoryState]);
+    }, [props.autoScroll, props.logHistory]); // Should scroll whenever logHistory changes
 
-
-
-
-    return (<>
-        <p>Console:</p>
-        <div className="console" ref={animationParent}>
+    return (
+        <div className="console-history" ref={animationParent}>
             {
-                logHistoryState
-                    .filter(line => line.trim().length > 0)
-                    .map(line =>
-                        <div className="console-line">{line}</div>
-                    )
+                props.logHistory
+                    .filter(line => line.source === null || line.text.trim().length > 0)
+                    .map(line => {
+                        switch (line.source) {
+                            case "input":
+                                return <div className="console-line console-line-input">{line.text}</div>
+                            case "output":
+                                return <div className="console-line console-line-output">{line.text}</div>
+                            case null: // Line break
+                                return <div className="console-line"><br/></div>
+                        }
+                    })
             }
             {/*invisible div to make scrolling to bottom easier*/}
-            <div id="console-bottom" ref={consoleBottomRef}></div>
+            <div id="console-history-bottom" ref={consoleHistoryBottomRef}></div>
         </div>
+    )
+}
+
+function AutoscrollButton(props: { autoScroll: boolean, setAutoScroll: (value: boolean) => void }) {
+    const toggleAutoScroll = () => props.setAutoScroll(!props.autoScroll)
+
+    return (
         <label>
-            Autoscroll
-            <input type="checkbox" checked={autoScroll} onChange={() => setAutoScroll(!autoScroll)}/>
+            Enable Autoscroll
+            <input type="checkbox" checked={props.autoScroll} onChange={toggleAutoScroll}/>
         </label>
-    </>)
+    )
+}
+
+function ConsoleInput(props: { consoleWebsocket: WebSocket | undefined, appendToLogHistory: (newLine: LogLine) => void }) {
+    const [input, setInput] = useState("")
+
+    function submit() {
+        if (props.consoleWebsocket === undefined) {
+            return // TODO: Report error or something
+        }
+
+        props.consoleWebsocket.send(input)
+        props.appendToLogHistory({
+            source: "input",
+            text: input
+        })
+        setInput("")
+    }
+
+    return (
+        <div
+            className="console-input"
+            onKeyDown={event => { if (event.key === "Enter") submit() }}
+        >
+            <input
+                className="console-input-input" name="ConsoleInput"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+            />
+            <button className="console-input-button" onClick={submit}>
+                Send
+            </button>
+        </div>
+    )
 }
 
 function isCurrentRun(possibleCurrentRun: CurrentRun | null | AccessError): possibleCurrentRun is CurrentRun {
     return possibleCurrentRun !== null && typeof possibleCurrentRun !== "string"
+}
+
+interface LogLine {
+    source: "input" | "output"
+    text: string
 }
