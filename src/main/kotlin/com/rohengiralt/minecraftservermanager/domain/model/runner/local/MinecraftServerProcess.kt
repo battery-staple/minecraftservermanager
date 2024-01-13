@@ -1,5 +1,6 @@
 package com.rohengiralt.minecraftservermanager.domain.model.runner.local
 
+import com.rohengiralt.minecraftservermanager.util.assertAllPropertiesNotNull
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.SendChannel
@@ -87,9 +88,15 @@ class MinecraftServerProcess(private val name: String, private val process: Proc
         }
     }
 
+    private fun cancelAllJobs() = jobs.forEach { job -> job.cancel() }
+
     private val scope = CoroutineScope(Dispatchers.IO)
     private val jobs = mutableListOf<Job>()
+    private val logger = LoggerFactory.getLogger(this::class.java)
+
     init { // MUST be at end so that all properties used in jobs are initialized
+        assertAllPropertiesNotNull()
+
         jobs += scope.launch {
             process.inputChannelJob()
         }
@@ -101,13 +108,9 @@ class MinecraftServerProcess(private val name: String, private val process: Proc
         }
     }
 
-    private fun cancelAllJobs() = jobs.forEach { job -> job.cancel() }
-
     sealed interface ServerOutput
 
     @JvmInline
     value class TextOutput(val text: String) : ServerOutput
     data object OutputEnd : ServerOutput
-
-    private val logger = LoggerFactory.getLogger(this::class.java)
 }
