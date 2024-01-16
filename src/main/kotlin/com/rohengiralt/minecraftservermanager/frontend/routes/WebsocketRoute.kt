@@ -1,7 +1,9 @@
 package com.rohengiralt.minecraftservermanager.frontend.routes
 
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
+import com.rohengiralt.minecraftservermanager.domain.model.server.ServerIO
 import com.rohengiralt.minecraftservermanager.domain.service.WebsocketAPIService
+import com.rohengiralt.minecraftservermanager.frontend.model.ConsoleMessageAPIModel
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerAPIModel
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerCurrentRunAPIModel
 import com.rohengiralt.minecraftservermanager.util.routes.getParameterOrBadRequest
@@ -82,20 +84,31 @@ fun Route.websockets() {
                     )
 
                     launch(Dispatchers.IO) {
-                        runChannel.consumeAsFlow().collect {
-                            outgoing.send(Frame.Text(it)) // TODO: handle process ending
+                        call.application.environment.log.trace("Starting console websocket output job for runner {}, run {}", runnerUUID, runUUID)
+                        runChannel.consumeAsFlow().collect { message ->
+                            call.application.environment.log.trace("Sending {}", message.text)
+                            sendSerialized<ConsoleMessageAPIModel>(  // Type parameter is necessary for the "type" field
+                                                                     // to be included in the serialized object
+                                ConsoleMessageAPIModel.fromServerIO(message)
+                            )
                         }
+
+                        close(CloseReason(CloseReason.Codes.NORMAL, "Server stopped")) // If we've reached here, the channel closed
+                                                                                                // (i.e., the process has ended)
+                        call.application.environment.log.trace("Console websocket output job ended for runner {}, run {}", runnerUUID, runUUID)
                     }
 
                     launch(Dispatchers.IO) {
+                        call.application.environment.log.trace("Starting console websocket input job for runner {}, run {}", runnerUUID, runUUID)
                         incoming.consumeEach {
                             launch {
                                 (it as? Frame.Text)?.let { frame ->
-                                    call.application.environment.log.trace("Received ${frame.readText()}")
-                                    runChannel.send(frame.readText())
-                                } ?: call.application.environment.log.warn("Received non-text frame with type ${it.frameType}")
+                                    call.application.environment.log.trace("Received {}", frame.readText())
+                                    runChannel.send(ServerIO.Input.InputMessage(frame.readText()))
+                                } ?: call.application.environment.log.warn("Received non-text frame with type {}", it.frameType)
                             }
                         }
+                        call.application.environment.log.trace("Console websocket input job ended for runner {}, run {}", runnerUUID, runUUID)
                     }
 
                     call.application.environment.log.debug(
@@ -110,12 +123,12 @@ fun Route.websockets() {
 
     route("servers/{serverId}") {
         webSocket {
-            call.application.environment.log.info("Received server updates websocket connection request for server ${call.parameters["serverId"]}")
+            call.application.environment.log.info("Received server updates websocket connection request for server {}", call.parameters["serverId"])
             coroutineScope {
                 val serverUUID = call.getParameterOrBadRequest("serverId").parseUUIDOrBadRequest()
                 val serverUpdatesFlow = websocketAPIService.getServerUpdatesFlow(serverUUID)
 
-                call.application.environment.log.debug("Opening server updates websocket for server $serverUUID")
+                call.application.environment.log.debug("Opening server updates websocket for server {}", serverUUID)
 
                 launch(Dispatchers.IO) {
                     serverUpdatesFlow.collect { server ->
@@ -125,7 +138,7 @@ fun Route.websockets() {
                     }
                 }
 
-                call.application.environment.log.debug("Closing server updates websocket for server $serverUUID")
+                call.application.environment.log.debug("Closing server updates websocket for server {}", serverUUID)
             }
         }
     }

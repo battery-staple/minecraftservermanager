@@ -147,6 +147,10 @@
   color: #3968f1
 }
 
+.console-line-error {
+  color: #de2727
+}
+
 .console-input {
   display: flex;
   flex-direction: row;

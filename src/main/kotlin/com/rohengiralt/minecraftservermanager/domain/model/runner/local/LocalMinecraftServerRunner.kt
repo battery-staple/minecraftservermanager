@@ -6,6 +6,7 @@ import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCu
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRunRecord
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerPastRun
 import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerRunner
+import com.rohengiralt.minecraftservermanager.domain.model.runner.local.MinecraftServerProcess.ProcessMessage
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.contentdirectory.LocalMinecraftServerContentDirectoryRepository
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.currentruns.CurrentRunRepository
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJarResourceManager
@@ -187,7 +188,9 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
             ),
             startTime = startTime,
             input = process.input,
-            output = process.output.filterIsInstance<MinecraftServerProcess.TextOutput>().map { it.text },
+            interleavedIO = process.interleavedIO
+                .filterIsInstance<ProcessMessage.IO<*>>()
+                .map { it.content }
         )
             .also { run ->
                 logger.trace("Adding new current run {}", run.uuid)
@@ -196,7 +199,7 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
                 currentRunRecordRepository.addRecord(MinecraftServerCurrentRunRecord.fromCurrentRun(run))
             }
             .also { run ->
-                process.archiveOnEndJob(run) // TODO: HOW DO I ARCHIVE CURRENT RUNS WHEN (e.g) JVM QUITS??? (edit: Maybe save current runs to database and archive if any current runs exist on startup)
+                process.archiveOnEndJob(run)
             }
     }
 
@@ -270,7 +273,7 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
 
     private suspend fun MinecraftServerProcess.waitForEnd() {
         output
-            .filterIsInstance<MinecraftServerProcess.OutputEnd>()
+            .filterIsInstance<ProcessMessage.ProcessEnd>()
             .firstOrNull()
     }
 

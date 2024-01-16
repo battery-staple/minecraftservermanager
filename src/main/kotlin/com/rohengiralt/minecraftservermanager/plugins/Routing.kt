@@ -7,6 +7,7 @@ import com.rohengiralt.minecraftservermanager.frontend.routes.rest.statusRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.rest.usersRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.websockets
 import io.ktor.http.*
+import io.ktor.serialization.kotlinx.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
@@ -18,13 +19,18 @@ import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
+import kotlinx.serialization.json.Json
 import org.koin.ktor.ext.get
 
 fun Application.configureRouting() {
-    install(WebSockets)
-    install(ContentNegotiation) {
-        json(this@configureRouting.get())
+    install(WebSockets) {
+        contentConverter = KotlinxWebsocketSerializationConverter(this@configureRouting.get<Json>())
     }
+
+    install(ContentNegotiation) {
+        json(this@configureRouting.get<Json>())
+    }
+
     install(CORS) {
         allowMethod(HttpMethod.Options)
         allowMethod(HttpMethod.Put)

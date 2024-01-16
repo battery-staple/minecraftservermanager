@@ -80,12 +80,13 @@ export async function getCurrentRunWebsocket(runnerUUID: string, serverUUID: str
     return websocket
 }
 
-export async function getConsoleWebsocket(runnerUUID: string, runUUID: string, onMessage: (this: WebSocket, event: MessageEvent<any>) => any): Promise<WebSocket> {
+export async function getConsoleWebsocket(runnerUUID: string, runUUID: string, onMessage: (this: WebSocket, event: MessageEvent) => any, onClose: (this: WebSocket, ev: CloseEvent) => any): Promise<WebSocket> {
     const websocket = new WebSocket(
         `ws://${await getHostname()}/api/v2/websockets/runners/${runnerUUID}/runs/current/${runUUID}/console`
     )
 
     websocket.onmessage = onMessage
+    websocket.onclose = onClose
 
     return websocket
 }

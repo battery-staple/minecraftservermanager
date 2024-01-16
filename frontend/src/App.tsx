@@ -45,9 +45,6 @@ function Body() {
                 <Route exact path="/servers/:serverId" component={({ match }: RouteComponentProps<{ serverId: string }>) => (
                     <ServerPage serverUUID={match.params.serverId} />
                 )}/>
-                <Route exact path="/test">
-                    <p>hi</p>
-                </Route>
                 <Route exact path="/">
                     <ServerList/>
                 </Route>

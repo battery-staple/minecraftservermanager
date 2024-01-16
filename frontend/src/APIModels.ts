@@ -40,3 +40,10 @@ export type UserPreferences = {
 
 export type SortStrategy = "NEWEST" | "OLDEST" | "ALPHABETICAL"
 export let DEFAULT_SORT_STRATEGY: SortStrategy = "ALPHABETICAL"
+
+export type ConsoleMessage = {
+    type: ConsoleMessageTextType
+    text: string
+}
+
+export type ConsoleMessageTextType = "Log" | "Error" | "Input"
