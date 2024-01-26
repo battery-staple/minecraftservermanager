@@ -29,6 +29,7 @@ fun Route.serversRoute() { // TODO: Better response codes in general
 
         if (serverAPIModel.uuid != null) cannotUpdateField("uuid")
         if (serverAPIModel.creationTime != null) cannotUpdateField("creationTime")
+
         val name = serverAPIModel.name ?: missingField("name")
         val version = serverAPIModel.version ?: missingField("version")
         val runnerUUID = serverAPIModel.runnerUUID ?: missingField("runnerUUID")

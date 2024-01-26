@@ -40,6 +40,12 @@ interface WebsocketAPIService {
      * current runs of the server with UUID [serverId] change.
      */
     suspend fun getAllCurrentRunsFlow(serverId: UUID): Flow<List<MinecraftServerCurrentRun>>?
+
+    /**
+     * Returns a flow for a that sends a new [List] of [MinecraftServer]s whenever servers
+     * are added or deleted.
+     */
+    suspend fun getAllServersUpdatesFlow(): Flow<List<MinecraftServer>>
 }
 
 class WebsocketAPIServiceImpl : WebsocketAPIService, KoinComponent {
@@ -68,9 +74,8 @@ class WebsocketAPIServiceImpl : WebsocketAPIService, KoinComponent {
         return object : Channel<ServerIO>, SendChannel<ServerIO> by input, ReceiveChannel<ServerIO> by output {}
     }
 
-    override suspend fun getServerUpdatesFlow(serverId: UUID): Flow<MinecraftServer?> { // TODO: Stateflow to remove the need to GET before websocket
-        return serverRepository.getServerUpdates(serverId)
-    }
+    override suspend fun getServerUpdatesFlow(serverId: UUID): Flow<MinecraftServer?> = // TODO: Stateflow to remove the need to GET before websocket
+        serverRepository.getServerUpdates(serverId)
 
     override suspend fun getAllCurrentRunsFlow(serverId: UUID): Flow<List<MinecraftServerCurrentRun>>? {
         val server = serverRepository.getServer(serverId) ?: return null
@@ -78,6 +83,9 @@ class WebsocketAPIServiceImpl : WebsocketAPIService, KoinComponent {
 
         return runner.getAllCurrentRunsFlow(server)
     }
+
+    override suspend fun getAllServersUpdatesFlow(): Flow<List<MinecraftServer>> =
+        serverRepository.getAllUpdates()
 
     private val serverRepository: MinecraftServerRepository by inject()
     private val runnerRepository: MinecraftServerRunnerRepository by inject()

@@ -110,10 +110,15 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
     }
 
     override suspend fun deleteServer(uuid: UUID): Boolean {
+        logger.trace("Getting server with uuid {}", uuid)
         val server = serverRepository.getServer(uuid) ?: return false
+        logger.trace("Getting runner with uuid {}", uuid)
         val runner = runnerRepository.getRunner(server.runnerUUID) ?: return false
-        runner.removeServer(server)
-        return serverRepository.removeServer(uuid)
+        logger.trace("Removing server with uuid {} from runner with uuid {}", uuid, runner.uuid)
+        val removeFromRunnerSuccess = runner.removeServer(server)
+        logger.trace("Removing server with uuid {} from server repository}", uuid)
+        val removeFromRepositorySuccess = serverRepository.removeServer(uuid)
+        return removeFromRunnerSuccess && removeFromRepositorySuccess
     }
 
     override suspend fun getAllRunners(): List<MinecraftServerRunner> =

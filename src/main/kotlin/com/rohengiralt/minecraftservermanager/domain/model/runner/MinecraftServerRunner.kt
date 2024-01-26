@@ -49,7 +49,7 @@ interface MinecraftServerRunner {
     ): MinecraftServerCurrentRun?
 
     /**
-     * Stops the provided run, if it exists.
+     * Stops the provided run if it exists.
      * Note that this method may suspend until the run has been successfully ended.
      * @param uuid the UUID of the run to stop
      * @return true if a run was ended (if no run with the provided uuid exists, returns false)
@@ -57,7 +57,7 @@ interface MinecraftServerRunner {
     suspend fun stopRun(uuid: UUID): Boolean
 
     /**
-     * Stops the provided server's run, if one exists.
+     * Stops the provided server's run if one exists.
      * Note that this method may suspend until the run has been successfully ended.
      * @param serverUUID the UUID of the server whose run to stop
      * @return true if a run was ended
@@ -85,7 +85,7 @@ interface MinecraftServerRunner {
     suspend fun getAllCurrentRuns(): List<MinecraftServerCurrentRun>
 
     /**
-     * Gets a the current run of the given server on this runner, if it exists.
+     * Gets the current run of the given server on this runner if it exists.
      * @param serverUUID the UUID of the server whose runs to query
      * @return the server's current run if it exists, null otherwise
      */

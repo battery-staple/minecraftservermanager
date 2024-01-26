@@ -41,7 +41,7 @@ import kotlinx.coroutines.sync.withLock
  * @see [ResourceContext]
  * @see [MutexGuardedResource]
  */
-class MutexGuardedResources<RC : ResourceContext>(
+data class MutexGuardedResources<RC : ResourceContext>(
     /**
      * The context holding the resource that is to be accessed synchronously.
      */
@@ -67,4 +67,4 @@ class MutexGuardedResources<RC : ResourceContext>(
  * Marker interface for a class that holds several resources, all of which must change consistently.
  * @see MutexGuardedResource
  */
-interface ResourceContext {}
+interface ResourceContext

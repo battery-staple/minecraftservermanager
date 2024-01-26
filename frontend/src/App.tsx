@@ -1,34 +1,38 @@
 // noinspection RequiredAttributes
 
-import React, {useEffect, useState} from 'react';
+import React, {JSX, useEffect, useState} from 'react';
 import { Switch, Route, RouteComponentProps } from 'react-router-dom'
 import './App.css';
 import {ServerList} from "./components/ServerList";
 import {ServerPage} from "./components/ServerPage";
-import {BackendStatus, getBackendStatus} from "./networking/BackendAPI";
+
+import {BackendStatus, getBackendStatus} from "./networking/backendAPI/BackendStatus";
 
 function Page() {
+    const [additionalHeaderElements, setAdditionalHeaderElements] = useState<JSX.Element | null>(null)
+
     return (
         <div className="App">
-            <Header />
-            <Body />
+            <Header additionalHeaderElements={additionalHeaderElements}/>
+            <Body setHeader={setAdditionalHeaderElements}/>
         </div>
     );
 }
 
-function Header() {
+function Header(props: { additionalHeaderElements: JSX.Element | null }) {
     return (
         <header className="App-header">
             <div className="header-main-bar">
                 <a href="/">
                     <h1>Server Manager</h1>
                 </a>
+                {props.additionalHeaderElements}
             </div>
         </header>
     )
 }
 
-function Body() {
+function Body(props: { setHeader: (headerElement: JSX.Element) => void }) {
     let [backendStatus, setBackendStatus] = useState<BackendStatus>('offline')
 
     useEffect(() => {
@@ -46,7 +50,7 @@ function Body() {
                     <ServerPage serverUUID={match.params.serverId} />
                 )}/>
                 <Route exact path="/">
-                    <ServerList/>
+                    <ServerList setHeader={props.setHeader}/>
                 </Route>
             </Switch>
         </main>

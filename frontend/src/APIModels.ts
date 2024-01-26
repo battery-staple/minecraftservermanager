@@ -1,11 +1,24 @@
 export type Server = {
     uuid: string,
     name: string,
-    versionPhase: string,
+    versionPhase: VersionPhase,
     version: string,
     runnerUUID: string,
     creationTime: Date
 }
+
+export type VersionPhase = "PRE_CLASSIC"
+    | "PRE_SURVIVAL_TEST"
+    | "SURVIVAL_TEST"
+    | "POST_SURVIVAL_TEST"
+    | "INDEV"
+    | "INFDEV"
+    | "ALPHA"
+    | "BETA"
+    | "RELEASE"
+    | "SNAPSHOT"
+    // | "FORGE"
+    | "CUSTOM"
 
 export type CurrentRun = {
     uuid: string,

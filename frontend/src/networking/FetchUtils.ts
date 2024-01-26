@@ -2,6 +2,8 @@ export const defaultHeaders = new Headers();
 export const jsonHeaders: Headers = new Headers(defaultHeaders)
 jsonHeaders.append("Content-Type", "application/json")
 
+export const DEFAULT_TIMEOUT_MS = 3000
+
 export function fetchWithTimeout(input: RequestInfo, timeoutMs: number, init?: RequestInit): Promise<Response> {
     return new Promise(((resolve, reject) => {
         fetch(input, init).then(resolve, reject)

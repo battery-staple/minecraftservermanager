@@ -1,6 +1,7 @@
 package com.rohengiralt.minecraftservermanager.frontend.routes
 
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
+import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
 import com.rohengiralt.minecraftservermanager.domain.model.server.ServerIO
 import com.rohengiralt.minecraftservermanager.domain.service.WebsocketAPIService
 import com.rohengiralt.minecraftservermanager.frontend.model.ConsoleMessageAPIModel
@@ -121,24 +122,53 @@ fun Route.websockets() {
         }
     }
 
-    route("servers/{serverId}") {
+    route("servers") {
         webSocket {
-            call.application.environment.log.info("Received server updates websocket connection request for server {}", call.parameters["serverId"])
+            call.application.environment.log.info("Received servers updates websocket connection request")
             coroutineScope {
-                val serverUUID = call.getParameterOrBadRequest("serverId").parseUUIDOrBadRequest()
-                val serverUpdatesFlow = websocketAPIService.getServerUpdatesFlow(serverUUID)
+                call.application.environment.log.debug("Opening current server updates websocket")
 
-                call.application.environment.log.debug("Opening server updates websocket for server {}", serverUUID)
+                val serverUpdatesFlow = websocketAPIService.getAllServersUpdatesFlow()
 
-                launch(Dispatchers.IO) {
-                    serverUpdatesFlow.collect { server ->
-                        val serverAPIModel = server?.let(::MinecraftServerAPIModel)
-                        val serializedServer = json.encodeToString(serverAPIModel)
-                        outgoing.send(Frame.Text(serializedServer))
+                withContext(Dispatchers.IO) {
+                    call.application.environment.log.trace("Collecting server updates")
+
+                    serverUpdatesFlow.collect { servers: List<MinecraftServer> ->
+                        val serverAPIModels = servers.map(::MinecraftServerAPIModel)
+                        call.application.environment.log.trace("Sending servers: {}", serverAPIModels)
+                        val serializedServers = json.encodeToString(serverAPIModels)
+                        outgoing.send(Frame.Text(serializedServers))
                     }
+
+                    call.application.environment.log.trace("Finished collecting servers updates")
                 }
 
-                call.application.environment.log.debug("Closing server updates websocket for server {}", serverUUID)
+                call.application.environment.log.debug("Closing servers updates websocket")
+            }
+        }
+
+        route("{serverId}") {
+            webSocket {
+                call.application.environment.log.info(
+                    "Received server updates websocket connection request for server {}",
+                    call.parameters["serverId"]
+                )
+                coroutineScope {
+                    val serverUUID = call.getParameterOrBadRequest("serverId").parseUUIDOrBadRequest()
+                    val serverUpdatesFlow = websocketAPIService.getServerUpdatesFlow(serverUUID)
+
+                    call.application.environment.log.debug("Opening server updates websocket for server {}", serverUUID)
+
+                    launch(Dispatchers.IO) {
+                        serverUpdatesFlow.collect { server ->
+                            val serverAPIModel = server?.let(::MinecraftServerAPIModel)
+                            val serializedServer = json.encodeToString(serverAPIModel)
+                            outgoing.send(Frame.Text(serializedServer))
+                        }
+                    }
+
+                    call.application.environment.log.debug("Closing server updates websocket for server {}", serverUUID)
+                }
             }
         }
     }

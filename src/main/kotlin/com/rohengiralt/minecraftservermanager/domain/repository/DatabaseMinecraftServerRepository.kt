@@ -2,15 +2,18 @@ package com.rohengiralt.minecraftservermanager.domain.repository
 
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
+import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.ReadOnlyMutexGuardedResource
+import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.ReadWriteMutexGuardedResource
+import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.useAll
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.jsonb
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.upsert
 import com.rohengiralt.minecraftservermanager.util.ifTrue.ifTrueAlso
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toJavaLocalDateTime
@@ -24,6 +27,9 @@ import java.sql.SQLException
 import java.time.ZoneOffset
 import java.util.*
 
+/**
+ * A [MinecraftServerRepository] that persists servers in a database
+ */
 class DatabaseMinecraftServerRepository : MinecraftServerRepository {
     init {
         transaction {
@@ -62,8 +68,11 @@ class DatabaseMinecraftServerRepository : MinecraftServerRepository {
         rowsDeleted > 0
     }.ifTrueAlso { serverWatcher.pushDelete(uuid) }
 
-    override fun getServerUpdates(uuid: UUID): Flow<MinecraftServer?> =
-        serverWatcher.updatesFlow(uuid, getServer(uuid))
+    override suspend fun getServerUpdates(uuid: UUID): StateFlow<MinecraftServer?> =
+        serverWatcher.serverUpdatesFlow(uuid, getServer(uuid))
+
+    override suspend fun getAllUpdates(): StateFlow<List<MinecraftServer>> =
+        serverWatcher.allUpdatesFlow(getAllServers())
 
     private fun ResultRow.toMinecraftServer() =
         MinecraftServer(
@@ -92,24 +101,71 @@ class DatabaseMinecraftServerRepository : MinecraftServerRepository {
 }
 
 private class ServerWatcher {
-    private val watchingServerChannels = mutableMapOf<UUID, MutableStateFlow<MinecraftServer?>>()
+    // Class Invariant: Must always acquire resources in the following order:
+    // 1. watchingServerFlowsResource
+    // 2. allUpdatesFlowResource
+
+    /**
+     * A resource guarding all the state flows that emit when a particular server is updated (including deleted).
+     */
+    private val watchingServerFlowsResource = ReadOnlyMutexGuardedResource(mutableMapOf<UUID, MutableStateFlow<MinecraftServer?>>())
+
+    /**
+     * A resource guarding a state flow that emits when any server is updated (including deleted).
+     * The state flow is null until [allUpdatesFlow] is first called.
+     */
+    private val allUpdatesFlowResource = ReadWriteMutexGuardedResource<MutableStateFlow<List<MinecraftServer>>?>(null)
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
 
-    fun updatesFlow(uuid: UUID, initialValue: MinecraftServer?): StateFlow<MinecraftServer?> =
-        watchingServerChannels.getOrPut(uuid) {
+    suspend fun serverUpdatesFlow(uuid: UUID, initialValue: MinecraftServer?): StateFlow<MinecraftServer?> = watchingServerFlowsResource.use { watchingServerFlows ->
+        watchingServerFlows.getOrPut(uuid) {
             MutableStateFlow(initialValue)
         }.asStateFlow()
-
-    fun pushUpdate(server: MinecraftServer) = coroutineScope.launch { // TODO: Some sort of error if emitting takes too long?
-        watchingServerChannels[server.uuid]?.emit(server)
     }
 
+    /**
+     * Returns a state flow that always contains an up-to-date list of all the servers in the database,
+     * emitting whenever one is created, changed, or deleted.
+     *
+     * @param initialValue the initial value of the state flow. Only used the first time this method is called.
+     */
+    suspend fun allUpdatesFlow(initialValue: List<MinecraftServer>): StateFlow<List<MinecraftServer>> = allUpdatesFlowResource.useMutable { allUpdatesFlow ->
+        var allUpdatesFlowValue = allUpdatesFlow.value // Necessary because the compiler doesn't know
+                                                       // that allUpdatesFlow.value is only changed within this method.
+        if (allUpdatesFlowValue == null) {
+            assert(allUpdatesFlow.value == null) { "All updates flow somehow changed while mutex was held" }
+            allUpdatesFlowValue = MutableStateFlow(initialValue)
+            allUpdatesFlow.value = allUpdatesFlowValue
+        }
+
+        return@useMutable allUpdatesFlowValue
+    }
+
+    /**
+     * Updates all flows dependent on this server's updates, causing them to emit [server].
+     * This method should be called whenever the server is updated in the database, including when first created.
+     */
+    fun pushUpdate(server: MinecraftServer) = coroutineScope.launch { // TODO: Some sort of error if emitting takes too long?
+        useAll(watchingServerFlowsResource, allUpdatesFlowResource) { watchingServerFlows, allUpdatesFlow ->
+            watchingServerFlows[server.uuid]?.emit(server)
+            allUpdatesFlow?.update { servers -> servers + server }
+        }
+    }
+
+    /**
+     * Updates all flows dependent on this server's updates, causing them to signal deletion.
+     * This method should be called whenever the server with uuid [uuid] is deleted.
+     */
     fun pushDelete(uuid: UUID) = coroutineScope.launch {
-        watchingServerChannels[uuid]?.emit(null)
+        useAll(watchingServerFlowsResource, allUpdatesFlowResource) { watchingServerFlows, allUpdatesFlow ->
+            watchingServerFlows[uuid]?.emit(null)
+            allUpdatesFlow?.update { servers ->
+                servers.filterNot { server -> server.uuid == uuid }
+            }
+        }
     }
 }
-
 
 object MinecraftServerTable : Table() {
     val uuid = uuid("uuid")

@@ -2,52 +2,66 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {ConsoleMessage, CurrentRun, Server} from "../APIModels";
 import {useAutoAnimate} from "@formkit/auto-animate/react";
 import {
-    AccessError,
-    getConsoleWebsocket,
-    getCurrentRun,
-    getCurrentRunWebsocket,
-    getServer,
-    startServer,
-    stopServer
-} from "../networking/BackendAPI";
-import {runAsync} from "../util/RunAsync";
+    AccessError
+} from "../networking/backendAPI/AccessError";
+import "./ServerPage.css"
+import {getServer, startServer, stopServer} from "../networking/backendAPI/Servers";
+import {getConsoleWebsocket, getCurrentRunWebsocket} from "../networking/backendAPI/CurrentRuns";
+import {getCurrentRun} from "../networking/backendAPI/CurrentRuns";
 
 export function ServerPage(props: { serverUUID: string }) {
+    /**
+     * The server on this page, or an AccessError if the server is not available or is still loading.
+     */
     const [server, setServer] = useState<Server | AccessError>("loading")
+
+    /**
+     * The current run of the server on this page, or null if the server is not running.
+     * If the running status of the server is currently unknown, then this is an AccessError.
+     */
     const [currentRun, setCurrentRun] = useState<CurrentRun | null | AccessError>("loading")
 
-    const currentRunWebsocket = useRef<WebSocket | undefined>(undefined);
+    /**
+     * The websocket that provides updates whenever the server's current run changes (i.e., when the server starts or stops).
+     */
+    const currentRunWebsocket = useRef<WebSocket | null>(null);
+
+    const setCurrentRunWebsocket = useCallback(async (serverUUID: string) => {
+        try {
+            const server = await getServer(serverUUID);
+            const currentRun = await getCurrentRun(server.uuid);
+
+            setCurrentRun(currentRun);
+
+            currentRunWebsocket.current =
+                await getCurrentRunWebsocket(
+                    server.runnerUUID,
+                    server.uuid,
+                    (event: MessageEvent<string>) => {
+                        const currentRuns: CurrentRun[] = JSON.parse(event.data)
+
+                        setCurrentRun(currentRuns.length === 0 ? null : currentRuns[0])
+                    },
+                    function () {
+                        if (this === currentRunWebsocket.current) currentRunWebsocket.current = null
+                    }
+                );
+
+            setServer(server);
+        } catch (e) {
+            setServer('unavailable');
+            throw e;
+        }
+    }, []);
 
     useEffect(() => {
-        runAsync(async () => {
-            try {
-                const server = await getServer(props.serverUUID);
-                const currentRun = await getCurrentRun(server.uuid);
+        // noinspection JSIgnoredPromiseFromCall
+        setCurrentRunWebsocket(props.serverUUID)
 
-                setCurrentRun(currentRun);
-
-                currentRunWebsocket.current =
-                    await getCurrentRunWebsocket(
-                        server.runnerUUID,
-                        server.uuid,
-                        (event: MessageEvent<string>) => {
-                            const currentRuns: CurrentRun[] = JSON.parse(event.data)
-
-                            setCurrentRun(currentRuns.length === 0 ? null : currentRuns[0])
-                        }
-                    );
-
-                setServer(server);
-            } catch (e) {
-                setServer('unavailable');
-                throw e;
-            }
-        })
-    }, [props.serverUUID])
-
-    useEffect(() => () => { // Cleanup
-        currentRunWebsocket.current?.close()
-    }, [])
+        return () => { // Cleanup
+            currentRunWebsocket.current?.close()
+        }
+    }, [props.serverUUID, setCurrentRunWebsocket])
 
     switch (server) {
         case "unavailable":
@@ -150,6 +164,9 @@ function ConsoleHistory(props: { logHistory: ConsoleMessage[], autoScroll: boole
                                 return <div className="console-line console-line-output">{line.text}</div>
                             case "Error":
                                 return <div className="console-line console-line-error">{line.text}</div>
+                            default:
+                                console.error(`Got line of unknown type ${line.type}!`)
+                                return <div className="console-line console-line-error">[Unknown Message]</div>
                         }
                     })
             }
@@ -177,8 +194,8 @@ function ConsoleInput(props: { consoleWebsocket: WebSocket | null, logHistory: C
     const [input, setInput] = useState("");
 
     /**
-     * If the user has currently selected a previous input to edit and send, then this field holds any new data they had
-     * entered in the input field.
+     * If the user has currently selected a previous input to edit and send,
+     * then this field holds any new data they had entered in the input field.
      * It will be restored if they decide to stop editing previous input (by pressing the down arrow)
      */
     const [cachedNewInput, setCachedNewInput] = useState("")
@@ -238,7 +255,7 @@ function ConsoleInput(props: { consoleWebsocket: WebSocket | null, logHistory: C
         let newInputHistoryIndex: number // inputHistoryIndex doesn't update immediately, so this property exists
                                          // so that updated values can be used immediately
 
-        if (inputHistoryIndex === null) { // No previous input is currently selected (currently inputting new message)
+        if (inputHistoryIndex === null) { // No previous input is currently selected (currently inputting a new message)
             newInputHistoryIndex = 0; // Move to most recent previous input
             setCachedNewInput(input) // Moving away from the newly entered input, but still want to save it for later
         } else {

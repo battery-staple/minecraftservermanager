@@ -141,11 +141,12 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         // TODO: If server already running (in same environment?), noop
         val environment = environmentOverrides.run { // TODO: Should use other default, get from config?
             copy(
-                port = port ?: MinecraftServerEnvironment.Port(Port(25565u)),
+                port = port ?: MinecraftServerEnvironment.Port(Port(25565u)), // TODO: portRepository.getNextAvailablePort()
                 maxHeapSize = maxHeapSize ?: MinecraftServerEnvironment.MaxHeapSize(2048u),
                 minHeapSize = minHeapSize ?: MinecraftServerEnvironment.MinHeapSize(1024u)
             )
         }
+        assert(environment.port !== null && environment.maxHeapSize !== null && environment.minHeapSize !== null)
         environment.port!!; environment.maxHeapSize!!; environment.minHeapSize!! // Allows smart casts
 
         logger.trace("Getting content directory for server ${server.name}")
@@ -177,7 +178,7 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
             minSpaceMegabytes = environment.minHeapSize.memoryMB,
         ) ?: return null
 
-        return MinecraftServerCurrentRun(
+        val newCurrentRun = MinecraftServerCurrentRun(
             uuid = UUID.randomUUID(),
             serverUUID = server.uuid,
             runnerUUID = uuid,
@@ -192,15 +193,20 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
                 .filterIsInstance<ProcessMessage.IO<*>>()
                 .map { it.content }
         )
-            .also { run ->
-                logger.trace("Adding new current run {}", run.uuid)
-                currentRuns.addCurrentRun(run)
-                runningProcesses[run.uuid] = process
-                currentRunRecordRepository.addRecord(MinecraftServerCurrentRunRecord.fromCurrentRun(run))
-            }
-            .also { run ->
-                process.archiveOnEndJob(run)
-            }
+
+        logger.trace("Recording new current run {}", newCurrentRun.uuid)
+        recordNewCurrentRun(newCurrentRun, process)
+
+        logger.trace("Starting archive on end job for run {}", newCurrentRun.uuid)
+        process.archiveOnEndJob(newCurrentRun)
+
+        return newCurrentRun
+    }
+
+    private suspend fun recordNewCurrentRun(run: MinecraftServerCurrentRun, process: MinecraftServerProcess) {
+        currentRuns.addCurrentRun(run)
+        runningProcesses[run.uuid] = process
+        currentRunRecordRepository.addRecord(MinecraftServerCurrentRunRecord.fromCurrentRun(run))
     }
 
     override suspend fun stopRun(uuid: UUID): Boolean =
@@ -242,7 +248,6 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         currentRuns.getCurrentRunsState(server)
 
     private fun MinecraftServerProcess.archiveOnEndJob(run: MinecraftServerCurrentRun): Job = coroutineScope.launch {
-        logger.debug("Starting archive on end job for run {}", run.uuid)
         waitForEnd()
 
         val endTime = Clock.System.now()
@@ -253,7 +258,6 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         currentRunRecordRepository.removeRecord(run.uuid)
 
         logger.trace("Removed current run {}, about to save past run", run.uuid)
-
         val success: Boolean = try {
             logger.trace("Converting run to past run")
             val pastRun = run.toPastRun(endTime)

@@ -11,7 +11,7 @@ import java.nio.file.Path
 
 class AWSAPI : MinecraftJarAPI, KoinComponent {
     override suspend fun appendServerToPath(path: Path, version: MinecraftVersion): Boolean {
-        logger.debug("Appending server with version ${version.versionString} to path $path")
+        logger.debug("Appending server with version {} to path {}", version.versionString, path)
         httpClient.appendGetToPath(
             "https://s3.amazonaws.com/Minecraft.Download/versions/${version.versionString}/minecraft_server.${version.versionString}.jar", path
         ).ifFalse {

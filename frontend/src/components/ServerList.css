@@ -1,0 +1,119 @@
+.server-list {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+    margin-bottom: 5em;
+}
+
+.server-list-bar {
+    display: flex;
+    justify-content: right;
+    width: 100vw;
+    user-select: none;
+    padding-right: 1em;
+    border-style: solid;
+    border-color: black;
+}
+
+.sort-dropdown-bar {
+    background: #DDDDDD;
+    /*noinspection CssOverwrittenProperties*/
+    border-width: 0 0 1px 0;
+    display: flex;
+    justify-content: right;
+    width: 100vw;
+    margin-bottom: 6px;
+    user-select: none;
+}
+
+.sort-dropdown-bar > .dropdown > a {
+    font-size: medium;
+    color: black;
+    margin: 0;
+}
+
+.server-button {
+    --server-button-border: 3px;
+    position: relative; /* Allow position: absolute in children (like the x button) */
+    display: flex;
+    flex-direction: column;
+    background: #DDEEEE;
+    border-radius: calc(10px);
+    border: var(--server-button-border) solid #404040;
+    transition: all 0.2s ease-in-out;
+    justify-content: center;
+    min-width: 250px;
+    margin: 0;
+    user-select: none;
+}
+
+.server-button:not:disabled {
+    cursor: pointer;
+}
+
+.server-button > * {
+    min-width: 0;
+    max-width: 100%;
+    color: black;
+}
+
+.server-button:disabled > * {
+    opacity: 50%;
+}
+
+.server-button:disabled > .server-button-x {
+    opacity: 100%;
+}
+
+.server-button:enabled:active {
+    transform: scale(0.9);
+    color: inherit;
+}
+
+.server-button-title {
+    align-self: center;
+    font-family: 'Roboto Slab', sans-serif;
+    font-size: x-large;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    font-weight: bold;
+}
+
+.server-button-properties {
+    align-self: center;
+    padding-left: inherit;
+    margin-bottom: 0;
+}
+
+.server-button-properties > li {
+    list-style: none;
+    white-space: nowrap;
+}
+
+.server-button-status {
+    align-self: center;
+    color: red;
+}
+
+.server-button-x {
+    --server-button-x-dims: 35px;
+    position: absolute;
+    background: none;
+    border: none;
+    top: 0;
+    right: 0;
+    transform: translate(calc(50% + var(--server-button-border) / 2), calc(-50% - var(--server-button-border) / 2));
+    transition: all 0.2s ease-in-out;
+}
+
+.server-button-x:enabled:active {
+    transform: translate(calc(50% + var(--server-button-border) / 2), calc(-50% - var(--server-button-border) / 2)) scale(0.9);
+}
+
+.server-button-x > img {
+    height: var(--server-button-x-dims);
+    width: var(--server-button-x-dims);
+    aspect-ratio: 1;
+}
