@@ -23,6 +23,7 @@ import com.rohengiralt.minecraftservermanager.user.auth.google.UserIDAuthorizer
 import com.rohengiralt.minecraftservermanager.user.auth.google.WhitelistFileUserIDAuthorizer
 import com.rohengiralt.minecraftservermanager.user.preferences.DatabaseUserPreferencesRepository
 import com.rohengiralt.minecraftservermanager.user.preferences.UserPreferencesRepository
+import com.rohengiralt.minecraftservermanager.util.assertsEnabled
 import io.ktor.client.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.contentnegotiation.*
@@ -40,7 +41,7 @@ import org.slf4j.LoggerFactory
 fun main() {
     logger.info("Starting")
 
-    logger.info("Asserts are " + if (assertsEnabled()) "ENABLED" else "DISABLED")
+    logger.info("Asserts are " + if (assertsEnabled) "ENABLED" else "DISABLED")
 
     runBlocking {
         logger.info("Initializing database")
@@ -103,13 +104,6 @@ fun Application.module() {
     configureRouting()
     logger.info("Configuring monitoring")
     configureMonitoring()
-}
-
-private fun assertsEnabled(): Boolean = try {
-    assert(false)
-    false
-} catch (e: AssertionError) {
-    true
 }
 
 private val logger = LoggerFactory.getLogger("Main")
