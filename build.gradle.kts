@@ -22,8 +22,10 @@ application {
 project.setProperty("mainClassName", "com.rohengiralt.minecraftservermanager.ApplicationKt")
 
 tasks.withType<KotlinCompile> {
-    kotlinOptions.jvmTarget = "1.8"
-    kotlinOptions.freeCompilerArgs += "-Xcontext-receivers"
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_1_8)
+        freeCompilerArgs.add("-Xcontext-receivers")
+    }
 }
 
 repositories {
