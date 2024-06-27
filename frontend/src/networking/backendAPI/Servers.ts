@@ -18,7 +18,8 @@ export async function getServer(serverUUID: string): Promise<Server> {
     return server
 }
 
-export async function createServer(options: { name: string, versionPhase: VersionPhase, version: string, runnerUUID: string }): Promise<boolean> {
+export type CreateServerOptions = { name: string, versionPhase: VersionPhase, version: string, runnerUUID: string }
+export async function createServer(options: CreateServerOptions): Promise<boolean> {
     const response = await fetchWithTimeout(`http://${await getHostname()}/api/v2/rest/servers`, DEFAULT_TIMEOUT_MS, {
         method: "POST",
         headers: jsonHeaders,

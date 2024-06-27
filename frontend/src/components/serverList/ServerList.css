@@ -117,3 +117,8 @@
     width: var(--server-button-x-dims);
     aspect-ratio: 1;
 }
+
+.new-server-modal h1 {
+    font-family: 'Roboto Slab', sans-serif;
+    font-weight: 700;
+}

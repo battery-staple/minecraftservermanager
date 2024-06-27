@@ -1,12 +1,15 @@
 import React, {JSX, useCallback, useEffect, useMemo, useRef, useState} from "react";
-import {CurrentRun, DEFAULT_SORT_STRATEGY, Server, SortStrategy} from "../APIModels";
+import {DEFAULT_SORT_STRATEGY, Server, SortStrategy} from "../../APIModels";
 import {useAutoAnimate} from "@formkit/auto-animate/react";
 import "./ServerList.css"
-import {createServer, deleteServer, getServers, getServersWebsocket} from "../networking/backendAPI/Servers";
-import {getCurrentRun} from "../networking/backendAPI/CurrentRuns";
-import {getPreferences, updatePreferences} from "../networking/backendAPI/Preferences";
+import {getServers, getServersWebsocket} from "../../networking/backendAPI/Servers";
+import {getPreferences, updatePreferences} from "../../networking/backendAPI/Preferences";
+import {OrderDropdownBar} from "./OrderDropdownBar";
+import {HeaderButtons} from "./HeaderButtons";
+import {NewServerModal} from "./NewServerModal";
+import {ServerOption} from "./ServerOption";
 
-export function ServerList(props: { setHeader: (headerElement: JSX.Element) => void }) {
+export function ServerList(props: { setHeader: (headerElement: JSX.Element) => void }): JSX.Element {
     const [servers, setServers] = useState<Server[] | null | undefined>(undefined);
     const [sortStrategyState, setSortStrategyState] = useState<SortStrategy | undefined>(undefined)
     const [editing, setEditing] = useState(false)
@@ -106,103 +109,18 @@ export function ServerList(props: { setHeader: (headerElement: JSX.Element) => v
                     {serverOptions.map((serverOption) => (serverOption))}
                 </div>
             </div>
+            <NewServerModal />
         </div>
     );
 }
 
-function OrderDropdownBar(props: {sortStrategy: SortStrategy, setSortStrategy: (sortStrategy: SortStrategy) => void}): React.JSX.Element {
-    return <div className="sort-dropdown-bar server-list-bar">
-        <div className="dropdown">
-            <a className="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown"
-               aria-expanded="false">
-                Sorting by: {displayName(props.sortStrategy)}
-            </a>
-            <ul className="dropdown-menu">
-                <li><a className="dropdown-item" onClick={() => {
-                    props.setSortStrategy("ALPHABETICAL")
-                }}>Alphabetical</a></li>
-                <li><a className="dropdown-item" onClick={() => {
-                    props.setSortStrategy("NEWEST")
-                }}>Newest</a></li>
-                <li><a className="dropdown-item" onClick={() => {
-                    props.setSortStrategy("OLDEST")
-                }}>Oldest</a></li>
-            </ul>
-        </div>
-    </div>;
-}
-
-function HeaderButtons(props: { editing: boolean, setEditing: (editing: boolean) => void }) {
-
-    if (props.editing) {
-        return <>
-            <button type="button" className="btn btn-primary btn-lg" onClick={() => props.setEditing(false)}>
-                Done
-            </button>
-        </>
-    } else {
-        return <>
-            <button type="button" className="btn btn-secondary btn-lg" onClick={() => props.setEditing(true)}>
-                Edit
-            </button>
-            <button type="button" className="btn btn-primary btn-lg" onClick={() => createServer({
-                name: "[New button]", // TODO: Customization ofc
-                versionPhase: "RELEASE",
-                version: "1.8.9",
-                runnerUUID: "d72add0d-4746-4b46-9ecc-2dcd868062f9"
-            })}>New</button>
-        </>
-    }
-}
-
-function ServerOption(props: { server: Server, editing: boolean, setEditing: (editing: boolean) => void, onClick: () => void }): React.JSX.Element {
-    const [currentRun, setCurrentRun] = useState<CurrentRun | null>(null);
-
-    useEffect(() => {
-        getCurrentRun(props.server.uuid)
-            .then(currentRun => setCurrentRun(currentRun))
-    }, [props.server.uuid])
-
-
-    const isRunning = useCallback(() => currentRun !== null, [currentRun]);
-
-    const properties = useMemo(() => {
-        if (currentRun?.address) { // Server is running
-            return <ul className="server-button-properties">
-                <li><strong>host: </strong> {currentRun.address.host}</li>
-                <li><strong>port: </strong> {currentRun.address.port}</li>
-            </ul>
-        } else { // Server is not running
-            return <ul className="server-button-properties">
-                <li><strong>version: </strong> {props.server.version}</li>
-                <li><br/></li>
-            </ul>
-        }
-    }, [currentRun, props.server.version]);
-
-    return (
-        <button className="server-button" onClick={props.onClick} disabled={props.editing}>
-            {props.editing ?
-                <button className="server-button-x" onClick={() => deleteServer(props.server.uuid)}>
-                    <img src="/X.png" alt="" ></img>
-                </button> :
-                null}
-            <div className="server-button-title">{props.server.name}</div>
-            {properties}
-            <div className="server-button-status" style={{
-                color: isRunning() ? "green" : "red"
-            }}>{isRunning() ? "Running" : "Not Running"}</div>
-        </button>
-    )
-}
-
-function CannotLoadServers(): React.JSX.Element {
+function CannotLoadServers(): JSX.Element {
     return (
         <p>Cannot load servers :(</p>
     )
 }
 
-function LoadingServers(): React.JSX.Element {
+function LoadingServers(): JSX.Element {
     return (
         <p>Loading servers...</p>
     )
@@ -213,13 +131,5 @@ function serverCompareFn(sortStrategy: SortStrategy): (a: Server, b: Server) => 
         case "ALPHABETICAL": return (a, b) => a.name.localeCompare(b.name)
         case "NEWEST": return (a, b) => +b.creationTime - +a.creationTime
         case "OLDEST": return (a, b) => +a.creationTime - +b.creationTime
-    }
-}
-
-function displayName(sortStrategy: SortStrategy) {
-    switch (sortStrategy) {
-        case "ALPHABETICAL": return "Alphabetical"
-        case "NEWEST": return "Newest"
-        case "OLDEST": return "Oldest"
     }
 }

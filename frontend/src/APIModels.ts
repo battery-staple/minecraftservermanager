@@ -7,18 +7,21 @@ export type Server = {
     creationTime: Date
 }
 
-export type VersionPhase = "PRE_CLASSIC"
-    | "PRE_SURVIVAL_TEST"
-    | "SURVIVAL_TEST"
-    | "POST_SURVIVAL_TEST"
-    | "INDEV"
-    | "INFDEV"
-    | "ALPHA"
-    | "BETA"
-    | "RELEASE"
-    | "SNAPSHOT"
-    // | "FORGE"
-    | "CUSTOM"
+export const ALL_VERSION_PHASES = [
+    "PRE_CLASSIC",
+    "PRE_SURVIVAL_TEST",
+    "SURVIVAL_TEST",
+    "POST_SURVIVAL_TEST",
+    "INDEV",
+    "INFDEV",
+    "ALPHA",
+    "BETA",
+    "RELEASE",
+    "SNAPSHOT",
+    "CUSTOM",
+] as const
+
+export type VersionPhase = (typeof ALL_VERSION_PHASES)[number]
 
 export type CurrentRun = {
     uuid: string,

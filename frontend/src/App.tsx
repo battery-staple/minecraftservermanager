@@ -3,7 +3,7 @@
 import React, {JSX, useEffect, useState} from 'react';
 import { Switch, Route, RouteComponentProps } from 'react-router-dom'
 import './App.css';
-import {ServerList} from "./components/ServerList";
+import {ServerList} from "./components/serverList/ServerList";
 import {ServerPage} from "./components/ServerPage";
 
 import {BackendStatus, getBackendStatus} from "./networking/backendAPI/BackendStatus";

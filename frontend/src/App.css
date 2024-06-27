@@ -12,7 +12,7 @@
   padding: 0 0.8em 0 0.8em;
 }
 
-.header-main-bar :first-child {
+.header-main-bar > :first-child {
   margin: auto auto auto 0;
 }
 
@@ -20,7 +20,7 @@
   margin: 0.5em 0.25em
 }
 
-.header-main-bar :last-child {
+.header-main-bar > :last-child {
   margin-right: 0;
 }
 
