@@ -1,4 +1,11 @@
 export const defaultHeaders = new Headers();
+
+if (process.env.NODE_ENV !== 'production') {
+    const debugUsername = "User McUserface"
+    const debugPassword = "Super secure password"
+    defaultHeaders.append("Authorization", "Basic " + btoa(debugUsername + ":" + debugPassword));
+}
+
 export const jsonHeaders: Headers = new Headers(defaultHeaders)
 jsonHeaders.append("Content-Type", "application/json")
 

@@ -1,6 +1,7 @@
 package com.rohengiralt.minecraftservermanager.plugins
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken
+import com.rohengiralt.minecraftservermanager.debugMode
 import com.rohengiralt.minecraftservermanager.hostname
 import com.rohengiralt.minecraftservermanager.plugins.SecuritySpec.clientId
 import com.rohengiralt.minecraftservermanager.plugins.SecuritySpec.clientSecret
@@ -36,6 +37,7 @@ import kotlinx.html.p
 import org.koin.ktor.ext.inject
 import org.slf4j.LoggerFactory
 import java.io.File
+import java.util.*
 import kotlin.collections.set
 import kotlin.time.Duration.Companion.days
 
@@ -65,8 +67,8 @@ fun Application.configureSecurity() {
 
     val redirects = mutableMapOf<String, String>()
     install(Authentication) {
-        basic("auth-debug") {
-            validate { credentials ->
+        if (debugMode) {
+            val validateDebugCredentials = { _: ApplicationCall, credentials: UserPasswordCredential ->
                 if (credentials.name.startsWith("User McUserface") && credentials.password == "Super secure password") {
                     logger.info("Authenticating debug user with credentials $credentials") // TODO: definitely remove the logging of credentials
                     UserLoginInfo(
@@ -75,6 +77,14 @@ fun Application.configureSecurity() {
                     )
                 } else null
             }
+
+            basic("auth-debug") {
+                validate(validateDebugCredentials)
+            }
+
+            register(DebugURLParamAuthenticationProvider(
+                DebugURLParamAuthenticationProvider.Config("auth-debug-websocket", validateDebugCredentials)
+            ))
         }
 
         session<UserSession>("auth-session") {
@@ -172,6 +182,31 @@ private val oauthClient = HttpClient(OkHttp) {
     install (ContentNegotiation) {
         json()
     }
+}
+
+val httpAuthProviders = if (debugMode) arrayOf("auth-session", "auth-debug") else arrayOf("auth-session")
+val websocketAuthProviders = if (debugMode) arrayOf("auth-debug-websocket", "auth-debug", "auth-session") else arrayOf("auth-session")
+
+/**
+ * An [AuthenticationProvider] that authenticates using the `name` and `password` url parameters.
+ * Useful for authenticating Websockets in debug mode, as the JavaScript `fetch` API does not support
+ * the `Authorization` header.
+ * Not intended for use outside of debug mode.
+ */
+private class DebugURLParamAuthenticationProvider(private val config: Config) : AuthenticationProvider(config) {
+    override suspend fun onAuthenticate(context: AuthenticationContext) {
+        val usernameBase64 = context.call.request.queryParameters["name"] ?: return
+        val passwordBase64 = context.call.request.queryParameters["password"] ?: return
+
+        val username = usernameBase64.let { Base64.getUrlDecoder().decode(it) }.toString(Charsets.ISO_8859_1)
+        val password = passwordBase64.let { Base64.getUrlDecoder().decode(it) }.toString(Charsets.ISO_8859_1)
+
+        val credential = UserPasswordCredential(name = username, password = password)
+
+        config.validate(context.call, credential)?.let(context::principal)
+    }
+
+    class Config(name: String, val validate: ApplicationCall.(UserPasswordCredential) -> Principal?) : AuthenticationProvider.Config(name)
 }
 
 private val logger = LoggerFactory.getLogger("Security")

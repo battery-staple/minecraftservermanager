@@ -38,6 +38,7 @@ fun Application.configureRouting() {
         allowMethod(HttpMethod.Patch)
         allowMethod(HttpMethod.Post)
         allowHeader(HttpHeaders.Authorization)
+        allowHeader(HttpHeaders.ContentType)
         anyHost() //TODO: only for testing
     }
 
@@ -58,7 +59,7 @@ fun Application.configureRouting() {
     }
 
     routing {
-        authenticate("auth-session", "auth-debug") {
+        authenticate(*httpAuthProviders) {
             route("api/v2") {
                 route("/rest") {
                     route("/servers") {
@@ -86,7 +87,7 @@ fun Application.configureRouting() {
             }
         }
 
-        authenticate("auth-debug", "auth-session") {
+        authenticate(*websocketAuthProviders) {
             route("api/v2/websockets") {
                 websockets()
             }

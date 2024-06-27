@@ -42,6 +42,7 @@ fun main() {
     logger.info("Starting")
 
     logger.info("Asserts are " + if (assertsEnabled) "ENABLED" else "DISABLED")
+    logger.info("Debug mode is " + if (debugMode) "ENABLED" else "DISABLED")
 
     runBlocking {
         logger.info("Initializing database")
