@@ -1,4 +1,11 @@
+.App {
+  position: fixed;
+  height: 100%;
+  width: 100%;
+}
+
 .App-header {
+  position: sticky;
   color: white;
   user-select: none;
 }
