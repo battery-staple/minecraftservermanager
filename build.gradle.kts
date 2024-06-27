@@ -1,3 +1,4 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 val ktor_version: String by project
@@ -6,8 +7,8 @@ val logback_version: String by project
 
 plugins {
     application
-    kotlin("jvm") version "1.9.20-Beta2"
-    kotlin("plugin.serialization") version "1.9.0"
+    kotlin("jvm") version "2.0.0"
+    kotlin("plugin.serialization") version "2.0.0"
     id("com.github.johnrengelman.shadow") version "6.1.0"
 }
 
@@ -61,9 +62,9 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-jdbc:0.34.1")
     implementation("org.jetbrains.exposed:exposed-java-time:0.34.1")
 
-    implementation("com.google.api-client:google-api-client:2.2.0")
+    implementation("com.google.api-client:google-api-client:2.6.0")
 
-    implementation("org.postgresql:postgresql:42.2.27")
+    implementation("org.postgresql:postgresql:42.7.3")
     implementation("io.insert-koin:koin-ktor:3.3.1")
     implementation("io.insert-koin:koin-logger-slf4j:3.3.1")
     implementation("com.uchuhimo:konf:1.1.2") {
