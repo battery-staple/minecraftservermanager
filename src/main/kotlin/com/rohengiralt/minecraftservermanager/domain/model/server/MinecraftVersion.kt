@@ -1,6 +1,7 @@
 package com.rohengiralt.minecraftservermanager.domain.model.server
 
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion.VersionType.*
+import com.rohengiralt.minecraftservermanager.util.ifNull
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -59,7 +60,7 @@ sealed class MinecraftVersion {
                     fun fromString(string: String): PreSurvivalTest? =
                         pattern.matchEntire(string)?.groupValues?.let { groups ->
                             val minorVersion = groups[1]
-                            val patch = groups.getOrNull(2)
+                            val patch = groups[2].ifEmpty { null }
                             PreSurvivalTest(
                                 minorVersion.toUIntOrNull() ?: return null,
                                 patch?.let { it.toUIntOrNull() ?: return null }
@@ -95,7 +96,7 @@ sealed class MinecraftVersion {
                         pattern.matchEntire(string)?.groupValues?.let { groups ->
                             val minorVersion = groups[1]
                             val survivalTestString = groups[2]
-                            val patch = groups.getOrNull(3)
+                            val patch = groups[3].ifEmpty { null }
                             val usesUnderscores = survivalTestString == "_SURVIVAL_TEST"
 
                             SurvivalTest(
@@ -126,7 +127,7 @@ sealed class MinecraftVersion {
                     fun fromString(string: String): PostSurvivalTest? =
                         pattern.matchEntire(string)?.groupValues?.let { groups ->
                             val minorVersion = groups[1]
-                            val patch = groups.getOrNull(2)
+                            val patch = groups[2].ifEmpty { null }
 
                             PostSurvivalTest(
                                 minorVersion.toUIntOrNull() ?: return null,
@@ -180,7 +181,7 @@ sealed class MinecraftVersion {
                         val phase = groups[1]
                         val major = groups[2]
                         val minor = groups[3]
-                        val patch = groups.getOrNull(4)
+                        val patch = groups[4].ifEmpty { null }
 
                         Alpha(
                             phase.toUIntOrNull() ?: return null,
@@ -218,7 +219,7 @@ sealed class MinecraftVersion {
                     pattern.matchEntire(string)?.groupValues?.let { groups ->
                         val major = groups[1]
                         val minor = groups[2]
-                        var patch = groups.getOrNull(3)
+                        var patch = groups[3].ifEmpty { null }
                         val underscoresBeforePatch = patch?.startsWith("_0") ?: false
                         patch = patch?.removePrefix("_0")?.removePrefix(".")
 
@@ -252,7 +253,7 @@ sealed class MinecraftVersion {
                     pattern.matchEntire(string)?.groupValues?.let { groups ->
                         val phase = groups[1]
                         val major = groups[2]
-                        val minor = groups.getOrNull(3)?.ifBlank { null }
+                        val minor = groups[3].ifEmpty { null }
 
                         Release(
                             phase.toUIntOrNull() ?: return null,

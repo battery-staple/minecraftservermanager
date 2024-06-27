@@ -17,20 +17,20 @@ import java.nio.file.Path
 class LauncherAPI : MinecraftJarAPI, KoinComponent {
     override suspend fun appendServerToPath(path: Path, version: MinecraftVersion): Boolean {
         val manifest = getManifest().ifNull {
-            logger.error("Couldn't get manifest")
-            throw IllegalStateException("Cannot get manifest")
+            logger.warn("Couldn't get manifest")
+            return false
         }
         val versionURL = getVersionURL(version, manifest).ifNull {
-            logger.error("Couldn't find jar of version ${version.versionString} in manifest")
-            throw IllegalArgumentException("No such version ${version.versionString}")
+            logger.warn("Couldn't find jar of version ${version.versionString} in manifest")
+            return false
         }
         val launcher = getLauncher(versionURL).ifNull {
-            logger.error("Couldn't get launcher json")
-            throw IllegalStateException("Cannot get launcher json")
+            logger.warn("Couldn't get launcher json")
+            return false
         }
         val serverURL = launcher.serverURL.ifNull {
-            logger.error("Couldn't find server jar for version ${version.versionString}")
-            throw IllegalArgumentException("No server for version ${version.versionString}")
+            logger.warn("Couldn't find server jar for version ${version.versionString}")
+            return false
         }
 
         return httpClient.appendGetToPath(serverURL, path)
@@ -39,7 +39,7 @@ class LauncherAPI : MinecraftJarAPI, KoinComponent {
     private suspend fun getManifest(): Manifest? =
         httpClient
             .get(MANIFEST_URL)
-            .bodyOrNull()
+            .bodyOrNull<Manifest?>()
 
     private fun getVersionURL(version: MinecraftVersion, manifest: Manifest): String? =
         manifest.versions.firstOrNull {

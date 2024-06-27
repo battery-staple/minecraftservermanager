@@ -64,7 +64,7 @@ fun Application.module() {
                         expectSuccess = false
 
                         install(ContentNegotiation) {
-                            json(get())
+                            json(Json { ignoreUnknownKeys = true })
                         }
                     }
                 }
