@@ -6,11 +6,11 @@
     margin: 0.2rem 0;
 }
 
-.server-button p:first-of-type {
+.server-option p:first-of-type {
     margin-top: 1rem;
 }
 
-.server-button p:last-of-type {
+.server-option p:last-of-type {
     margin-bottom: 1rem;
 }
 

@@ -21,12 +21,12 @@ export function ServerOption(props: {
 
     const properties = useMemo(() => {
         if (currentRun?.address) { // Server is running
-            return <ul className="server-button-properties">
+            return <ul className="server-option-properties">
                 <li><strong>host: </strong> {currentRun.address.host}</li>
                 <li><strong>port: </strong> {currentRun.address.port}</li>
             </ul>
         } else { // Server is not running
-            return <ul className="server-button-properties">
+            return <ul className="server-option-properties">
                 <li><strong>version: </strong> {props.server.version}</li>
                 <li><br/></li>
             </ul>
@@ -34,17 +34,18 @@ export function ServerOption(props: {
     }, [currentRun, props.server.version]);
 
     return (
-        <button className="server-button" onClick={props.onClick} disabled={props.editing}>
+        <div className="server-option">
             {props.editing ?
-                <button className="server-button-x" onClick={() => deleteServer(props.server.uuid)}>
+                <button className="server-option-x" onClick={() => deleteServer(props.server.uuid)}>
                     <img src="/X.png" alt=""></img>
-                </button> :
-                null}
-            <div className="server-button-title">{props.server.name}</div>
-            {properties}
-            <div className="server-button-status" style={{
-                color: isRunning() ? "green" : "red"
-            }}>{isRunning() ? "Running" : "Not Running"}</div>
-        </button>
+                </button> : null}
+            <button className="server-option-button" onClick={props.onClick} disabled={props.editing}>
+                <div className="server-option-title">{props.server.name}</div>
+                {properties}
+                <div className="server-option-status" style={{
+                    color: isRunning() ? "green" : "red"
+                }}>{isRunning() ? "Running" : "Not Running"}</div>
+            </button>
+        </div>
     )
 }
