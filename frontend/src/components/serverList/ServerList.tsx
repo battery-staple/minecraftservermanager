@@ -36,14 +36,11 @@ export function ServerList(props: { setHeader: (headerElement: JSX.Element) => v
     const serversWebsocket = useRef<WebSocket | null>(null);
 
     const setServersWebsocket = useCallback(async () => {
-        getServers()
-            .then(servers => setServers(servers))
+        setServers(await getServers()) // Fallback for websocket
 
         serversWebsocket.current =
             await getServersWebsocket(
-                (event: MessageEvent<string>) => {
-                    const servers: Server[] = JSON.parse(event.data);
-
+                (servers) => {
                     setServers(servers);
                 },
                 function () {
@@ -96,9 +93,9 @@ export function ServerList(props: { setHeader: (headerElement: JSX.Element) => v
     }, [editing, servers, sortStrategy]);
 
     if (servers === undefined) {
-        return LoadingServers()
+        return <LoadingServers />
     } else if (servers === null) {
-        return CannotLoadServers()
+        return <CannotLoadServers />
     }
 
     return (

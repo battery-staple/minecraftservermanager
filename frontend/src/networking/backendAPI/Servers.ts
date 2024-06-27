@@ -46,7 +46,7 @@ export async function getServers(): Promise<Server[] | null> {
 
     if (!response.ok) return null;
 
-    return JSON.parse(await response.text(), (key, value) => key === "creationTime" ? new Date(value) : value)
+    return parseServers(await response.text());
 }
 
 export async function startServer(server: Server): Promise<boolean> {
@@ -72,10 +72,17 @@ export async function stopServer(server: Server): Promise<boolean> {
     return response.ok
 }
 
-export async function getServersWebsocket(onMessage: (this: WebSocket, event: MessageEvent<any>) => any, onClose: (this: WebSocket, ev: CloseEvent) => any): Promise<WebSocket> {
+export async function getServersWebsocket(onMessage: (this: WebSocket, servers: Server[], event: MessageEvent<any>) => any, onClose: (this: WebSocket, ev: CloseEvent) => any): Promise<WebSocket> {
     return getAndConfigWebsocket(
         `ws://${await getHostname()}/api/v2/websockets/servers`,
-        onMessage,
+        function (event: MessageEvent<any>) {
+            const servers = parseServers(event.data);
+            return onMessage.bind(this)(servers, event);
+        },
         onClose
     )
+}
+
+function parseServers(servers: string): Server[] {
+    return JSON.parse(servers, (key, value) => key === "creationTime" ? new Date(value) : value)
 }
