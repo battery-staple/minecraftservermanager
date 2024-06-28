@@ -25,7 +25,7 @@ spec:
         app: postgres
     spec:
       containers:
-        - image: postgres:15 # TODO: upgrade to latest
+        - image: postgres:16
           name: postgres
           env:
             - name: POSTGRES_USER
