@@ -2,7 +2,7 @@
 
 ARG NODE_VERSION=20.3.1
 ARG JDK_VERSION=8
-ARG GRADLE_VERSION=7.2
+ARG GRADLE_VERSION=8.8
 
 FROM node:${NODE_VERSION}-alpine AS build_frontend
 
@@ -19,7 +19,7 @@ RUN --mount=type=cache,target=/root/.npm  \
 
 RUN npm run build
 
-FROM gradle:$GRADLE_VERSION AS build_app
+FROM gradle:$GRADLE_VERSION-jdk8 AS build_app
 
 WORKDIR /app
 

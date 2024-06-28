@@ -1,6 +1,3 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
 val ktor_version: String by project
 val kotlin_version: String by project
 val logback_version: String by project
@@ -9,7 +6,7 @@ plugins {
     application
     kotlin("jvm") version "2.0.0"
     kotlin("plugin.serialization") version "2.0.0"
-    id("com.github.johnrengelman.shadow") version "6.1.0"
+    id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
 group = "com.rohengiralt"
@@ -21,9 +18,10 @@ application {
 
 project.setProperty("mainClassName", "com.rohengiralt.minecraftservermanager.ApplicationKt")
 
-tasks.withType<KotlinCompile> {
+kotlin {
+    jvmToolchain(8)
+
     compilerOptions {
-        jvmTarget.set(JvmTarget.JVM_1_8)
         freeCompilerArgs.add("-Xcontext-receivers")
     }
 }
