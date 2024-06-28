@@ -7,7 +7,7 @@ data class UserSession(
     /**
      * The user's Google refresh token
      */
-    val refreshToken: String,
+    val refreshToken: String?,
     /**
      * The user's current Google identity token
      */

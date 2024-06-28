@@ -89,22 +89,24 @@ fun Application.configureSecurity() {
 
         session<UserSession>("auth-session") {
             validate { session ->
-                logger.debug("Preparing to validate userinfo")
+                logger.debug("Preparing to validate user session")
                 val idToken: GoogleIdToken = idTokenVerifier.verifyUserSessionIdToken(
                     userSession = session,
                     sessions = sessions
                 ) ?: return@validate null
+
+                logger.debug("Validating session for user '${idToken.payload.subject}' (email='${idToken.payload.email}')")
 
                 val userLoginInfo = UserLoginInfo(
                     userId = UserID(idToken.payload.subject ?: return@validate null),
                     email = idToken.payload.email ?: return@validate null
                 )
 
-                return@validate if (authorizer.isAuthorized(userLoginInfo.userId)) userLoginInfo else null
+                return@validate if (authorizer.isAuthorized(userLoginInfo.userId)) userLoginInfo else null // TODO: do authorization separately
             }
 
             challenge { userSession ->
-                logger.debug("Received session authentication challenge")
+                logger.debug("Making session authentication challenge")
 
                 val redirectUrl = URLBuilder("http://$hostname/login").run {
                     parameters.append("redirectUrl", call.request.uri)
@@ -160,12 +162,14 @@ fun Application.configureSecurity() {
                 principal ?: throw BadRequestException("Invalid token response")
                 val state = principal.state ?: throw BadRequestException("Missing state")
 
-                call.sessions.set(
-                    UserSession(
-                        refreshToken = principal.refreshToken ?: throw BadRequestException("Missing refresh token"),
-                        idToken = principal.extraParameters["id_token"] ?: throw BadRequestException("Missing id token")
-                    )
+                if (principal.refreshToken == null) logger.warn("Missing refresh token")
+
+                val newSession = UserSession(
+                    refreshToken = principal.refreshToken,
+                    idToken = principal.extraParameters["id_token"] ?: throw BadRequestException("Missing id token")
                 )
+
+                call.sessions.set(newSession)
                 val redirect = redirects[state] ?: throw BadRequestException("Unknown state")
                 call.respondRedirect(redirect)
             }

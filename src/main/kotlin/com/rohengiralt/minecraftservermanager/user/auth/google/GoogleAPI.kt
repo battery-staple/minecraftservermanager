@@ -46,7 +46,8 @@ suspend fun GoogleIdTokenVerifier.verifyUserSessionIdToken(
  * @return the new, refreshed [GoogleIdToken], or null if unable to refresh
  */
 private suspend fun refreshUserSessionTokens(oldSession: UserSession, sessions: CurrentSession): UserSession? {
-    val tokens = getRefreshedGoogleTokens(oldSession.refreshToken) ?: return null
+    val refreshToken = oldSession.refreshToken ?: return null.also { logger.debug("Failed to refresh user session tokens; no refresh token present.") }
+    val tokens = getRefreshedGoogleTokens(refreshToken) ?: return null.also { logger.debug("Failed to refresh user session tokens; API responded with error.") }
     val newSession = oldSession.copy(idToken = tokens.idToken)
 
     sessions.set(newSession)
@@ -61,8 +62,11 @@ private data class GoogleTokens(
     val idToken: String
 )
 
+/**
+ * Requests the Google API for new access tokens.
+ */
 private suspend fun getRefreshedGoogleTokens(refreshToken: String): GoogleTokens? {
-    logger.debug("Refreshing token")
+    logger.debug("Requesting refreshed access token")
     val httpClient: HttpClient = getKoin().get()
     val tokenInfo: TokenInfo = httpClient.submitForm(
         url = "https://accounts.google.com/o/oauth2/token",
