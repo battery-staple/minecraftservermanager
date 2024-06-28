@@ -30,7 +30,7 @@ COPY --chown=gradle:gradle --from=build_frontend frontend/build/. src/main/resou
 RUN --mount=type=cache,target=.gradle \
     gradle shadowJar --no-daemon
 
-FROM openjdk:$JDK_VERSION
+FROM eclipse-temurin:${JDK_VERSION}
 
 COPY --from=build_app /app/build/libs/minecraftservermanager-0.0.1-all.jar /bin/runner/run.jar
 WORKDIR /bin/runner
