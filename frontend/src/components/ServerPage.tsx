@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {ConsoleMessage, CurrentRun, Server} from "../APIModels";
 import {useAutoAnimate} from "@formkit/auto-animate/react";
 import {
@@ -40,7 +40,7 @@ export function ServerPage(props: { serverUUID: string }) {
                     (event: MessageEvent<string>) => {
                         const currentRuns: CurrentRun[] = JSON.parse(event.data)
 
-                        setCurrentRun(currentRuns.length === 0 ? null : currentRuns[0])
+                        setCurrentRun(currentRuns[0] ?? null)
                     },
                     function () {
                         if (this === currentRunWebsocket.current) currentRunWebsocket.current = null
@@ -143,7 +143,7 @@ function Console(props: { serverUUID: string, currentRun: CurrentRun | AccessErr
 
 function ConsoleHistory(props: { logHistory: ConsoleMessage[], autoScroll: boolean }) {
     const consoleHistoryBottomRef = useRef<HTMLDivElement | null>(null)
-    const [animationParent, enableAnimation] = useAutoAnimate()
+    const [animationParent] = useAutoAnimate()
 
     useEffect(() => { // Autoscroll
         if (props.autoScroll) {
@@ -270,7 +270,7 @@ function ConsoleInput(props: { consoleWebsocket: WebSocket | null, logHistory: C
         }
 
         setInputHistoryIndex(newInputHistoryIndex);
-        setInput(inputHistory[newInputHistoryIndex]);
+        setInput(inputHistory[newInputHistoryIndex]!);
         moveCursorToInputEnd();
     }
 
@@ -303,7 +303,7 @@ function ConsoleInput(props: { consoleWebsocket: WebSocket | null, logHistory: C
         if (newInputHistoryIndex == null) {
             setInput(cachedNewInput)
         } else {
-            setInput(inputHistory[newInputHistoryIndex]);
+            setInput(inputHistory[newInputHistoryIndex]!);
         }
         setInputHistoryIndex(newInputHistoryIndex);
         moveCursorToInputEnd();

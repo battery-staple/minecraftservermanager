@@ -1,5 +1,5 @@
 import {CurrentRun, Server} from "../../APIModels";
-import React, {JSX, useCallback, useEffect, useMemo, useState} from "react";
+import {JSX, useCallback, useEffect, useMemo, useState} from "react";
 import {getCurrentRun} from "../../networking/backendAPI/CurrentRuns";
 import {deleteServer} from "../../networking/backendAPI/Servers";
 

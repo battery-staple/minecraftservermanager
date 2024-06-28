@@ -1,4 +1,4 @@
-import React, {JSX} from "react";
+import {JSX} from "react";
 
 export function HeaderButtons(props: { editing: boolean, setEditing: (editing: boolean) => void }): JSX.Element {
 

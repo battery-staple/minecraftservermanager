@@ -1,4 +1,4 @@
-import React, {JSX, useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {JSX, useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {DEFAULT_SORT_STRATEGY, Server, SortStrategy} from "../../APIModels";
 import {useAutoAnimate} from "@formkit/auto-animate/react";
 import "./ServerList.css"
@@ -10,8 +10,8 @@ import {NewServerModal} from "./NewServerModal";
 import {ServerOption} from "./ServerOption";
 
 export function ServerList(props: { setHeader: (headerElement: JSX.Element) => void }): JSX.Element {
-    const [servers, setServers] = useState<Server[] | null | undefined>(undefined);
-    const [sortStrategyState, setSortStrategyState] = useState<SortStrategy | undefined>(undefined)
+    const [servers, setServers] = useState<Server[] | null | "loading">("loading");
+    const [sortStrategyState, setSortStrategyState] = useState<SortStrategy | null>(null)
     const [editing, setEditing] = useState(false)
     const [serversParent] = useAutoAnimate()
 
@@ -60,7 +60,9 @@ export function ServerList(props: { setHeader: (headerElement: JSX.Element) => v
 
     useEffect(() => {
         getPreferences()
-            .then(preferences => setSortStrategyState(preferences?.serverSortStrategy))
+            .then(preferences => {
+                if (preferences !== null) setSortStrategyState(preferences.serverSortStrategy)
+            })
     }, [])
 
     /**
@@ -79,7 +81,7 @@ export function ServerList(props: { setHeader: (headerElement: JSX.Element) => v
     }, [editing, headerButtons, props]);
 
     const serverOptions: JSX.Element[] = useMemo(() => {
-        if (servers === null || servers === undefined) return [];
+        if (servers === null || servers === "loading") return [];
 
         return servers
             .sort(serverCompareFn(sortStrategy))
@@ -92,7 +94,7 @@ export function ServerList(props: { setHeader: (headerElement: JSX.Element) => v
             ))
     }, [editing, servers, sortStrategy]);
 
-    if (servers === undefined) {
+    if (servers === "loading") {
         return <LoadingServers />
     } else if (servers === null) {
         return <CannotLoadServers />

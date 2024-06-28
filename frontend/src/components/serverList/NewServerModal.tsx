@@ -5,13 +5,13 @@ import {ALL_VERSION_PHASES, VersionPhase} from "../../APIModels";
 const defaultVersionPhase = "RELEASE"
 
 export function NewServerModal() {
-    const [name, setName] = useState<string>()
+    const [name, setName] = useState<string | null>(null)
     const [versionPhase, setVersionPhase] = useState<VersionPhase>(defaultVersionPhase)
-    const [version, setVersion] = useState<string>()
+    const [version, setVersion] = useState<string | null>(null)
     const runnerUUID = "d72add0d-4746-4b46-9ecc-2dcd868062f9" // TODO: Support other runners
 
-    let creationOptions = undefined;
-    if (name !== undefined && version !== undefined && versionPhase !== undefined) {
+    let creationOptions = null;
+    if (name !== null && version !== null && versionPhase !== null) {
         creationOptions = {
             name: name,
             version: version,
@@ -39,15 +39,15 @@ export function NewServerModal() {
 }
 
 function Body(props: {
-    name: string | undefined, setName: Dispatch<React.SetStateAction<string | undefined>>
+    name: string | null, setName: Dispatch<React.SetStateAction<string | null>>
     versionPhase: VersionPhase, setVersionPhase: Dispatch<React.SetStateAction<VersionPhase>>
-    version: string | undefined, setVersion: Dispatch<React.SetStateAction<string | undefined>>
+    version: string | null, setVersion: Dispatch<React.SetStateAction<string | null>>
 }) {
     return <div className="modal-body">
         <form>
             <div className="form-group">
                 <label htmlFor="name">Name: </label>
-                <input name="name" type="text" value={props.name} onChange={(e) => props.setName(e.target.value)} />
+                <input name="name" type="text" value={props.name ?? ""} onChange={(e) => props.setName(e.target.value)} />
             </div>
             <div className="form-group">
                 <label htmlFor="name">Version Phase: </label>
@@ -65,7 +65,7 @@ function Body(props: {
             </div>
             <div className="form-group"> { /* TODO: autocomplete (dynamic based on phase) */ }
                 <label htmlFor="version">Version: </label>
-                <input name="version" type="text" value={props.version} onChange={(e) => props.setVersion(e.target.value)} />
+                <input name="version" type="text" value={props.version ?? ""} onChange={(e) => props.setVersion(e.target.value)} />
             </div>
         </form>
     </div>
@@ -106,11 +106,11 @@ function Header() {
     </div>;
 }
 
-function Footer(props: {createServerOptions: CreateServerOptions | undefined, onSubmit: (success: boolean) => void}) {
+function Footer(props: {createServerOptions: CreateServerOptions | null, onSubmit: (success: boolean) => void}) {
     return <div className="modal-footer">
         <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        <button type="button" className="btn btn-primary" data-bs-dismiss="modal" disabled={props.createServerOptions === undefined} onClick={() => {
-            if (props.createServerOptions !== undefined) {
+        <button type="button" className="btn btn-primary" data-bs-dismiss="modal" disabled={props.createServerOptions === null} onClick={() => {
+            if (props.createServerOptions !== null) {
                 createServer(props.createServerOptions).then(props.onSubmit);
             } else {
                 props.onSubmit(false);

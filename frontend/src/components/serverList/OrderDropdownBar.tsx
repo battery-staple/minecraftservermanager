@@ -1,5 +1,5 @@
 import {SortStrategy} from "../../APIModels";
-import React, {JSX} from "react";
+import {JSX} from "react";
 
 export function OrderDropdownBar(props: {
     sortStrategy: SortStrategy,
