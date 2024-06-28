@@ -36,6 +36,10 @@ spec:
         - name: msm-app
           image: stapledbattery/minecraftservermanager-app
           imagePullPolicy: Always
+          volumeMounts:
+            - name: whitelist-volume
+              readOnly: true
+              mountPath: "/minecraftservermanager/whitelist"
           env:
             - name: DATABASE_USERNAME
               valueFrom:
@@ -67,6 +71,11 @@ spec:
                 secretKeyRef:
                   name: security
                   key: googleClientSecret
+            - name: SECURITY_whitelistFile
+              valueFrom:
+                secretKeyRef:
+                  name: security
+                  key: whitelistFile
             - name: LOCALRUNNER_DOMAIN
               valueFrom:
                 secretKeyRef:
@@ -77,3 +86,7 @@ spec:
           ports:
             - containerPort: 8080
             - containerPort: 25565
+      volumes:
+        - name: whitelist-volume
+          secret:
+            secretName: whitelist-file
