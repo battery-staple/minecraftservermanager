@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: msm-app
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      nodePort: 30007
+    - name: minecraft-1
+      protocol: TCP
+      port: 25565
+      nodePort: 30008
+  selector:
+    app: msm-app
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minecraftservermanager-app-deployment
+  labels:
+    app: msm-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: msm-app
+  template:
+    metadata:
+      labels:
+        app: msm-app
+    spec:
+      containers:
+        - name: msm-app
+          image: stapledbattery/minecraftservermanager-app
+          imagePullPolicy: Always
+          env:
+            - name: DATABASE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-user
+                  key: db-username
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-user
+                  key: db-password
+            - name: SECURITY_cookieSecretEncryptKey
+              valueFrom:
+                secretKeyRef:
+                  name: security
+                  key: cookieSecretEncryptKey
+            - name: SECURITY_cookieSecretSignKey
+              valueFrom:
+                secretKeyRef:
+                  name: security
+                  key: cookieSecretSignKey
+            - name: SECURITY_clientId
+              valueFrom:
+                secretKeyRef:
+                  name: security
+                  key: googleClientId
+            - name: SECURITY_clientSecret
+              valueFrom:
+                secretKeyRef:
+                  name: security
+                  key: googleClientSecret
+            - name: LOCALRUNNER_DOMAIN
+              valueFrom:
+                secretKeyRef:
+                  name: local-runner
+                  key: local-runner-domain
+            - name: HOST_HOSTNAME
+              value: "localhost:8080"
+          ports:
+            - containerPort: 8080
+            - containerPort: 25565

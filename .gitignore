@@ -3,6 +3,7 @@
 db
 rundata
 src/main/resources/static/react
+kubernetes/secrets
 
 build
 .idea
