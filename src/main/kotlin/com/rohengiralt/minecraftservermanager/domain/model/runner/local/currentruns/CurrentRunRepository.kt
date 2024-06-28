@@ -101,8 +101,6 @@ class InMemoryCurrentRunRepository : CurrentRunRepository {
      */
     context(CurrentRunsResourceContext)
     private fun assertInv() {
-        logger.trace("Asserting invariant")
-
         val currAllCurrentRuns = allCurrentRuns.value.toSet()
         assert(currAllCurrentRuns == currentRunsByRunUUID.values.toSet()) {
             """currentRunsByRunUUID does not match the current value of allCurrentRuns
