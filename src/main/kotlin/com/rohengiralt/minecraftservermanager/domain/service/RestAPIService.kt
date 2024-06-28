@@ -116,9 +116,14 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
         val runner = runnerRepository.getRunner(server.runnerUUID) ?: return false
         logger.trace("Removing server with uuid {} from runner with uuid {}", uuid, runner.uuid)
         val removeFromRunnerSuccess = runner.removeServer(server)
+        logger.trace("Removing server with uuid {} from runner with uuid {} {}", uuid, runner.uuid, if (removeFromRunnerSuccess) "SUCCEEDED" else "FAILED")
+        if (!removeFromRunnerSuccess) {
+            return false // Early exit; don't remove it from the database unless it's been fully cleaned up. TODO: some better transactionality?
+        }
         logger.trace("Removing server with uuid {} from server repository}", uuid)
         val removeFromRepositorySuccess = serverRepository.removeServer(uuid)
-        return removeFromRunnerSuccess && removeFromRepositorySuccess
+        logger.trace("Removing server with uuid {} from server repository {}}", uuid, if (removeFromRepositorySuccess) "SUCCEEDED" else "FAILED")
+        return removeFromRepositorySuccess
     }
 
     override suspend fun getAllRunners(): List<MinecraftServerRunner> =

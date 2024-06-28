@@ -115,7 +115,18 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
     }
 
     override suspend fun removeServer(server: MinecraftServer): Boolean {
-        logger.debug("Removing server ${server.name} from local runner")
+        logger.trace("Removing server ${server.name} from local runner")
+
+        val currentRun = getCurrentRunByServer(server.uuid)
+        if (currentRun != null) {
+            logger.trace("Server ${server.name} is currently running. Stopping.")
+            val stopRunSuccess = stopRun(currentRun.uuid)
+            if (!stopRunSuccess) {
+                logger.error("Failed to stop server ${server.name}")
+                return false
+            }
+        }
+
         val contentDirectorySuccess =
             serverContentDirectoryPathRepository
                 .deleteContentDirectory(server)
