@@ -33,13 +33,15 @@ function Header(props: { additionalHeaderElements: JSX.Element | null }) {
 }
 
 function Body(props: { setHeader: (headerElement: JSX.Element) => void }) {
-    let [backendStatus, setBackendStatus] = useState<BackendStatus>('offline')
+    let [backendStatus, setBackendStatus] = useState<BackendStatus | 'unknown'>('unknown')
 
     useEffect(() => {
         getBackendStatus().then(setBackendStatus)
     }, [])
 
-    if (backendStatus === 'offline') {
+    if (backendStatus === 'unknown') {
+        return <main><p>Loading...</p></main>
+    } else if (backendStatus === 'offline') {
         return <main><p>Couldn't connect! Are you sure your internet is working?</p></main>
     }
 
