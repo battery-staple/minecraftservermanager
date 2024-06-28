@@ -53,7 +53,6 @@ internal object SecuritySpec : ConfigSpec() {
     val whitelistFile by optional<String>("/minecraftservermanager/whitelist.txt")
 }
 
-@Suppress("InjectedReferences")
 fun Application.configureSecurity() {
     val authorizer: UserIDAuthorizer by inject()
 
