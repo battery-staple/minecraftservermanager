@@ -1,6 +1,6 @@
 package com.rohengiralt.minecraftservermanager.frontend.routes.rest
 
-import com.rohengiralt.minecraftservermanager.domain.service.RestAPIService
+import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService
 import com.rohengiralt.minecraftservermanager.frontend.model.UserLoginInfoAPIModel
 import com.rohengiralt.minecraftservermanager.frontend.model.UserPreferencesAPIModel
 import com.rohengiralt.minecraftservermanager.plugins.AuthorizationException

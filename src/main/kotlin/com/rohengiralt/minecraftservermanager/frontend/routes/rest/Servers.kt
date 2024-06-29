@@ -1,9 +1,10 @@
 package com.rohengiralt.minecraftservermanager.frontend.routes.rest
 
-import com.rohengiralt.minecraftservermanager.domain.service.RestAPIService
+import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerAPIModel
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerCurrentRunAPIModel
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerEnvironmentAPIModel
+import com.rohengiralt.minecraftservermanager.frontend.routes.orThrow
 import com.rohengiralt.minecraftservermanager.plugins.ConflictException
 import com.rohengiralt.minecraftservermanager.plugins.NotAllowedException
 import com.rohengiralt.minecraftservermanager.util.routes.*
@@ -19,7 +20,7 @@ fun Route.serversRoute() { // TODO: Better response codes in general
 
     get {
         call.application.environment.log.info("Getting all servers")
-        call.respond(restApiService.getAllServers().map(::MinecraftServerAPIModel))
+        call.respond(restApiService.getAllServers().orThrow().map(::MinecraftServerAPIModel))
     }
 
     post {
@@ -55,9 +56,7 @@ fun Route.serversRoute() { // TODO: Better response codes in general
             val serverUUID = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
 
             call.respond(
-                restApiService.getServer(uuid = serverUUID)
-                    ?.let(::MinecraftServerAPIModel)
-                    ?: throw NotFoundException()
+                restApiService.getServer(uuid = serverUUID).orThrow().let(::MinecraftServerAPIModel)
             )
         }
 
@@ -71,16 +70,10 @@ fun Route.serversRoute() { // TODO: Better response codes in general
             if (serverAPIModel.version != null) cannotUpdateField("version")
             if (serverAPIModel.runnerUUID != null) cannotUpdateField("runnerUUID")
 
-            val success = restApiService.updateServer(
+            restApiService.updateServer(
                 uuid = serverUUID,
                 name = serverAPIModel.name,
-            )
-
-            if (success) {
-                call.respond(HttpStatusCode.OK)
-            } else {
-                call.respond(HttpStatusCode.NotFound)
-            }
+            ).orThrow()
         }
 
         put {

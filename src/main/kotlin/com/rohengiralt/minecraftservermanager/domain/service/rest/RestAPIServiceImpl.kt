@@ -1,4 +1,4 @@
-package com.rohengiralt.minecraftservermanager.domain.service
+package com.rohengiralt.minecraftservermanager.domain.service.rest
 
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerPastRun
@@ -9,6 +9,10 @@ import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersi
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerPastRunRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerRunnerRepository
+import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService.APIResult
+import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService.APIResult.Companion.Success
+import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService.APIResult.Failure
+import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService.APIResult.Success
 import com.rohengiralt.minecraftservermanager.frontend.model.UserPreferencesAPIModel
 import com.rohengiralt.minecraftservermanager.user.UserID
 import com.rohengiralt.minecraftservermanager.user.UserLoginInfo
@@ -18,57 +22,16 @@ import com.rohengiralt.minecraftservermanager.util.ifNull
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.util.pipeline.*
+import io.ktor.utils.io.errors.*
 import kotlinx.datetime.Clock
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.slf4j.LoggerFactory
 import java.util.*
 
-/**
- * An interface defining all the methods used by the Rest API.
- * This interface provides a bridge between the domain and the frontend code
- * directly handling client connections.
- * The frontend should delegate immediately to an implementation of this interface.
- */
-interface RestAPIService {
-    suspend fun getAllServers(): List<MinecraftServer>
-    suspend fun createServer(uuid: UUID? = null, name: String, version: MinecraftVersion, runnerUUID: UUID): Boolean
-    suspend fun getServer(uuid: UUID): MinecraftServer?
-    suspend fun setServer(uuid: UUID, name: String, version: MinecraftVersion, runnerUUID: UUID): Boolean
-    suspend fun updateServer(uuid: UUID, name: String? = null): Boolean
-    suspend fun deleteServer(uuid: UUID): Boolean
-
-    suspend fun getAllRunners(): List<MinecraftServerRunner>
-    suspend fun getRunner(uuid: UUID): MinecraftServerRunner?
-    suspend fun getAllCurrentRuns(runnerUUID: UUID): List<MinecraftServerCurrentRun>?
-    suspend fun createCurrentRun(serverUUID: UUID, environment: MinecraftServerEnvironment): MinecraftServerCurrentRun?
-    suspend fun getCurrentRun(runnerUUID: UUID, runUUID: UUID): MinecraftServerCurrentRun?
-    suspend fun getCurrentRunByServer(serverUUID: UUID): MinecraftServerCurrentRun?
-    suspend fun stopCurrentRun(runnerUUID: UUID, runUUID: UUID): Boolean
-    suspend fun stopCurrentRunByServer(serverUUID: UUID): Boolean
-    suspend fun stopAllCurrentRuns(runnerUUID: UUID): Boolean
-
-    suspend fun getAllPastRuns(serverUUID: UUID): List<MinecraftServerPastRun>
-    suspend fun getPastRun(serverUUID: UUID, runUUID: UUID): MinecraftServerPastRun?
-
-    context(PipelineContext<*, ApplicationCall>)
-    suspend fun getCurrentUserLoginInfo(): UserLoginInfo?
-
-    context(PipelineContext<*, ApplicationCall>)
-    suspend fun deleteCurrentUser(): Boolean
-
-    context(PipelineContext<*, ApplicationCall>)
-    suspend fun getCurrentUserPreferences(): UserPreferences?
-    context(PipelineContext<*, ApplicationCall>)
-    suspend fun updateCurrentUserPreferences(sortStrategy: UserPreferences.SortStrategy? = null): Boolean
-
-    context(PipelineContext<*, ApplicationCall>)
-    suspend fun deleteCurrentUserPreferences(): Boolean
-}
-
 class RestAPIServiceImpl : RestAPIService, KoinComponent {
-    override suspend fun getAllServers(): List<MinecraftServer> =
-        serverRepository.getAllServers()
+    override suspend fun getAllServers(): APIResult<List<MinecraftServer>> =
+        Success(serverRepository.getAllServers())
 
     override suspend fun createServer(uuid: UUID?, name: String, version: MinecraftVersion, runnerUUID: UUID): Boolean {
         val server = MinecraftServer(
@@ -88,8 +51,14 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
         return serverRepository.addServer(server)
     }
 
-    override suspend fun getServer(uuid: UUID): MinecraftServer? =
-        serverRepository.getServer(uuid)
+    override suspend fun getServer(uuid: UUID): APIResult<MinecraftServer> =
+        try {
+            serverRepository.getServer(uuid)
+                ?.let { Success(it) }
+                ?: Failure.NotFound(uuid)
+        } catch (e: IOException) {
+            Failure.Unknown(e)
+        }
 
     override suspend fun setServer(uuid: UUID, name: String, version: MinecraftVersion, runnerUUID: UUID): Boolean =
         serverRepository.saveServer(
@@ -102,11 +71,14 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
             )
         )
 
-    override suspend fun updateServer(uuid: UUID, name: String?): Boolean {
-        val server = serverRepository.getServer(uuid) ?: return false // TODO: CONCURRENCY CONTROL/TRANSACTION MANAGEMENT
+    override suspend fun updateServer(uuid: UUID, name: String?): APIResult<Unit> {
+        // TODO: CONCURRENCY CONTROL/TRANSACTION MANAGEMENT
+
+        val server = serverRepository.getServer(uuid) ?: return Failure.NotFound(uuid)
+
         name?.let { server.name = it }
 
-        return serverRepository.saveServer(server)
+        return if (serverRepository.saveServer(server)) Success() else Failure.Unknown()
     }
 
     override suspend fun deleteServer(uuid: UUID): Boolean {
@@ -199,7 +171,7 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
         pastRunRepository.getAllPastRuns(serverUUID)
 
     override suspend fun getPastRun(serverUUID: UUID, runUUID: UUID): MinecraftServerPastRun? =
-        pastRunRepository.getPastRun(serverUUID)
+        pastRunRepository.getPastRun(runUUID)
 
     context(PipelineContext<*, ApplicationCall>)
     override suspend fun getCurrentUserLoginInfo(): UserLoginInfo? = call.principal<UserLoginInfo>()

@@ -1,6 +1,6 @@
 package com.rohengiralt.minecraftservermanager.frontend.routes.rest.runners
 
-import com.rohengiralt.minecraftservermanager.domain.service.RestAPIService
+import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerRunnerAPIModel
 import com.rohengiralt.minecraftservermanager.plugins.NotAllowedException
 import com.rohengiralt.minecraftservermanager.util.routes.getParameterOrBadRequest
