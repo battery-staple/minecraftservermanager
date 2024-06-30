@@ -5,10 +5,7 @@ import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService
 import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService.APIResult.Success
 import com.rohengiralt.minecraftservermanager.plugins.ConflictException
 import com.rohengiralt.minecraftservermanager.plugins.InternalServerException
-import io.ktor.server.application.*
 import io.ktor.server.plugins.*
-import io.ktor.util.pipeline.*
-import javax.annotation.CheckReturnValue
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
@@ -17,8 +14,6 @@ import kotlin.contracts.contract
  * Returns the content of a successful [APIResult],
  * or throws an appropriate HTTP Exception on [Failure].
  */
-context(PipelineContext<*, ApplicationCall>)
-@CheckReturnValue
 @OptIn(ExperimentalContracts::class)
 fun <T> APIResult<T>.orThrow(): T {
     contract {
