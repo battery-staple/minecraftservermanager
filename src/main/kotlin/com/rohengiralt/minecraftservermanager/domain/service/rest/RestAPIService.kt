@@ -26,7 +26,7 @@ import java.util.*
  */
 interface RestAPIService {
     suspend fun getAllServers(): APIResult<List<MinecraftServer>>
-    suspend fun createServer(uuid: UUID? = null, name: String, version: MinecraftVersion, runnerUUID: UUID): Boolean
+    suspend fun createServer(uuid: UUID? = null, name: String, version: MinecraftVersion, runnerUUID: UUID): APIResult<MinecraftServer>
     suspend fun getServer(uuid: UUID): APIResult<MinecraftServer>
     suspend fun setServer(uuid: UUID, name: String, version: MinecraftVersion, runnerUUID: UUID): Boolean
     suspend fun updateServer(uuid: UUID, name: String? = null): APIResult<Unit>
@@ -77,10 +77,23 @@ interface RestAPIService {
          */
         sealed interface Failure : APIResult<Nothing> {
             /**
-             * Represents a failure due to a resource not being found.
+             * Represents a failure due to the main resource not being found.
+             * There should be at most one "main resource" in any API call.
+             * For instance, the main resource of a `get*` method should be the resource attempting to be retrieved.
              * @param resourceUUID the UUID of the resource not found.
              */
-            data class NotFound(val resourceUUID: UUID) : Failure
+            data class MainResourceNotFound(val resourceUUID: UUID) : Failure
+
+            /**
+             * Represents a failure due to any resource other than the main one not being found.
+             * @param resourceUUID the UUID of the resource not found
+             */
+            data class AuxiliaryResourceNotFound(val resourceUUID: UUID) : Failure
+
+            /**
+             * Represents a failure due to attempting to create a resource that already exists
+             */
+            data class AlreadyExists(val resourceUUID: UUID) : Failure
 
             /**
              * Represents a failure for an unknown reason.

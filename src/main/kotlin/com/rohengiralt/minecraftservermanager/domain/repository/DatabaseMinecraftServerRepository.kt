@@ -8,6 +8,8 @@ import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.us
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.jsonb
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.upsert
 import com.rohengiralt.minecraftservermanager.util.ifTrue.ifTrueAlso
+import com.rohengiralt.minecraftservermanager.util.sql.SQLState
+import com.rohengiralt.minecraftservermanager.util.sql.state
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +25,7 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.`java-time`.datetime
 import org.jetbrains.exposed.sql.statements.InsertStatement
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.slf4j.LoggerFactory
 import java.sql.SQLException
 import java.time.ZoneOffset
 import java.util.*
@@ -50,9 +53,14 @@ class DatabaseMinecraftServerRepository : MinecraftServerRepository {
     }
 
     override fun addServer(minecraftServer: MinecraftServer): Boolean = transaction {
-        succeeds {
+        try {
             MinecraftServerTable.insert { insertBody(it, minecraftServer) }
+        } catch (e: SQLException) {
+            if (e.state == SQLState.UNIQUE_VIOLATION) {
+                return@transaction false
+            } else throw e
         }
+        return@transaction true
     }.ifTrueAlso { serverWatcher.pushUpdate(minecraftServer) }
 
     override fun saveServer(minecraftServer: MinecraftServer): Boolean = transaction {
@@ -68,8 +76,16 @@ class DatabaseMinecraftServerRepository : MinecraftServerRepository {
         rowsDeleted > 0
     }.ifTrueAlso { serverWatcher.pushDelete(uuid) }
 
-    override suspend fun getServerUpdates(uuid: UUID): StateFlow<MinecraftServer?> =
-        serverWatcher.serverUpdatesFlow(uuid, getServer(uuid))
+    override suspend fun getServerUpdates(uuid: UUID): StateFlow<MinecraftServer?> {
+        val initialServer = try {
+            getServer(uuid)
+        } catch (e: SQLException) {
+            logger.warn("Failed to get server for updates flow with UUID $uuid")
+            null
+        }
+
+        return serverWatcher.serverUpdatesFlow(uuid, initialServer)
+    }
 
     override suspend fun getAllUpdates(): StateFlow<List<MinecraftServer>> =
         serverWatcher.allUpdatesFlow(getAllServers())
@@ -98,6 +114,8 @@ class DatabaseMinecraftServerRepository : MinecraftServerRepository {
         } catch (e: SQLException) {
             false
         }
+
+    private val logger = LoggerFactory.getLogger(this::class.java)
 }
 
 private class ServerWatcher {

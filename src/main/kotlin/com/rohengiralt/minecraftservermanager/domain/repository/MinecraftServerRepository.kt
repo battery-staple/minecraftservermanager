@@ -1,6 +1,7 @@
 package com.rohengiralt.minecraftservermanager.domain.repository
 
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
+import io.ktor.utils.io.errors.*
 import kotlinx.coroutines.flow.StateFlow
 import java.util.*
 
@@ -22,8 +23,9 @@ interface MinecraftServerRepository {
     /**
      * Adds the server [minecraftServer] to the repository.
      * Expects that no server with the same `uuid` is already in the repository; if so, does nothing.
-     * @return true if the server was successfully added, false otherwise.
-     *              In particular, returns false if a server with the same uuid was already in the repository.
+     * @return true if the server was successfully added,
+     *         false if a server with the same uuid was already in the repository.
+     * @throws IOException if adding fails for any reason other than duplicate
      */
     fun addServer(minecraftServer: MinecraftServer): Boolean
 
@@ -45,6 +47,7 @@ interface MinecraftServerRepository {
      * Returns a [StateFlow] that always contains the up-to-date state of the server with uuid [uuid].
      * If the server is added or updated, the state flow will emit the new state.
      * If the server is removed, the state flow will emit `null`.
+     * If there is an issue with retrieving the server state, the flow will also emit `null`.
      */
     suspend fun getServerUpdates(uuid: UUID): StateFlow<MinecraftServer?>
 

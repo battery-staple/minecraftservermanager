@@ -5,7 +5,6 @@ import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerAPIM
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerCurrentRunAPIModel
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerEnvironmentAPIModel
 import com.rohengiralt.minecraftservermanager.frontend.routes.orThrow
-import com.rohengiralt.minecraftservermanager.plugins.ConflictException
 import com.rohengiralt.minecraftservermanager.plugins.NotAllowedException
 import com.rohengiralt.minecraftservermanager.util.routes.*
 import io.ktor.http.*
@@ -35,15 +34,11 @@ fun Route.serversRoute() { // TODO: Better response codes in general
         val version = serverAPIModel.version ?: missingField("version")
         val runnerUUID = serverAPIModel.runnerUUID ?: missingField("runnerUUID")
 
-        val success = restApiService.createServer(
+        val newServer = restApiService.createServer(
             uuid = null, name = name, version = version, runnerUUID = runnerUUID
-        )
+        ).orThrow()
 
-        if (success) {
-            call.respond(HttpStatusCode.Created) // TODO: Respond with the server added (?)
-        } else {
-            throw ConflictException()
-        }
+        call.respond(HttpStatusCode.Created, newServer.let(::MinecraftServerAPIModel))
     }
 
     delete {

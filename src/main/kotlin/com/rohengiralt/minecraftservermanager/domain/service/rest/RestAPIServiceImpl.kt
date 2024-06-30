@@ -19,6 +19,7 @@ import com.rohengiralt.minecraftservermanager.user.UserLoginInfo
 import com.rohengiralt.minecraftservermanager.user.preferences.UserPreferences
 import com.rohengiralt.minecraftservermanager.user.preferences.UserPreferencesRepository
 import com.rohengiralt.minecraftservermanager.util.ifNull
+import com.rohengiralt.minecraftservermanager.util.ifTrue.ifFalse
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.util.pipeline.*
@@ -33,7 +34,7 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
     override suspend fun getAllServers(): APIResult<List<MinecraftServer>> =
         Success(serverRepository.getAllServers())
 
-    override suspend fun createServer(uuid: UUID?, name: String, version: MinecraftVersion, runnerUUID: UUID): Boolean {
+    override suspend fun createServer(uuid: UUID?, name: String, version: MinecraftVersion, runnerUUID: UUID): APIResult<MinecraftServer> {
         val server = MinecraftServer(
             uuid = uuid ?: UUID.randomUUID(),
             name = name,
@@ -42,20 +43,26 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
             creationTime = Clock.System.now()
         )
 
-        val success = runnerRepository.getRunner(runnerUUID)?.initializeServer(server) ?: false
+        val runner = runnerRepository.getRunner(runnerUUID) ?: return Failure.AuxiliaryResourceNotFound(runnerUUID)
 
-        if (!success) {
-            return false
+        runner.initializeServer(server).ifFalse { return Failure.Unknown() }
+
+        val addSuccess = serverRepository.addServer(server)
+        if (addSuccess) {
+            return Success(server)
+        } else {
+            runner.removeServer(server)
+                .ifFalse { logger.warn("Failed to clean up resources for ${server.uuid} storage failure.") }
+
+            return Failure.AlreadyExists(server.uuid)
         }
-
-        return serverRepository.addServer(server)
     }
 
     override suspend fun getServer(uuid: UUID): APIResult<MinecraftServer> =
         try {
             serverRepository.getServer(uuid)
                 ?.let { Success(it) }
-                ?: Failure.NotFound(uuid)
+                ?: Failure.MainResourceNotFound(uuid)
         } catch (e: IOException) {
             Failure.Unknown(e)
         }
@@ -74,7 +81,7 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
     override suspend fun updateServer(uuid: UUID, name: String?): APIResult<Unit> {
         // TODO: CONCURRENCY CONTROL/TRANSACTION MANAGEMENT
 
-        val server = serverRepository.getServer(uuid) ?: return Failure.NotFound(uuid)
+        val server = serverRepository.getServer(uuid) ?: return Failure.MainResourceNotFound(uuid)
 
         name?.let { server.name = it }
 
