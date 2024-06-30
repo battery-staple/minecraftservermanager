@@ -1,7 +1,6 @@
 package com.rohengiralt.minecraftservermanager.domain.repository
 
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
-import io.ktor.utils.io.errors.*
 import kotlinx.coroutines.flow.StateFlow
 import java.util.*
 
@@ -25,21 +24,20 @@ interface MinecraftServerRepository {
      * Expects that no server with the same `uuid` is already in the repository; if so, does nothing.
      * @return true if the server was successfully added,
      *         false if a server with the same uuid was already in the repository.
-     * @throws IOException if adding fails for any reason other than duplicate
+     * @throws Exception if adding fails for any reason other than duplicate
      */
     fun addServer(minecraftServer: MinecraftServer): Boolean
 
     /**
      * Saves the server [minecraftServer] to the repository.
      * If a server with the same `uuid` is already in the repository, replaces it with [minecraftServer].
-     * @return true if the server was successfully saved, including if another server was overwritten; false otherwise.
      */
-    fun saveServer(minecraftServer: MinecraftServer): Boolean
+    fun saveServer(minecraftServer: MinecraftServer)
 
     /**
      * Removes the server with uuid [uuid] from the repository, if such a server exists.
-     * @return true if a server was successfully removed; false otherwise.
-     *              Returns false if no server with uuid [uuid] exists.
+     * @return true if a server was successfully removed; false if no server with uuid [uuid] exists.
+     * @throws Exception if deletion fails for any reason other than not being present
      */
     fun removeServer(uuid: UUID): Boolean
 

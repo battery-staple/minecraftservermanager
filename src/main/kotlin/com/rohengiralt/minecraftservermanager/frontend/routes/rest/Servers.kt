@@ -82,31 +82,21 @@ fun Route.serversRoute() { // TODO: Better response codes in general
             val version = serverAPIModel.version ?: missingField("version")
             val runnerUUID = serverAPIModel.runnerUUID ?: missingField("runnerUUID")
 
-            val success = restApiService.setServer(
+            val newServer = restApiService.setServer(
                 uuid = uuid,
                 name = name,
                 version = version,
                 runnerUUID = runnerUUID,
-            )
+            ).orThrow()
 
-            if (success) {
-                call.respond(HttpStatusCode.OK)
-            } else {
-                call.respond(HttpStatusCode.InternalServerError)
-            }
+            call.respond(HttpStatusCode.OK, newServer.let(::MinecraftServerAPIModel))
         }
 
         delete {
             call.application.environment.log.info("Deleting server with id ${call.parameters["id"]}")
             val uuid = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
 
-            val success = restApiService.deleteServer(uuid)
-
-            if (success) {
-                call.respond(HttpStatusCode.OK)
-            } else {
-                call.respond(HttpStatusCode.NotFound) // TODO: could also be 500 if server failed to delete
-            }
+            restApiService.deleteServer(uuid).orThrow()
         }
 
         route("/currentRun") {

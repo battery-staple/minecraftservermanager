@@ -63,13 +63,15 @@ class DatabaseMinecraftServerRepository : MinecraftServerRepository {
         return@transaction true
     }.ifTrueAlso { serverWatcher.pushUpdate(minecraftServer) }
 
-    override fun saveServer(minecraftServer: MinecraftServer): Boolean = transaction {
-        succeeds {
+    override fun saveServer(minecraftServer: MinecraftServer) {
+        transaction {
             MinecraftServerTable.upsert(MinecraftServerTable.uuid) {
                 insertBody(it, minecraftServer)
             }
         }
-    }.ifTrueAlso { serverWatcher.pushUpdate(minecraftServer) }
+
+        serverWatcher.pushUpdate(minecraftServer)
+    }
 
     override fun removeServer(uuid: UUID): Boolean = transaction {
         val rowsDeleted = MinecraftServerTable.deleteWhere { MinecraftServerTable.uuid eq uuid }
@@ -106,14 +108,6 @@ class DatabaseMinecraftServerRepository : MinecraftServerRepository {
         insertStatement[runnerUUID] = server.runnerUUID
         insertStatement[creationTime] = server.creationTime.toLocalDateTime(TimeZone.UTC).toJavaLocalDateTime()
     }
-
-    private inline fun succeeds(block: () -> Unit): Boolean =
-        try {
-            block()
-            true
-        } catch (e: SQLException) {
-            false
-        }
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 }

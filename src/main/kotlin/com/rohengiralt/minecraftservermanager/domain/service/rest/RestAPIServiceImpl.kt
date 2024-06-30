@@ -67,16 +67,19 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
             Failure.Unknown(e)
         }
 
-    override suspend fun setServer(uuid: UUID, name: String, version: MinecraftVersion, runnerUUID: UUID): Boolean =
-        serverRepository.saveServer(
-            MinecraftServer(
-                uuid = uuid,
-                name = name,
-                version = version,
-                runnerUUID = runnerUUID,
-                creationTime = Clock.System.now()
-            )
+    override suspend fun setServer(uuid: UUID, name: String, version: MinecraftVersion, runnerUUID: UUID): APIResult<MinecraftServer> {
+        val newServer = MinecraftServer(
+            uuid = uuid,
+            name = name,
+            version = version,
+            runnerUUID = runnerUUID,
+            creationTime = Clock.System.now()
         )
+
+        serverRepository.saveServer(newServer)
+
+        return Success(newServer)
+    }
 
     override suspend fun updateServer(uuid: UUID, name: String?): APIResult<Unit> {
         // TODO: CONCURRENCY CONTROL/TRANSACTION MANAGEMENT
@@ -85,24 +88,31 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
 
         name?.let { server.name = it }
 
-        return if (serverRepository.saveServer(server)) Success() else Failure.Unknown()
+        serverRepository.saveServer(server)
+        return Success()
     }
 
-    override suspend fun deleteServer(uuid: UUID): Boolean {
+    override suspend fun deleteServer(uuid: UUID): APIResult<Unit> {
         logger.trace("Getting server with uuid {}", uuid)
-        val server = serverRepository.getServer(uuid) ?: return false
+        val server = serverRepository.getServer(uuid) ?: return Failure.MainResourceNotFound(uuid)
         logger.trace("Getting runner with uuid {}", uuid)
-        val runner = runnerRepository.getRunner(server.runnerUUID) ?: return false
+        val runner = runnerRepository.getRunner(server.runnerUUID) ?: return Failure.AuxiliaryResourceNotFound(server.runnerUUID)
         logger.trace("Removing server with uuid {} from runner with uuid {}", uuid, runner.uuid)
         val removeFromRunnerSuccess = runner.removeServer(server)
         logger.trace("Removing server with uuid {} from runner with uuid {} {}", uuid, runner.uuid, if (removeFromRunnerSuccess) "SUCCEEDED" else "FAILED")
         if (!removeFromRunnerSuccess) {
-            return false // Early exit; don't remove it from the database unless it's been fully cleaned up. TODO: some better transactionality?
+            logger.warn("Failed to remove server {} from runner {}", uuid, server.runnerUUID)
+            return Failure.Unknown() // Early exit; don't remove it from the database unless it's been fully cleaned up. TODO: some better transactionality?
         }
         logger.trace("Removing server with uuid {} from server repository}", uuid)
         val removeFromRepositorySuccess = serverRepository.removeServer(uuid)
         logger.trace("Removing server with uuid {} from server repository {}}", uuid, if (removeFromRepositorySuccess) "SUCCEEDED" else "FAILED")
-        return removeFromRepositorySuccess
+        if (!removeFromRepositorySuccess) {
+            logger.warn("Failed to remove server {} from repository", uuid)
+            return Failure.Unknown()
+        }
+
+        return Success()
     }
 
     override suspend fun getAllRunners(): List<MinecraftServerRunner> =

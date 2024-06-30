@@ -28,9 +28,9 @@ interface RestAPIService {
     suspend fun getAllServers(): APIResult<List<MinecraftServer>>
     suspend fun createServer(uuid: UUID? = null, name: String, version: MinecraftVersion, runnerUUID: UUID): APIResult<MinecraftServer>
     suspend fun getServer(uuid: UUID): APIResult<MinecraftServer>
-    suspend fun setServer(uuid: UUID, name: String, version: MinecraftVersion, runnerUUID: UUID): Boolean
+    suspend fun setServer(uuid: UUID, name: String, version: MinecraftVersion, runnerUUID: UUID): APIResult<MinecraftServer>
     suspend fun updateServer(uuid: UUID, name: String? = null): APIResult<Unit>
-    suspend fun deleteServer(uuid: UUID): Boolean
+    suspend fun deleteServer(uuid: UUID): APIResult<Unit>
 
     suspend fun getAllRunners(): List<MinecraftServerRunner>
     suspend fun getRunner(uuid: UUID): MinecraftServerRunner?
