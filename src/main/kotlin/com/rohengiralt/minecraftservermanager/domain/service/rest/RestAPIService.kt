@@ -32,15 +32,15 @@ interface RestAPIService {
     suspend fun updateServer(uuid: UUID, name: String? = null): APIResult<Unit>
     suspend fun deleteServer(uuid: UUID): APIResult<Unit>
 
-    suspend fun getAllRunners(): List<MinecraftServerRunner>
-    suspend fun getRunner(uuid: UUID): MinecraftServerRunner?
-    suspend fun getAllCurrentRuns(runnerUUID: UUID): List<MinecraftServerCurrentRun>?
-    suspend fun createCurrentRun(serverUUID: UUID, environment: MinecraftServerEnvironment): MinecraftServerCurrentRun?
-    suspend fun getCurrentRun(runnerUUID: UUID, runUUID: UUID): MinecraftServerCurrentRun?
-    suspend fun getCurrentRunByServer(serverUUID: UUID): MinecraftServerCurrentRun?
-    suspend fun stopCurrentRun(runnerUUID: UUID, runUUID: UUID): Boolean
-    suspend fun stopCurrentRunByServer(serverUUID: UUID): Boolean
-    suspend fun stopAllCurrentRuns(runnerUUID: UUID): Boolean
+    suspend fun getAllRunners(): APIResult<List<MinecraftServerRunner>>
+    suspend fun getRunner(uuid: UUID): APIResult<MinecraftServerRunner>
+    suspend fun getAllCurrentRuns(runnerUUID: UUID): APIResult<List<MinecraftServerCurrentRun>>
+    suspend fun createCurrentRun(serverUUID: UUID, environment: MinecraftServerEnvironment): APIResult<MinecraftServerCurrentRun>
+    suspend fun getCurrentRun(runnerUUID: UUID, runUUID: UUID): APIResult<MinecraftServerCurrentRun>
+    suspend fun getCurrentRunByServer(serverUUID: UUID): APIResult<MinecraftServerCurrentRun>
+    suspend fun stopCurrentRun(runnerUUID: UUID, runUUID: UUID): APIResult<Unit>
+    suspend fun stopCurrentRunByServer(serverUUID: UUID): APIResult<Unit>
+    suspend fun stopAllCurrentRuns(runnerUUID: UUID): APIResult<Unit>
 
     suspend fun getAllPastRuns(serverUUID: UUID): List<MinecraftServerPastRun>
     suspend fun getPastRun(serverUUID: UUID, runUUID: UUID): MinecraftServerPastRun?
@@ -80,9 +80,9 @@ interface RestAPIService {
              * Represents a failure due to the main resource not being found.
              * There should be at most one "main resource" in any API call.
              * For instance, the main resource of a `get*` method should be the resource attempting to be retrieved.
-             * @param resourceUUID the UUID of the resource not found.
+             * @param resourceUUID the UUID of the resource not found, or null if the resource's UUID is not known.
              */
-            data class MainResourceNotFound(val resourceUUID: UUID) : Failure
+            data class MainResourceNotFound(val resourceUUID: UUID?) : Failure
 
             /**
              * Represents a failure due to any resource other than the main one not being found.

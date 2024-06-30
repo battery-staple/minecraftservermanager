@@ -14,6 +14,7 @@ import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService
 import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService.APIResult.Failure
 import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService.APIResult.Success
 import com.rohengiralt.minecraftservermanager.frontend.model.UserPreferencesAPIModel
+import com.rohengiralt.minecraftservermanager.frontend.routes.orElse
 import com.rohengiralt.minecraftservermanager.user.UserID
 import com.rohengiralt.minecraftservermanager.user.UserLoginInfo
 import com.rohengiralt.minecraftservermanager.user.preferences.UserPreferences
@@ -52,7 +53,7 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
             return Success(server)
         } else {
             runner.removeServer(server)
-                .ifFalse { logger.warn("Failed to clean up resources for ${server.uuid} storage failure.") }
+                .ifFalse { logger.warn("Failed to clean up resources for ${server.uuid} persistence failure.") }
 
             return Failure.AlreadyExists(server.uuid)
         }
@@ -115,73 +116,86 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
         return Success()
     }
 
-    override suspend fun getAllRunners(): List<MinecraftServerRunner> =
-        runnerRepository.getAllRunners()
+    override suspend fun getAllRunners(): APIResult<List<MinecraftServerRunner>> =
+        Success(runnerRepository.getAllRunners())
 
-    override suspend fun getRunner(uuid: UUID): MinecraftServerRunner? =
-        runnerRepository.getRunner(uuid)
+    override suspend fun getRunner(uuid: UUID): APIResult<MinecraftServerRunner> =
+        runnerRepository.getRunner(uuid)?.let(::Success) ?: Failure.MainResourceNotFound(uuid)
 
-    override suspend fun getAllCurrentRuns(runnerUUID: UUID): List<MinecraftServerCurrentRun>? {
+    override suspend fun getAllCurrentRuns(runnerUUID: UUID): APIResult<List<MinecraftServerCurrentRun>> {
         val runner =
             runnerRepository.getRunner(runnerUUID).ifNull {
                 logger.trace("Could not find runner")
-                return null
+                return Failure.MainResourceNotFound(runnerUUID)
             }
 
-        return runner.getAllCurrentRuns()
+        return Success(runner.getAllCurrentRuns())
     }
 
-    override suspend fun createCurrentRun(serverUUID: UUID, environment: MinecraftServerEnvironment): MinecraftServerCurrentRun? {
+    override suspend fun createCurrentRun(serverUUID: UUID, environment: MinecraftServerEnvironment): APIResult<MinecraftServerCurrentRun> {
         val server = serverRepository.getServer(serverUUID).ifNull {
             logger.trace("Couldn't find server for UUID {}", serverUUID)
-            return null
+            return Failure.MainResourceNotFound(serverUUID)
         }
 
         val runner = runnerRepository.getRunner(server.runnerUUID).ifNull {
             logger.trace("Couldn't find runner for UUID {}.runnerUUID", server)
-            return null
+            return Failure.AuxiliaryResourceNotFound(server.runnerUUID)
         }
 
-        if (runner.isRunning(serverUUID)) { // TODO: possible concurrency issues if another run starts before this one?
+        val existingRun = runner.getCurrentRun(serverUUID)
+        if (existingRun != null) { // TODO: possible concurrency issues if another run starts before this one?
             logger.trace("Cannot create current run because server {} is already running", serverUUID)
-            return null
+            return Failure.AlreadyExists(existingRun.uuid)
         }
 
-        return runner.runServer(server, environment)
+        return runner.runServer(server, environment)?.let(::Success) ?: return Failure.Unknown()
     }
 
-    override suspend fun getCurrentRun(runnerUUID: UUID, runUUID: UUID): MinecraftServerCurrentRun? {
-        val runner = runnerRepository.getRunner(runnerUUID) ?: return null
+    override suspend fun getCurrentRun(runnerUUID: UUID, runUUID: UUID): APIResult<MinecraftServerCurrentRun> {
+        val runner = runnerRepository.getRunner(runnerUUID) ?: return Failure.AuxiliaryResourceNotFound(runnerUUID)
+        val run = runner.getCurrentRun(runUUID) ?: return Failure.MainResourceNotFound(runUUID)
 
-        return runner.getCurrentRun(runUUID)
+        return Success(run)
     }
 
-    override suspend fun getCurrentRunByServer(serverUUID: UUID): MinecraftServerCurrentRun? {
-        val runner = getRunnerByServer(serverUUID)
+    override suspend fun getCurrentRunByServer(serverUUID: UUID): APIResult<MinecraftServerCurrentRun> {
+        val runner: MinecraftServerRunner = getRunnerByServer(serverUUID).orElse { return it }
+        val run = runner.getCurrentRunByServer(serverUUID) ?: return Failure.MainResourceNotFound(null)
 
-        return runner?.getCurrentRunByServer(serverUUID)
+        return Success(run)
     }
 
-    override suspend fun stopCurrentRun(runnerUUID: UUID, runUUID: UUID): Boolean {
+    override suspend fun stopCurrentRun(runnerUUID: UUID, runUUID: UUID): APIResult<Unit> {
         logger.info("Stopping current run $runUUID")
-        val runner = runnerRepository.getRunner(runnerUUID) ?: return false
+        val runner = runnerRepository.getRunner(runnerUUID) ?: return Failure.AuxiliaryResourceNotFound(runnerUUID)
 
-        return runner.stopRun(runUUID)
+        val stopRunSuccess = try {
+            runner.stopRun(runUUID)
+        } catch (e: IllegalArgumentException) {
+            return Failure.MainResourceNotFound(runUUID)
+        }
+
+        return if (stopRunSuccess) Success() else Failure.Unknown()
     }
 
-    override suspend fun stopCurrentRunByServer(serverUUID: UUID): Boolean {
+    override suspend fun stopCurrentRunByServer(serverUUID: UUID): APIResult<Unit> {
         logger.info("Stopping current run of server $serverUUID")
-        val server = serverRepository.getServer(serverUUID) ?: return false
-        val runner = runnerRepository.getRunner(server.runnerUUID) ?: return false
+        val server = serverRepository.getServer(serverUUID) ?: return Failure.MainResourceNotFound(serverUUID)
+        val runner = runnerRepository.getRunner(server.runnerUUID) ?: return Failure.AuxiliaryResourceNotFound(server.runnerUUID)
 
-        return runner.stopRunByServer(serverUUID)
+        val stopSuccess = runner.stopRunByServer(serverUUID)
+
+        return if (stopSuccess) Success() else Failure.Unknown()
     }
 
-    override suspend fun stopAllCurrentRuns(runnerUUID: UUID): Boolean {
+    override suspend fun stopAllCurrentRuns(runnerUUID: UUID): APIResult<Unit> {
         logger.info("Stopping all current runs for runner $runnerUUID")
-        val runner = runnerRepository.getRunner(runnerUUID)?: return false
+        val runner = runnerRepository.getRunner(runnerUUID) ?: return Failure.MainResourceNotFound(runnerUUID)
 
-        return runner.stopAllRuns()
+        val stopSuccess = runner.stopAllRuns()
+
+        return if (stopSuccess) Success() else Failure.Unknown()
     }
 
     override suspend fun getAllPastRuns(serverUUID: UUID): List<MinecraftServerPastRun> =
@@ -231,18 +245,22 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
         return userPreferencesRepository.deleteUserPreferences(userLoginInfo.userId)
     }
 
-    private fun getRunnerByServer(serverUUID: UUID): MinecraftServerRunner? {
+    /**
+     * Finds the runner for a particular server.
+     * Assumes the main resource is not the server or the runner.
+     */
+    private fun getRunnerByServer(serverUUID: UUID): APIResult<MinecraftServerRunner> {
         val server = serverRepository.getServer(serverUUID).ifNull {
             logger.trace("Couldn't find server for UUID {}", serverUUID)
-            return null
+            return Failure.AuxiliaryResourceNotFound(serverUUID)
         }
 
         val runner = runnerRepository.getRunner(server.runnerUUID).ifNull {
             logger.trace("Couldn't find runner for UUID {}.runnerUUID", server)
-            return null
+            return Failure.AuxiliaryResourceNotFound(server.runnerUUID)
         }
 
-        return runner
+        return Success(runner)
     }
 
     private val serverRepository: MinecraftServerRepository by inject()

@@ -120,7 +120,8 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         val currentRun = getCurrentRunByServer(server.uuid)
         if (currentRun != null) {
             logger.trace("Server ${server.name} is currently running. Stopping.")
-            val stopRunSuccess = stopRun(currentRun.uuid)
+            val stopRunSuccess = stopRunByServer(server.uuid)
+
             if (!stopRunSuccess) {
                 logger.error("Failed to stop server ${server.name}")
                 return false
@@ -220,15 +221,22 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         currentRunRecordRepository.addRecord(MinecraftServerCurrentRunRecord.fromCurrentRun(run))
     }
 
-    override suspend fun stopRun(uuid: UUID): Boolean =
-        runningProcesses[uuid].ifNull {
+    override suspend fun stopRun(uuid: UUID): Boolean {
+        val process = runningProcesses[uuid].ifNull {
             logger.trace("Cannot stop run {}, run not found", uuid)
-            return false // TODO: Propagate that run was not found
-        }.stop()
+            throw IllegalArgumentException("Run $uuid not found")
+        }
+
+        return process.stop()
+    }
 
     override suspend fun stopRunByServer(serverUUID: UUID): Boolean {
         val run = getCurrentRunByServer(serverUUID) ?: return false
-        return stopRun(run.uuid)
+        return try {
+            stopRun(run.uuid)
+        } catch (e: IllegalArgumentException) {
+            true // Run not found because server was already stopped.
+        }
     }
 
     override suspend fun stopAllRuns(): Boolean =

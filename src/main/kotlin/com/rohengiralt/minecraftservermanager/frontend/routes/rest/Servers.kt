@@ -9,7 +9,6 @@ import com.rohengiralt.minecraftservermanager.plugins.NotAllowedException
 import com.rohengiralt.minecraftservermanager.util.routes.*
 import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.plugins.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.koin.ktor.ext.inject
@@ -19,7 +18,11 @@ fun Route.serversRoute() { // TODO: Better response codes in general
 
     get {
         call.application.environment.log.info("Getting all servers")
-        call.respond(restApiService.getAllServers().orThrow().map(::MinecraftServerAPIModel))
+        call.respond(
+            restApiService.getAllServers()
+                .orThrow()
+                .map(::MinecraftServerAPIModel)
+        )
     }
 
     post {
@@ -73,7 +76,7 @@ fun Route.serversRoute() { // TODO: Better response codes in general
 
         put {
             call.application.environment.log.info("Putting server with id ${call.parameters["id"]}")
-            val uuid = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
+            val serverUUID = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
 
             val serverAPIModel: MinecraftServerAPIModel = call.receiveSerializable()
 
@@ -83,7 +86,7 @@ fun Route.serversRoute() { // TODO: Better response codes in general
             val runnerUUID = serverAPIModel.runnerUUID ?: missingField("runnerUUID")
 
             val newServer = restApiService.setServer(
-                uuid = uuid,
+                uuid = serverUUID,
                 name = name,
                 version = version,
                 runnerUUID = runnerUUID,
@@ -94,9 +97,9 @@ fun Route.serversRoute() { // TODO: Better response codes in general
 
         delete {
             call.application.environment.log.info("Deleting server with id ${call.parameters["id"]}")
-            val uuid = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
+            val serverUUID = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
 
-            restApiService.deleteServer(uuid).orThrow()
+            restApiService.deleteServer(serverUUID).orThrow()
         }
 
         route("/currentRun") {
@@ -105,9 +108,8 @@ fun Route.serversRoute() { // TODO: Better response codes in general
                 val serverUUID = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
 
                 val run = restApiService
-                    .getCurrentRunByServer(serverUUID)
-                    ?.let(::MinecraftServerCurrentRunAPIModel)
-                    ?: throw NotFoundException()
+                    .getCurrentRunByServer(serverUUID).orThrow()
+                    .let(::MinecraftServerCurrentRunAPIModel)
 
                 call.respond(run)
             }
@@ -117,13 +119,8 @@ fun Route.serversRoute() { // TODO: Better response codes in general
                 val serverUUID = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
                 val environment = call.receiveSerializable<MinecraftServerEnvironmentAPIModel>().toMinecraftServerEnvironment()
 
-                val createdRun = restApiService.createCurrentRun(serverUUID, environment)
-
-                if (createdRun == null) {
-                    call.respond(HttpStatusCode.InternalServerError)
-                } else {
-                    call.respond(MinecraftServerCurrentRunAPIModel(createdRun))
-                }
+                val createdRun = restApiService.createCurrentRun(serverUUID, environment).orThrow()
+                call.respond(MinecraftServerCurrentRunAPIModel(createdRun))
             }
 
             delete {
@@ -131,13 +128,9 @@ fun Route.serversRoute() { // TODO: Better response codes in general
 
                 val serverUUID = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
 
-                val success = restApiService.stopCurrentRunByServer(serverUUID)
+                restApiService.stopCurrentRunByServer(serverUUID).orThrow()
 
-                if (success) {
-                    call.respond(HttpStatusCode.OK) // TODO: Respond with past run
-                } else {
-                    call.respond(HttpStatusCode.InternalServerError)
-                }
+                call.respond(HttpStatusCode.OK) // TODO: Respond with past run
             }
         }
     }

@@ -3,13 +3,13 @@ package com.rohengiralt.minecraftservermanager.frontend.routes.rest.runners
 import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerCurrentRunAPIModel
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerEnvironmentAPIModel
+import com.rohengiralt.minecraftservermanager.frontend.routes.orThrow
 import com.rohengiralt.minecraftservermanager.plugins.NotAllowedException
 import com.rohengiralt.minecraftservermanager.util.routes.getParameterOrBadRequest
 import com.rohengiralt.minecraftservermanager.util.routes.parseUUIDOrBadRequest
 import com.rohengiralt.minecraftservermanager.util.routes.receiveSerializable
 import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.plugins.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.koin.ktor.ext.inject
@@ -20,9 +20,9 @@ fun Route.currentRuns() {
         call.application.environment.log.info("Getting all runs")
         val runnerUUID = call.getParameterOrBadRequest("runnerId").parseUUIDOrBadRequest()
 
-        val runs = restApiService.getAllCurrentRuns(runnerUUID)
-            ?.map(::MinecraftServerCurrentRunAPIModel)
-            ?: throw NotFoundException()
+        val runs = restApiService
+            .getAllCurrentRuns(runnerUUID).orThrow()
+            .map(::MinecraftServerCurrentRunAPIModel)
 
         call.respond(runs)
     }
@@ -32,13 +32,8 @@ fun Route.currentRuns() {
         val serverUUID = call.getParameterOrBadRequest("serverId").parseUUIDOrBadRequest()
         val environment = call.receiveSerializable<MinecraftServerEnvironmentAPIModel>().toMinecraftServerEnvironment()
 
-        val createdRun = restApiService.createCurrentRun(serverUUID, environment)
-
-        if (createdRun == null) {
-            call.respond(HttpStatusCode.InternalServerError)
-        } else {
-            call.respond(MinecraftServerCurrentRunAPIModel(createdRun))
-        }
+        val createdRun = restApiService.createCurrentRun(serverUUID, environment).orThrow()
+        call.respond(MinecraftServerCurrentRunAPIModel(createdRun))
     }
 
     delete {
@@ -46,13 +41,9 @@ fun Route.currentRuns() {
 
         val runnerUUID = call.getParameterOrBadRequest("runnerId").parseUUIDOrBadRequest()
 
-        val success = restApiService.stopAllCurrentRuns(runnerUUID)
+        restApiService.stopAllCurrentRuns(runnerUUID).orThrow()
 
-        if (success) {
-            call.respond(HttpStatusCode.OK) // TODO: Respond with past runs
-        } else {
-            call.respond(HttpStatusCode.InternalServerError)
-        }
+        call.respond(HttpStatusCode.OK) // TODO: Respond with past runs
     }
 
     route("/{runId}") {
@@ -62,12 +53,8 @@ fun Route.currentRuns() {
 
             call.respond(
                 restApiService
-                    .getCurrentRun(
-                        runnerUUID = runnerUUID,
-                        runUUID = runUUID
-                    )
-                    ?.let(::MinecraftServerCurrentRunAPIModel)
-                    ?: throw NotFoundException()
+                    .getCurrentRun(runnerUUID = runnerUUID, runUUID = runUUID).orThrow()
+                    .let(::MinecraftServerCurrentRunAPIModel)
             )
         }
 
@@ -84,13 +71,9 @@ fun Route.currentRuns() {
             val runnerUUID = call.getParameterOrBadRequest("runnerId").parseUUIDOrBadRequest()
             val runUUID = call.getParameterOrBadRequest("runId").parseUUIDOrBadRequest()
 
-            val success = restApiService.stopCurrentRun(runUUID = runUUID, runnerUUID = runnerUUID)
+            restApiService.stopCurrentRun(runUUID = runUUID, runnerUUID = runnerUUID).orThrow()
 
-            if (success) {
-                call.respond(HttpStatusCode.OK) // TODO: Respond with new past run
-            } else {
-                call.respond(HttpStatusCode.InternalServerError)
-            }
+            call.respond(HttpStatusCode.OK) // TODO: Respond with new past run
         }
 
         route("/consoleURL") {

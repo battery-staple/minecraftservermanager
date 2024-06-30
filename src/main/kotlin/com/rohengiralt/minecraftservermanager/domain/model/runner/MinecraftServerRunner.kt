@@ -41,7 +41,7 @@ interface MinecraftServerRunner {
      * Prepares the environment to run the given server, and then runs the server.
      * @param server the server to run
      * @param environmentOverrides additional configuration to specify how the server is run
-     * @return a record representing the new run of [server]
+     * @return a record representing the new run of [server], or null if running failed.
      */
     suspend fun runServer(
         server: MinecraftServer,
@@ -49,10 +49,11 @@ interface MinecraftServerRunner {
     ): MinecraftServerCurrentRun?
 
     /**
-     * Stops the provided run if it exists.
+     * Stops the provided run.
      * Note that this method may suspend until the run has been successfully ended.
      * @param uuid the UUID of the run to stop
-     * @return true if a run was ended (if no run with the provided uuid exists, returns false)
+     * @return true if the run was ended
+     * @throws IllegalArgumentException if no run exists with the UUID [uuid].
      */
     suspend fun stopRun(uuid: UUID): Boolean
 
@@ -60,8 +61,8 @@ interface MinecraftServerRunner {
      * Stops the provided server's run if one exists.
      * Note that this method may suspend until the run has been successfully ended.
      * @param serverUUID the UUID of the server whose run to stop
-     * @return true if a run was ended
-     * (if no server exists with the provided uuid and/or the server is already stopped, returns false)
+     * @return true if the run is stopped.
+     *         Returns true even if the server was already stopped before this method.
      */
     suspend fun stopRunByServer(serverUUID: UUID): Boolean
 
