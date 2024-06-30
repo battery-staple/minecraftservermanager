@@ -48,11 +48,12 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
 
         runner.initializeServer(server).ifFalse { return Failure.Unknown() }
 
-        val addSuccess = serverRepository.addServer(server)
+        val addSuccess = runCatching { serverRepository.addServer(server) }.getOrElse { false }
         if (addSuccess) {
             return Success(server)
         } else {
-            runner.removeServer(server)
+            runCatching { runner.removeServer(server) }
+                .getOrElse { false }
                 .ifFalse { logger.warn("Failed to clean up resources for ${server.uuid} persistence failure.") }
 
             return Failure.AlreadyExists(server.uuid)

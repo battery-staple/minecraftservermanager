@@ -81,12 +81,9 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
                     )
                 }
 
-            if (pastRunRepository.savePastRuns(runsToArchive)) {
-                logger.info("Archived ${runsToArchive.size} left over current run(s)")
-                currentRunRecordRepository.removeAllRecords()
-            } else {
-                logger.error("Failed to archive left over current run(s)")
-            }
+            pastRunRepository.savePastRuns(runsToArchive)
+            logger.info("Archived ${runsToArchive.size} left over current run(s)")
+            currentRunRecordRepository.removeAllRecords()
         } catch (e: Throwable) {
             logger.error("Failed to archive left over current run(s), got error: {}", e.message)
         }
@@ -277,21 +274,16 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         currentRunRecordRepository.removeRecord(run.uuid)
 
         logger.trace("Removed current run {}, about to save past run", run.uuid)
-        val success: Boolean = try {
+        try {
             logger.trace("Converting run to past run")
             val pastRun = run.toPastRun(endTime)
             logger.trace("Saving past run")
             pastRunRepository.savePastRun(pastRun)
         } catch (e: Throwable) {
             logger.error("Error archiving past run: $e")
-            false
         }
 
-        if (success) {
-            logger.trace("Successfully archived run {}", run.uuid)
-        } else {
-            logger.error("Couldn't archive run ${run.uuid}")
-        }
+        logger.trace("Successfully archived run {}", run.uuid)
     }
 
     private suspend fun MinecraftServerProcess.waitForEnd() {

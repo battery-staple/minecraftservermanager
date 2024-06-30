@@ -9,6 +9,7 @@ import com.rohengiralt.minecraftservermanager.util.extensions.exposed.jsonb
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.upsert
 import com.rohengiralt.minecraftservermanager.util.ifTrue.ifTrueAlso
 import com.rohengiralt.minecraftservermanager.util.sql.SQLState
+import com.rohengiralt.minecraftservermanager.util.sql.ioExnTransaction
 import com.rohengiralt.minecraftservermanager.util.sql.state
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,29 +43,29 @@ class DatabaseMinecraftServerRepository : MinecraftServerRepository {
 
     private val serverWatcher = ServerWatcher()
 
-    override fun getServer(uuid: UUID): MinecraftServer? = transaction {
+    override fun getServer(uuid: UUID): MinecraftServer? = ioExnTransaction {
         MinecraftServerTable.select { MinecraftServerTable.uuid eq uuid }
             .singleOrNull()
             ?.toMinecraftServer()
     }
 
-    override fun getAllServers(): List<MinecraftServer> = transaction {
+    override fun getAllServers(): List<MinecraftServer> = ioExnTransaction {
         MinecraftServerTable.selectAll().map { it.toMinecraftServer() }
     }
 
-    override fun addServer(minecraftServer: MinecraftServer): Boolean = transaction {
+    override fun addServer(minecraftServer: MinecraftServer): Boolean = ioExnTransaction {
         try {
             MinecraftServerTable.insert { insertBody(it, minecraftServer) }
         } catch (e: SQLException) {
             if (e.state == SQLState.UNIQUE_VIOLATION) {
-                return@transaction false
+                return@ioExnTransaction false
             } else throw e
         }
-        return@transaction true
+        return@ioExnTransaction true
     }.ifTrueAlso { serverWatcher.pushUpdate(minecraftServer) }
 
     override fun saveServer(minecraftServer: MinecraftServer) {
-        transaction {
+        ioExnTransaction {
             MinecraftServerTable.upsert(MinecraftServerTable.uuid) {
                 insertBody(it, minecraftServer)
             }
@@ -73,7 +74,7 @@ class DatabaseMinecraftServerRepository : MinecraftServerRepository {
         serverWatcher.pushUpdate(minecraftServer)
     }
 
-    override fun removeServer(uuid: UUID): Boolean = transaction {
+    override fun removeServer(uuid: UUID): Boolean = ioExnTransaction {
         val rowsDeleted = MinecraftServerTable.deleteWhere { MinecraftServerTable.uuid eq uuid }
         rowsDeleted > 0
     }.ifTrueAlso { serverWatcher.pushDelete(uuid) }
