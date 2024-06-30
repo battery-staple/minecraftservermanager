@@ -199,11 +199,11 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
         return if (stopSuccess) Success() else Failure.Unknown()
     }
 
-    override suspend fun getAllPastRuns(serverUUID: UUID): List<MinecraftServerPastRun> =
-        pastRunRepository.getAllPastRuns(serverUUID)
+    override suspend fun getAllPastRuns(serverUUID: UUID): APIResult<List<MinecraftServerPastRun>> =
+        pastRunRepository.getAllPastRuns(serverUUID).let(::Success)
 
-    override suspend fun getPastRun(serverUUID: UUID, runUUID: UUID): MinecraftServerPastRun? =
-        pastRunRepository.getPastRun(runUUID)
+    override suspend fun getPastRun(runUUID: UUID): APIResult<MinecraftServerPastRun> =
+        pastRunRepository.getPastRun(runUUID)?.let(::Success) ?: Failure.MainResourceNotFound(runUUID)
 
     context(PipelineContext<*, ApplicationCall>)
     override suspend fun getCurrentUserLoginInfo(): UserLoginInfo? = call.principal<UserLoginInfo>()

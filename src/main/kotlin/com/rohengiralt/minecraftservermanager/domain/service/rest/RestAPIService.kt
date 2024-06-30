@@ -43,7 +43,7 @@ interface RestAPIService {
     suspend fun stopAllCurrentRuns(runnerUUID: UUID): APIResult<Unit>
 
     suspend fun getAllPastRuns(serverUUID: UUID): APIResult<List<MinecraftServerPastRun>>
-    suspend fun getPastRun(serverUUID: UUID, runUUID: UUID): APIResult<MinecraftServerPastRun>
+    suspend fun getPastRun(runUUID: UUID): APIResult<MinecraftServerPastRun>
 
     context(PipelineContext<*, ApplicationCall>)
     suspend fun getCurrentUserLoginInfo(): UserLoginInfo?
