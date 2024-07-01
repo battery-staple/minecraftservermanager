@@ -36,13 +36,14 @@ interface WebsocketAPIService {
     suspend fun getServerUpdatesFlow(serverId: UUID): Flow<MinecraftServer?>
 
     /**
-     * Returns a flow for a that sends a new [List] of [MinecraftServerCurrentRun]s instance whenever the
+     * Returns a flow that sends a new [List] of [MinecraftServerCurrentRun]s whenever the
      * current runs of the server with UUID [serverId] change.
+     * @return a flow of current run updates, or `null` if the server or runner could not be retrieved.
      */
     suspend fun getAllCurrentRunsFlow(serverId: UUID): Flow<List<MinecraftServerCurrentRun>>?
 
     /**
-     * Returns a flow for a that sends a new [List] of [MinecraftServer]s whenever servers
+     * Returns a flow that sends a new [List] of [MinecraftServer]s whenever servers
      * are added or deleted.
      */
     suspend fun getAllServersUpdatesFlow(): Flow<List<MinecraftServer>>
@@ -78,7 +79,7 @@ class WebsocketAPIServiceImpl : WebsocketAPIService, KoinComponent {
         serverRepository.getServerUpdates(serverId)
 
     override suspend fun getAllCurrentRunsFlow(serverId: UUID): Flow<List<MinecraftServerCurrentRun>>? {
-        val server = serverRepository.getServer(serverId) ?: return null
+        val server = runCatching { serverRepository.getServer(serverId) }.getOrNull() ?: return null
         val runner = runnerRepository.getRunner(server.runnerUUID) ?: return null
 
         return runner.getAllCurrentRunsFlow(server)
