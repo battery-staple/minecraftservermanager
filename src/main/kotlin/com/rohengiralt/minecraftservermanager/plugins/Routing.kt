@@ -97,6 +97,6 @@ fun Application.configureRouting() {
 
 class AuthenticationException : RuntimeException()
 class AuthorizationException : RuntimeException()
-class ConflictException : RuntimeException()
+class ConflictException(message: String? = null) : RuntimeException(message)
 class NotAllowedException : RuntimeException()
 class InternalServerException : RuntimeException()
