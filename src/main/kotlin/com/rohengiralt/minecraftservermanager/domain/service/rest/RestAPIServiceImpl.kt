@@ -206,45 +206,65 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
         pastRunRepository.getPastRun(runUUID)?.let(::Success) ?: Failure.MainResourceNotFound(runUUID)
 
     context(PipelineContext<*, ApplicationCall>)
-    override suspend fun getCurrentUserLoginInfo(): UserLoginInfo? = call.principal<UserLoginInfo>()
+    override suspend fun getCurrentUserLoginInfo(): APIResult<UserLoginInfo> =
+        getCurrentUserLoginInfoOrNull()?.let(::Success) ?: Failure.Unknown()
 
     context(PipelineContext<*, ApplicationCall>)
-    override suspend fun deleteCurrentUser(): Boolean {
-        return true // Users aren't actually stored at this point
+    override suspend fun deleteCurrentUser(): APIResult<Unit> {
+        return Success() // Users aren't actually stored at this point
     }
 
     context(PipelineContext<*, ApplicationCall>)
-    override suspend fun getCurrentUserPreferences(): UserPreferences? {
-        val loginInfo = getCurrentUserLoginInfo() ?: return null
+    override suspend fun getCurrentUserPreferences(): APIResult<UserPreferences> {
+        val loginInfo = getCurrentUserLoginInfo().orElse { return it }
 
-        return getUserPreferences(loginInfo.userId)
+        return getUserPreferences(loginInfo.userId)?.let(::Success) ?: Failure.MainResourceNotFound(null)
     }
 
     private suspend fun getUserPreferences(userId: UserID): UserPreferences? =
         userPreferencesRepository.getUserPreferencesOrSetDefaultOrNull(userId = userId)
 
     context(PipelineContext<*, ApplicationCall>)
-    override suspend fun updateCurrentUserPreferences(sortStrategy: UserPreferences.SortStrategy?): Boolean {
-        val loginInfo = getCurrentUserLoginInfo() ?: return false
+    override suspend fun updateCurrentUserPreferences(sortStrategy: UserPreferences.SortStrategy?): APIResult<Unit> {
+        val loginInfo = getCurrentUserLoginInfo().orElse { return it }
 
-        return updateUserPreferences(loginInfo.userId, sortStrategy)
+        val updateSuccess = try {
+            updateUserPreferences(loginInfo.userId, sortStrategy)
+        } catch (e: IllegalArgumentException) {
+            return Failure.InvalidValue(sortStrategy)
+        }
+
+        return if (updateSuccess) Success() else Failure.Unknown()
     }
 
+    /**
+     * Updates a user's preferences.
+     * @param userId the user whose preferences to update
+     * @param sortStrategy their new sort strategy, or null if not updating sort strategy
+     * @throws IllegalArgumentException if this update would create an invalid user preferences state
+     */
     private suspend fun updateUserPreferences(userId: UserID, sortStrategy: UserPreferences.SortStrategy?): Boolean {
         val oldPreferences = userPreferencesRepository.getUserPreferencesOrSetDefaultOrNull(userId = userId) ?: return false
 
         val preferencesModel = UserPreferencesAPIModel(oldPreferences)
         sortStrategy?.let { preferencesModel.serverSortStrategy = it }
-        val newPreferences = preferencesModel.toUserPreferences() ?: return false
+        val newPreferences = preferencesModel.toUserPreferences() ?: throw IllegalArgumentException("Invalid preferences state $preferencesModel")
 
         return userPreferencesRepository.setUserPreferences(userId = userId, preferences = newPreferences)
     }
 
     context(PipelineContext<*, ApplicationCall>)
-    override suspend fun deleteCurrentUserPreferences(): Boolean {
-        val userLoginInfo = getCurrentUserLoginInfo() ?: return false
-        return userPreferencesRepository.deleteUserPreferences(userLoginInfo.userId)
+    override suspend fun deleteCurrentUserPreferences(): APIResult<Unit> {
+        val userLoginInfo = getCurrentUserLoginInfoOrNull() ?: return Failure.Unknown()
+
+        val deletionSuccess = userPreferencesRepository.deleteUserPreferences(userLoginInfo.userId)
+
+        return if (deletionSuccess) Success() else Failure.Unknown()
     }
+
+    context(PipelineContext<*, ApplicationCall>)
+    private fun getCurrentUserLoginInfoOrNull(): UserLoginInfo? =
+        call.principal<UserLoginInfo>()
 
     /**
      * Finds the runner for a particular server.

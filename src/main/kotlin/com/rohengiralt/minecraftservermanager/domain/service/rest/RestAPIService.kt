@@ -45,19 +45,12 @@ interface RestAPIService {
     suspend fun getAllPastRuns(serverUUID: UUID): APIResult<List<MinecraftServerPastRun>>
     suspend fun getPastRun(runUUID: UUID): APIResult<MinecraftServerPastRun>
 
-    context(PipelineContext<*, ApplicationCall>)
-    suspend fun getCurrentUserLoginInfo(): UserLoginInfo?
+    context(API) suspend fun getCurrentUserLoginInfo(): APIResult<UserLoginInfo>
+    context(API) suspend fun deleteCurrentUser(): APIResult<Unit>
 
-    context(PipelineContext<*, ApplicationCall>)
-    suspend fun deleteCurrentUser(): Boolean
-
-    context(PipelineContext<*, ApplicationCall>)
-    suspend fun getCurrentUserPreferences(): UserPreferences?
-    context(PipelineContext<*, ApplicationCall>)
-    suspend fun updateCurrentUserPreferences(sortStrategy: UserPreferences.SortStrategy? = null): Boolean
-
-    context(PipelineContext<*, ApplicationCall>)
-    suspend fun deleteCurrentUserPreferences(): Boolean
+    context(API) suspend fun getCurrentUserPreferences(): APIResult<UserPreferences>
+    context(API) suspend fun updateCurrentUserPreferences(sortStrategy: UserPreferences.SortStrategy? = null): APIResult<Unit>
+    context(API) suspend fun deleteCurrentUserPreferences(): APIResult<Unit>
 
     /**
      * The result of an API action.
@@ -96,6 +89,12 @@ interface RestAPIService {
             data class AlreadyExists(val resourceUUID: UUID) : Failure
 
             /**
+             * Represents a failure due to a parameter with the correct type but invalid value.
+             * For instance, a negative number when a positive integer is required
+             */
+            data class InvalidValue(val value: Any?) : Failure
+
+            /**
              * Represents a failure for an unknown reason.
              * @param exn optionally, the exception that caused the failure
              */
@@ -111,3 +110,4 @@ interface RestAPIService {
     }
 }
 
+private typealias API = PipelineContext<*, ApplicationCall>
