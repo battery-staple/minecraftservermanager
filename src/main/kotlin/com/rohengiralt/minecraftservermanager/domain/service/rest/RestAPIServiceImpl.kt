@@ -24,7 +24,6 @@ import com.rohengiralt.minecraftservermanager.util.ifTrue.ifFalse
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.util.pipeline.*
-import io.ktor.utils.io.errors.*
 import kotlinx.datetime.Clock
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -61,13 +60,9 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
     }
 
     override suspend fun getServer(uuid: UUID): APIResult<MinecraftServer> =
-        try {
-            serverRepository.getServer(uuid)
-                ?.let { Success(it) }
-                ?: Failure.MainResourceNotFound(uuid)
-        } catch (e: IOException) {
-            Failure.Unknown(e)
-        }
+        serverRepository.getServer(uuid)
+            ?.let { Success(it) }
+            ?: Failure.MainResourceNotFound(uuid)
 
     override suspend fun setServer(uuid: UUID, name: String, version: MinecraftVersion, runnerUUID: UUID): APIResult<MinecraftServer> {
         val newServer = MinecraftServer(
