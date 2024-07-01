@@ -36,7 +36,7 @@ fun Route.websockets() {
                     ?: return@coroutineScope close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Could not parse server UUID"))
 
                 val currentRunsFlow = websocketAPIService.getAllCurrentRunsFlow(serverUUID)
-                    ?: return@coroutineScope close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Could not find server with UUID $serverUUID"))
+                    ?: return@coroutineScope close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Could not find runs for server with UUID $serverUUID"))
 
                 call.application.environment.log.debug(
                     "Opening current runs updates websocket for server {}",

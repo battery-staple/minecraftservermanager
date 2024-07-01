@@ -81,12 +81,9 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
                     )
                 }
 
-            if (pastRunRepository.savePastRuns(runsToArchive)) {
-                logger.info("Archived ${runsToArchive.size} left over current run(s)")
-                currentRunRecordRepository.removeAllRecords()
-            } else {
-                logger.error("Failed to archive left over current run(s)")
-            }
+            pastRunRepository.savePastRuns(runsToArchive)
+            logger.info("Archived ${runsToArchive.size} left over current run(s)")
+            currentRunRecordRepository.removeAllRecords()
         } catch (e: Throwable) {
             logger.error("Failed to archive left over current run(s), got error: {}", e.message)
         }
@@ -120,7 +117,8 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         val currentRun = getCurrentRunByServer(server.uuid)
         if (currentRun != null) {
             logger.trace("Server ${server.name} is currently running. Stopping.")
-            val stopRunSuccess = stopRun(currentRun.uuid)
+            val stopRunSuccess = stopRunByServer(server.uuid)
+
             if (!stopRunSuccess) {
                 logger.error("Failed to stop server ${server.name}")
                 return false
@@ -220,15 +218,22 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         currentRunRecordRepository.addRecord(MinecraftServerCurrentRunRecord.fromCurrentRun(run))
     }
 
-    override suspend fun stopRun(uuid: UUID): Boolean =
-        runningProcesses[uuid].ifNull {
+    override suspend fun stopRun(uuid: UUID): Boolean {
+        val process = runningProcesses[uuid].ifNull {
             logger.trace("Cannot stop run {}, run not found", uuid)
-            return false // TODO: Propagate that run was not found
-        }.stop()
+            throw IllegalArgumentException("Run $uuid not found")
+        }
+
+        return process.stop()
+    }
 
     override suspend fun stopRunByServer(serverUUID: UUID): Boolean {
         val run = getCurrentRunByServer(serverUUID) ?: return false
-        return stopRun(run.uuid)
+        return try {
+            stopRun(run.uuid)
+        } catch (e: IllegalArgumentException) {
+            true // Run not found because server was already stopped.
+        }
     }
 
     override suspend fun stopAllRuns(): Boolean =
@@ -269,21 +274,16 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         currentRunRecordRepository.removeRecord(run.uuid)
 
         logger.trace("Removed current run {}, about to save past run", run.uuid)
-        val success: Boolean = try {
+        try {
             logger.trace("Converting run to past run")
             val pastRun = run.toPastRun(endTime)
             logger.trace("Saving past run")
             pastRunRepository.savePastRun(pastRun)
         } catch (e: Throwable) {
             logger.error("Error archiving past run: $e")
-            false
         }
 
-        if (success) {
-            logger.trace("Successfully archived run {}", run.uuid)
-        } else {
-            logger.error("Couldn't archive run ${run.uuid}")
-        }
+        logger.trace("Successfully archived run {}", run.uuid)
     }
 
     private suspend fun MinecraftServerProcess.waitForEnd() {
