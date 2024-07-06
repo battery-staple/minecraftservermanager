@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 ARG NODE_VERSION=20.3.1
-ARG JDK_VERSION=8
+ARG JDK_VERSION=21
 ARG GRADLE_VERSION=8.8
 
 FROM node:${NODE_VERSION}-alpine AS build_frontend
@@ -19,13 +19,16 @@ RUN --mount=type=cache,target=/root/.npm  \
 
 RUN npm run build
 
-FROM gradle:$GRADLE_VERSION-jdk8 AS build_app
+FROM gradle:$GRADLE_VERSION-jdk$JDK_VERSION AS build_app
 
 WORKDIR /app
 
 COPY --chown=gradle:gradle build.gradle.kts settings.gradle.kts gradle.properties ./
 COPY --chown=gradle:gradle src src
 COPY --chown=gradle:gradle --from=build_frontend frontend/build/. src/main/resources/static/react/
+
+RUN rm -f src/main/resources/app.properties
+RUN echo "debug=false" >> src/main/resources/app.properties
 
 RUN --mount=type=cache,target=.gradle \
     gradle shadowJar --no-daemon

@@ -1,4 +1,4 @@
-package com.rohengiralt.monitor.serverProcess
+package com.rohengiralt.shared.serverProcess
 
 /**
  * Represents an IO message sent to or received from the server

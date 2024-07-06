@@ -1,6 +1,6 @@
-package com.rohengiralt.apiModel
+package com.rohengiralt.shared.apiModel
 
-import com.rohengiralt.monitor.serverProcess.ServerIO
+import com.rohengiralt.shared.serverProcess.ServerIO
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -20,6 +20,12 @@ sealed class ConsoleMessageAPIModel { // TODO: extract to shared, rename, and ty
         @Serializable
         @SerialName("Error")
         data class ProcessError(override val text: String) : Output()
+    }
+
+    fun toServerIO(): ServerIO = when (this) {
+        is Input -> ServerIO.Input.InputMessage(text)
+        is Output.Log -> ServerIO.Output.LogMessage(text)
+        is Output.ProcessError -> ServerIO.Output.ErrorMessage(text)
     }
 
     companion object {

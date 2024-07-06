@@ -1,10 +1,10 @@
 package com.rohengiralt.monitor
 
-import com.rohengiralt.apiModel.ConsoleMessageAPIModel
+import com.rohengiralt.shared.apiModel.ConsoleMessageAPIModel
 import com.rohengiralt.monitor.plugins.configureSecurity
 import com.rohengiralt.monitor.plugins.configureSockets
-import com.rohengiralt.monitor.serverProcess.MinecraftServerDispatcher
-import com.rohengiralt.monitor.serverProcess.MinecraftServerProcess
+import com.rohengiralt.shared.serverProcess.MinecraftServerDispatcher
+import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*

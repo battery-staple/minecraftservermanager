@@ -1,4 +1,4 @@
-package com.rohengiralt.monitor.util
+package com.rohengiralt.shared.util
 
 /**
  * True if Kotlin assertions are enabled; i.e., if the `assert` method does not act as a no-op.

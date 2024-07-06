@@ -1,4 +1,4 @@
-package com.rohengiralt.monitor.util
+package com.rohengiralt.shared.util
 
 import org.slf4j.LoggerFactory
 import kotlin.reflect.full.memberProperties

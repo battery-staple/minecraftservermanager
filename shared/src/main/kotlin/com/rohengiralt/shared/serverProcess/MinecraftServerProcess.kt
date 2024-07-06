@@ -1,9 +1,9 @@
-package com.rohengiralt.monitor.serverProcess
+package com.rohengiralt.shared.serverProcess
 
-import com.rohengiralt.monitor.serverProcess.MinecraftServerProcess.ProcessMessage
-import com.rohengiralt.monitor.serverProcess.ServerIO.Input.InputMessage
-import com.rohengiralt.monitor.serverProcess.ServerIO.Output
-import com.rohengiralt.monitor.util.assertAllPropertiesNotNull
+import com.rohengiralt.shared.serverProcess.MinecraftServerProcess.ProcessMessage
+import com.rohengiralt.shared.serverProcess.ServerIO.Input.InputMessage
+import com.rohengiralt.shared.serverProcess.ServerIO.Output
+import com.rohengiralt.shared.util.assertAllPropertiesNotNull
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.SendChannel
