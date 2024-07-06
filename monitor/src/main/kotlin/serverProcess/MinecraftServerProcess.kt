@@ -65,8 +65,9 @@ interface MinecraftServerProcess {
         /**
          * Marker object representing the end of a process.
          * Once this object is sent to [output] and/or [interleavedIO], the process has completed.
+         * @param code the exit code of the process, or null if not known
          */
-        data object ProcessEnd : ProcessMessage<Nothing>
+        data class ProcessEnd(val code: Int?) : ProcessMessage<Nothing>
     }
 }
 
@@ -179,18 +180,18 @@ private class MinecraftServerProcessImpl(private val process: Process) : Minecra
             logger.error("Output stream $streamName threw error $e")
         } finally {
             logger.info("Output stream $streamName ended")
-            @OptIn(ExperimentalCoroutinesApi::class)
-            _output.resetReplayCache()
-            _output.emit(ProcessMessage.ProcessEnd)
         }
     }
 
     /**
      * The job that handles cleanup when the process ends.
      */
-    private fun Process.endJob() {
+    private suspend fun Process.endJob() {
+        var status: Int? = null
         try {
-            waitFor()
+            status = withContext(Dispatchers.IO) {
+                waitFor()
+            }
             logger.info("Minecraft Server ended with exit code ${exitValue()}")
             cancelAllJobs()
         } catch (e: CancellationException) {
@@ -198,6 +199,10 @@ private class MinecraftServerProcessImpl(private val process: Process) : Minecra
         } catch (e: Throwable) {
             logger.error("Process ended with error $e")
             cancelAllJobs()
+        } finally {
+            @OptIn(ExperimentalCoroutinesApi::class)
+            _output.resetReplayCache()
+            _output.emit(ProcessMessage.ProcessEnd(status))
         }
     }
 

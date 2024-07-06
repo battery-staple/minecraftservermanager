@@ -15,10 +15,10 @@ import io.ktor.websocket.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import java.nio.file.Paths
 import kotlin.io.path.div
+import kotlin.system.exitProcess
 
 private val dataDir = Paths.get("/monitor")
 private val jarPath = dataDir / "minecraftserver.jar"
@@ -38,6 +38,15 @@ fun main() {
         minSpaceMegabytes = minSpaceMb,
         maxSpaceMegabytes = maxSpaceMb,
     ) ?: error("Failed to start Minecraft server process")
+
+    @OptIn(DelicateCoroutinesApi::class) // This job should have the same lifetime as the app
+    GlobalScope.launch(Dispatchers.IO) {
+        process.output.filterIsInstance<MinecraftServerProcess.ProcessMessage.ProcessEnd>()
+            .collect { endSignal ->
+                logger.info("Server ended with code ${endSignal.code}. Exiting.")
+                exitProcess(endSignal.code ?: 255)
+            }
+    }
 
     logger.info("Starting server on port {}", port)
     embeddedServer(Netty, port = port, host = "0.0.0.0") {
