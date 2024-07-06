@@ -12,7 +12,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
@@ -50,32 +50,38 @@ fun main() {
             }
 
             webSocket("/io") {
-                launch(Dispatchers.IO) {
-                    call.application.environment.log.trace("Starting websocket output job")
-                    process.output.filterIsInstance<MinecraftServerProcess.ProcessMessage.IO<*>>().collect { message ->
-                        call.application.environment.log.trace("Sending {}", message.content)
-                        sendSerialized<ConsoleMessageAPIModel>( // Type parameter is necessary for the "type" field
-                                                                // to be included in the serialized object
-                            ConsoleMessageAPIModel.fromServerIO(message.content)
-                        )
+                coroutineScope {
+                    launch(Dispatchers.IO) {
+                        call.application.environment.log.trace("Starting websocket output job")
+                        process.output.filterIsInstance<MinecraftServerProcess.ProcessMessage.IO<*>>()
+                            .collect { message ->
+                                call.application.environment.log.trace("Sending {}", message.content)
+                                sendSerialized<ConsoleMessageAPIModel>( // Type parameter is necessary for the "type" field
+                                                                        // to be included in the serialized object
+                                    ConsoleMessageAPIModel.fromServerIO(message.content)
+                                )
+                            }
+
+                        close(CloseReason(CloseReason.Codes.NORMAL, "Server stopped")) // If we've reached here, the channel closed
+                                                                                       // (i.e., the process has ended)
+                        call.application.environment.log.trace("Console websocket output job ended for runner")
                     }
 
-                    close(CloseReason(CloseReason.Codes.NORMAL, "Server stopped")) // If we've reached here, the channel closed
-                                                                                            // (i.e., the process has ended)
-                    call.application.environment.log.trace("Console websocket output job ended for runner")
-                }
-
-                launch(Dispatchers.IO) {
-                    call.application.environment.log.trace("Starting websocket input job")
-                    incoming.consumeEach {
-                        launch {
-                            (it as? Frame.Text)?.let { frame ->
-                                call.application.environment.log.trace("Received {}", frame.readText())
-                                process.input.send(frame.readText())
-                            } ?: call.application.environment.log.warn("Received non-text frame with type {}", it.frameType)
+                    launch(Dispatchers.IO) {
+                        call.application.environment.log.trace("Starting websocket input job")
+                        incoming.consumeEach {
+                            launch {
+                                (it as? Frame.Text)?.let { frame ->
+                                    call.application.environment.log.trace("Received {}", frame.readText())
+                                    process.input.send(frame.readText())
+                                } ?: call.application.environment.log.warn(
+                                    "Received non-text frame with type {}",
+                                    it.frameType
+                                )
+                            }
                         }
+                        call.application.environment.log.trace("Console websocket input job ended")
                     }
-                    call.application.environment.log.trace("Console websocket input job ended")
                 }
             }
         }

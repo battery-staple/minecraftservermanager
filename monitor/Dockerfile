@@ -16,11 +16,12 @@ RUN --mount=type=cache,target=.gradle \
 FROM eclipse-temurin:$JDK_VERSION-jre
 
 COPY --from=build_app /monitor/build/libs/monitor-all.jar /bin/runner/run.jar
-COPY data/1.8.9---RELEASE.jar /monitor/minecraftserver.jar
 
 WORKDIR /bin/runner
 
 ENV minSpaceMB=256
 ENV maxSpaceMB=1024
+
+VOLUME data /monitor
 
 CMD ["java", "-ea", "-jar", "run.jar"]
