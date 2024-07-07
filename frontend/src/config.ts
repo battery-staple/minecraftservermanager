@@ -1,4 +1,4 @@
-import {defaultHeaders} from "./networking/FetchUtils";
+import {DEFAULT_TIMEOUT_MS, defaultHeaders, fetchWithTimeout} from "./networking/FetchUtils";
 
 export type Config = {
     hostname: string
@@ -12,7 +12,7 @@ export type Config = {
 export async function getConfig(knownHostname: string | null = null): Promise<Config> {
     const hostname = knownHostname !== null ? knownHostname : ""
 
-    let response: Response = await fetch(`${hostname}/config/config.json`, { headers: defaultHeaders });
+    let response: Response = await fetchWithTimeout(`${hostname}/config/config.json`, DEFAULT_TIMEOUT_MS, { headers: defaultHeaders });
     if (response.ok) {
         return response.json()
     } else {

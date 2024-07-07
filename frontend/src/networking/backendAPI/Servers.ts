@@ -4,7 +4,7 @@ import {
     defaultHeaders,
     fetchJsonWithTimeoutOrNull,
     fetchWithTimeout,
-    jsonHeaders
+    jsonHeaders, LONG_TIMEOUT_MS
 } from "../FetchUtils";
 import {getHostname} from "../../config";
 import {getAndConfigWebsocket} from "../WebsocketUtils";
@@ -20,7 +20,7 @@ export async function getServer(serverUUID: string): Promise<Server> {
 
 export type CreateServerOptions = { name: string, versionPhase: VersionPhase, version: string, runnerUUID: string }
 export async function createServer(options: CreateServerOptions): Promise<boolean> {
-    const response = await fetchWithTimeout(`http://${await getHostname()}/api/v2/rest/servers`, DEFAULT_TIMEOUT_MS, {
+    const response = await fetchWithTimeout(`http://${await getHostname()}/api/v2/rest/servers`, LONG_TIMEOUT_MS, {
         method: "POST",
         headers: jsonHeaders,
         body: JSON.stringify(options)
@@ -50,7 +50,7 @@ export async function getServers(): Promise<Server[] | null> {
 }
 
 export async function startServer(server: Server): Promise<boolean> {
-    const response = await fetch(`http://${await getHostname()}/api/v2/rest/servers/` + server?.uuid + "/currentRun", {
+    const response = await fetchWithTimeout(`http://${await getHostname()}/api/v2/rest/servers/` + server?.uuid + "/currentRun", LONG_TIMEOUT_MS,{
         headers: jsonHeaders,
         method: "POST",
         body: JSON.stringify({
@@ -64,7 +64,7 @@ export async function startServer(server: Server): Promise<boolean> {
 }
 
 export async function stopServer(server: Server): Promise<boolean> {
-    const response = await fetch(`http://${await getHostname()}/api/v2/rest/servers/` + server?.uuid + "/currentRun", {
+    const response = await fetchWithTimeout(`http://${await getHostname()}/api/v2/rest/servers/` + server?.uuid + "/currentRun", LONG_TIMEOUT_MS, {
         headers: defaultHeaders,
         method: "DELETE"
     })

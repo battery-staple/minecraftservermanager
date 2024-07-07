@@ -9,7 +9,15 @@ if (process.env.NODE_ENV !== 'production') {
 export const jsonHeaders: Headers = new Headers(defaultHeaders)
 jsonHeaders.append("Content-Type", "application/json")
 
+/**
+ * The timeout for typical requests that are expected to complete quickly
+ */
 export const DEFAULT_TIMEOUT_MS = 3000
+
+/**
+ * The timeout for potentially processing-intensive requests that may take a while
+ */
+export const LONG_TIMEOUT_MS = 15000
 
 export function fetchWithTimeout(input: RequestInfo, timeoutMs: number, init?: RequestInit): Promise<Response> {
     return new Promise(((resolve, reject) => {
