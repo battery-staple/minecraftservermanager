@@ -105,7 +105,7 @@ export function ServerList(props: { setHeader: (headerElement: JSX.Element) => v
         <div className="server-list">
             <OrderDropdownBar sortStrategy={sortStrategy} setSortStrategy={setSortStrategy} />
             <div className="container-fluid">
-                <div className="row row-cols-1 row-cols-sm-auto g-3" ref={serversParent}>
+                <div className="server-list-grid row row-cols-1 row-cols-sm-auto g-3" ref={serversParent}>
                     {serverOptions.map((serverOption) => (serverOption))}
                 </div>
             </div>

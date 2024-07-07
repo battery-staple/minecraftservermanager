@@ -23,7 +23,7 @@
     display: flex;
     justify-content: right;
     width: 100vw;
-    margin-bottom: 6px;
+    margin-bottom: 0;
     user-select: none;
 }
 
@@ -31,6 +31,10 @@
     font-size: medium;
     color: black;
     margin: 0;
+}
+
+.server-list-grid {
+    margin-top: auto;
 }
 
 .server-option {
