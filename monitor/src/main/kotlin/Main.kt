@@ -5,6 +5,7 @@ import com.rohengiralt.monitor.plugins.configureSockets
 import com.rohengiralt.monitor.routing.processIOSocket
 import com.rohengiralt.monitor.routing.status
 import com.rohengiralt.shared.serverProcess.MinecraftServerDispatcher
+import io.ktor.server.auth.*
 import io.ktor.server.cio.*
 import io.ktor.server.engine.*
 import io.ktor.server.routing.*
@@ -24,8 +25,8 @@ fun main() {
         name = name,
         jar = jarPath,
         contentDirectory = rundataPath,
-        minSpaceMegabytes = minSpaceMb,
-        maxSpaceMegabytes = maxSpaceMb,
+        minSpaceMegabytes = minSpaceMB,
+        maxSpaceMegabytes = maxSpaceMB,
     ) ?: error("Failed to start Minecraft server process")
 
     logger.info("Starting exit on end job")
@@ -37,8 +38,10 @@ fun main() {
         configureSockets()
 
         routing {
-            status()
-            processIOSocket(process)
+            authenticate {
+                status()
+                processIOSocket(process)
+            }
         }
     }.start(wait = true)
 }

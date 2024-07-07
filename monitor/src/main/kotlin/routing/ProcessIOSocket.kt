@@ -16,7 +16,7 @@ import kotlinx.serialization.json.Json
 /**
  * The route `/io`, which hosts a websocket that pipes the input and output of the running Minecraft server process.
  */
-fun Routing.processIOSocket(process: MinecraftServerProcess) {
+fun Route.processIOSocket(process: MinecraftServerProcess) {
     webSocket("/io") {
         coroutineScope {
             launch(Dispatchers.IO) {

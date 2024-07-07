@@ -8,7 +8,7 @@ import io.ktor.server.routing.*
  * The route at `/status`, which always responds successful if a connection is made.
  * Useful for checking if this application is running.
  */
-fun Routing.status() {
+fun Route.status() {
     get("/status") {
         call.respondText("Running")
     }
