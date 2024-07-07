@@ -26,15 +26,10 @@ private val dataDir = Paths.get("/monitor")
 private val jarPath = dataDir / "minecraftserver.jar"
 private val rundataPath = dataDir / "rundata"
 
-private const val port = 8080
-
 private val logger = LoggerFactory.getLogger("Main")
 fun main() {
     val serverDispatcher = MinecraftServerDispatcher()
 
-    val minSpaceMb = System.getenv("minSpaceMB")?.toUIntOrNull() ?: error("minSpaceMB must be specified")
-    val maxSpaceMb = System.getenv("maxSpaceMB")?.toUIntOrNull() ?: error("maxSpaceMB must be specified")
-    val name = System.getenv("name") ?: error("name must be specified")
     val process = serverDispatcher.runServer(
         name = name,
         jar = jarPath,
