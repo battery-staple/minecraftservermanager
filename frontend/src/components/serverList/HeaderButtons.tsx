@@ -1,6 +1,6 @@
 import {JSX} from "react";
 
-export function HeaderButtons(props: { editing: boolean, setEditing: (editing: boolean) => void }): JSX.Element {
+export function HeaderButtons(props: { editing: boolean, setEditing: (editing: boolean) => void, setCreating: (creating: boolean) => void }): JSX.Element {
 
     if (props.editing) {
         return <>
@@ -13,8 +13,7 @@ export function HeaderButtons(props: { editing: boolean, setEditing: (editing: b
             <button type="button" className="btn btn-secondary btn-lg" onClick={() => props.setEditing(true)}>
                 Edit
             </button>
-            <button type="button" className="btn btn-primary btn-lg" data-bs-toggle="modal"
-                    data-bs-target="#newServerModal">
+            <button type="button" className="btn btn-primary btn-lg" onClick={() => props.setCreating(true)}>
                 New
             </button>
         </>

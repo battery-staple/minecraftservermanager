@@ -125,3 +125,7 @@
     font-family: 'Roboto Slab', sans-serif;
     font-weight: 700;
 }
+
+.new-server-modal-error {
+    color: red;
+}

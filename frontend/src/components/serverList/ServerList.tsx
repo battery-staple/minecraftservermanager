@@ -13,6 +13,7 @@ export function ServerList(props: { setHeader: (headerElement: JSX.Element) => v
     const [servers, setServers] = useState<Server[] | null | "loading">("loading");
     const [sortStrategyState, setSortStrategyState] = useState<SortStrategy | null>(null)
     const [editing, setEditing] = useState(false)
+    const [creatingNew, setCreatingNew] = useState(false)
     const [serversParent] = useAutoAnimate()
 
     const sortStrategy = useMemo(() => sortStrategyState ?? DEFAULT_SORT_STRATEGY, [sortStrategyState])
@@ -74,7 +75,7 @@ export function ServerList(props: { setHeader: (headerElement: JSX.Element) => v
      * The end effect is very high (100%+) CPU usage, which is certainly undesirable.
      */
     const headerButtons = useMemo(
-        () => <HeaderButtons editing={editing} setEditing={setEditing}/>,
+        () => <HeaderButtons editing={editing} setEditing={setEditing} setCreating={setCreatingNew}/>,
         [editing]);
     useEffect(() => {
         props.setHeader(headerButtons)
@@ -108,7 +109,7 @@ export function ServerList(props: { setHeader: (headerElement: JSX.Element) => v
                     {serverOptions.map((serverOption) => (serverOption))}
                 </div>
             </div>
-            <NewServerModal />
+            <NewServerModal isShowing={creatingNew} setShowing={setCreatingNew}/>
         </div>
     );
 }

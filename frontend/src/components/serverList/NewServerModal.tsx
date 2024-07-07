@@ -1,14 +1,30 @@
 import {createServer, CreateServerOptions} from "../../networking/backendAPI/Servers";
-import React, {Dispatch, useState} from "react";
+import React, {Dispatch, useEffect, useState} from "react";
 import {ALL_VERSION_PHASES, VersionPhase} from "../../APIModels";
+import {Modal} from "react-bootstrap";
 
 const defaultVersionPhase = "RELEASE"
 
-export function NewServerModal() {
+export function NewServerModal(props: { isShowing: boolean, setShowing: (showing: boolean) => void }) {
+    const [error, setError] = useState<string | null>(null)
     const [name, setName] = useState<string | null>(null)
     const [versionPhase, setVersionPhase] = useState<VersionPhase>(defaultVersionPhase)
     const [version, setVersion] = useState<string | null>(null)
     const runnerUUID = "d72add0d-4746-4b46-9ecc-2dcd868062f9" // TODO: Support other runners
+
+    const reset = () => {
+        setError(null)
+        setName(null)
+        setVersion(null)
+        setVersionPhase(defaultVersionPhase);
+    }
+
+    // When props change
+    useEffect(() => {
+        if (!props.isShowing) { // When this becomes hidden
+            reset()
+        }
+    }, [props.isShowing]);
 
     let creationOptions = null;
     if (name !== null && version !== null && versionPhase !== null) {
@@ -20,34 +36,33 @@ export function NewServerModal() {
         }
     }
 
-    return <div className="new-server-modal modal fade" id="newServerModal" data-bs-backdrop="static" tabIndex={-1}
-                aria-labelledby="newServerModalLabel" aria-hidden="true">
-        <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-                <Header/>
-                <Body name={name} setName={setName}
-                      versionPhase={versionPhase} setVersionPhase={setVersionPhase}
-                      version={version} setVersion={setVersion} />
-                <Footer createServerOptions={creationOptions} onSubmit={(success) => {
-                    if (success) { // Reset all dropdowns
-                        setVersionPhase(defaultVersionPhase);
-                    }
-                }}/>
-            </div>
-        </div>
-    </div>
+    return (
+        <Modal id="newServerModal" className={"new-server-modal"} show={props.isShowing} backdrop={"static"} centered
+               onHide={() => props.setShowing(false)}
+               tabIndex={-1} aria-labelledby="newServerModalLabel" aria-hidden="true">
+            <Header/>
+            <Body name={name} setName={setName}
+                  versionPhase={versionPhase} setVersionPhase={setVersionPhase}
+                  version={version} setVersion={setVersion}
+                  error={error}
+            />
+            <Footer createServerOptions={creationOptions} setShowing={props.setShowing} setError={setError}/>
+        </Modal>
+    )
 }
 
 function Body(props: {
     name: string | null, setName: Dispatch<React.SetStateAction<string | null>>
     versionPhase: VersionPhase, setVersionPhase: Dispatch<React.SetStateAction<VersionPhase>>
     version: string | null, setVersion: Dispatch<React.SetStateAction<string | null>>
+    error: string | null
 }) {
-    return <div className="modal-body">
+    return <Modal.Body>
         <form>
             <div className="form-group">
                 <label htmlFor="name">Name: </label>
-                <input name="name" type="text" value={props.name ?? ""} onChange={(e) => props.setName(e.target.value)} />
+                <input name="name" type="text" value={props.name ?? ""}
+                       onChange={(e) => props.setName(e.target.value)}/>
             </div>
             <div className="form-group">
                 <label htmlFor="name">Version Phase: </label>
@@ -63,12 +78,14 @@ function Body(props: {
                     }
                 </select>
             </div>
-            <div className="form-group"> { /* TODO: autocomplete (dynamic based on phase) */ }
+            <div className="form-group"> { /* TODO: autocomplete (dynamic based on phase) */}
                 <label htmlFor="version">Version: </label>
-                <input name="version" type="text" value={props.version ?? ""} onChange={(e) => props.setVersion(e.target.value)} />
+                <input name="version" type="text" value={props.version ?? ""}
+                       onChange={(e) => props.setVersion(e.target.value)}/>
             </div>
         </form>
-    </div>
+        {props.error !== null ? <p className="new-server-modal-error">{props.error}</p> : null}
+    </Modal.Body>
 }
 
 interface VersionPhaseOption {
@@ -100,23 +117,31 @@ function versionPhaseOptions(): VersionPhaseOption[] {
 }
 
 function Header() {
-    return <div className="modal-header">
+    return <Modal.Header closeButton>
         <h1 className="modal-title fs-4" id="newServerModalLabel">New Server</h1>
-        <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-    </div>;
+    </Modal.Header>;
 }
 
-function Footer(props: {createServerOptions: CreateServerOptions | null, onSubmit: (success: boolean) => void}) {
-    return <div className="modal-footer">
-        <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        <button type="button" className="btn btn-primary" data-bs-dismiss="modal" disabled={props.createServerOptions === null} onClick={() => {
+function Footer(props: {createServerOptions: CreateServerOptions | null, setShowing: (showing: boolean) => void, setError: (error: string | null) => void}) {
+    const canSubmit = props.createServerOptions !== null
+
+    return <Modal.Footer>
+        <button type="button" className="btn btn-secondary" onClick={() => props.setShowing(false)}>Close</button>
+        <button type="button" className="btn btn-primary" disabled={!canSubmit} onClick={() => {
+            console.assert(props.createServerOptions !== null, "Button should be disabled if createServerOptions === null")
             if (props.createServerOptions !== null) {
-                createServer(props.createServerOptions).then(props.onSubmit);
-            } else {
-                props.onSubmit(false);
+                props.setError(null)
+                
+                createServer(props.createServerOptions).then(success => {
+                    if (success) {
+                        props.setShowing(false);
+                    } else {
+                        props.setError("Failed to create server."); // TODO: better message
+                    }
+                });
             }
         }}>
             Done
         </button>
-    </div>;
+    </Modal.Footer>
 }

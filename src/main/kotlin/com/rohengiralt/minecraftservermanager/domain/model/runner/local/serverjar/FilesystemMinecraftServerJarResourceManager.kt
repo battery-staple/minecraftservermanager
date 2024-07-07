@@ -63,7 +63,7 @@ class FilesystemMinecraftServerJarResourceManager(private val directoryName: Str
 
     private suspend fun cacheNewJar(version: MinecraftVersion): MinecraftServerJar? {
         logger.debug("Trying to cache new jar for version {}", version)
-        return jarFactory.newJar(version).let(::cacheJar)
+        return jarFactory.newJar(version)?.let(::cacheJar)
     }
 
     private fun cacheJar(jar: MinecraftServerJar): MinecraftServerJar? {
