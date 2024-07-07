@@ -1,9 +1,10 @@
 # syntax=docker/dockerfile:1
 
+ARG JRE_VERSION=8
 ARG JDK_VERSION=21
 ARG GRADLE_VERSION=8.8
 
-FROM gradle:$GRADLE_VERSION-jdk$JDK_VERSION AS build_app
+FROM gradle:$GRADLE_VERSION-jdk$JDK_VERSION-graal AS build_app
 
 WORKDIR /app
 
@@ -17,11 +18,11 @@ COPY --chown=gradle:gradle monitor/build.gradle.kts monitor/gradle.properties mo
 COPY --chown=gradle:gradle monitor/src monitor/src
 
 RUN --mount=type=cache,target=.gradle \
-    gradle :monitor:buildFatJar --no-daemon
+    gradle :monitor:nativeCompile --no-daemon
 
-FROM eclipse-temurin:$JDK_VERSION-jre
+FROM eclipse-temurin:$JRE_VERSION-jre
 
-COPY --from=build_app /app/monitor/build/libs/monitor-all.jar /bin/runner/run.jar
+COPY --from=build_app /app/monitor/build/native/nativeCompile/monitor /bin/runner/monitor
 
 WORKDIR /bin/runner
 
@@ -31,4 +32,4 @@ ENV name=test
 
 VOLUME data /monitor
 
-CMD ["java", "-ea", "-jar", "run.jar"]
+CMD ["./monitor"]

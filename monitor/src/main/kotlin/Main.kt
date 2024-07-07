@@ -6,8 +6,8 @@ import com.rohengiralt.shared.apiModel.ConsoleMessageAPIModel
 import com.rohengiralt.shared.serverProcess.MinecraftServerDispatcher
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import io.ktor.server.application.*
+import io.ktor.server.cio.*
 import io.ktor.server.engine.*
-import io.ktor.server.netty.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
@@ -15,6 +15,8 @@ import io.ktor.websocket.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.nio.file.Paths
 import kotlin.io.path.div
@@ -51,7 +53,7 @@ fun main() {
     }
 
     logger.info("Starting server on port {}", port)
-    embeddedServer(Netty, port = port, host = "0.0.0.0") {
+    embeddedServer(CIO, port = port, host = "0.0.0.0") {
         configureSecurity()
         configureSockets()
 
@@ -67,10 +69,11 @@ fun main() {
                         process.output.filterIsInstance<MinecraftServerProcess.ProcessMessage.IO<*>>()
                             .collect { message ->
                                 call.application.environment.log.trace("Sending {}", message.content)
-                                sendSerialized<ConsoleMessageAPIModel>( // Type parameter is necessary for the "type" field
-                                                                        // to be included in the serialized object
-                                    ConsoleMessageAPIModel.fromServerIO(message.content)
-                                )
+
+                                // Can't use sendSerialized in GraalVM because of reflection
+                                send(Frame.Text(
+                                    Json.encodeToString(ConsoleMessageAPIModel.fromServerIO(message.content))
+                                ))
                             }
 
                         close(CloseReason(CloseReason.Codes.NORMAL, "Server stopped")) // If we've reached here, the channel closed
