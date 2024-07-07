@@ -73,12 +73,13 @@ interface MinecraftServerProcess {
 
 /**
  * Constructs a new [MinecraftServerProcess] instance
+ * @param name the name of the server process
  * @param process the underlying Java process to wrap
  */
-fun MinecraftServerProcess(process: Process): MinecraftServerProcess =
-    MinecraftServerProcessImpl(process)
+fun MinecraftServerProcess(name: String, process: Process): MinecraftServerProcess =
+    MinecraftServerProcessImpl(name, process)
 
-private class MinecraftServerProcessImpl(private val process: Process) : MinecraftServerProcess {
+private class MinecraftServerProcessImpl(private val name: String?, private val process: Process) : MinecraftServerProcess {
     override val output: Flow<ProcessMessage<Output>> get() = _output.asSharedFlow()
     override val input: SendChannel<String> get() = _input
     override val interleavedIO: Flow<ProcessMessage<ServerIO>> get() = _interleavedIO.asSharedFlow()
@@ -163,7 +164,7 @@ private class MinecraftServerProcessImpl(private val process: Process) : Minecra
                 .lineSequence()
                 .forEach {
                     try {
-                        logger.debug("[SERVER OUT]: $it")
+                        logger.debug("[SERVER $name]: $it")
 
                         logger.trace("Sending message to output")
                         _output.emit(ProcessMessage.IO(createMessage(it)))

@@ -2,7 +2,6 @@ package com.rohengiralt.minecraftservermanager.frontend.routes
 
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
-import com.rohengiralt.minecraftservermanager.domain.model.server.ServerIO
 import com.rohengiralt.minecraftservermanager.domain.service.WebsocketAPIService
 import com.rohengiralt.minecraftservermanager.frontend.model.ConsoleMessageAPIModel
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerAPIModel
@@ -10,6 +9,7 @@ import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerCurr
 import com.rohengiralt.minecraftservermanager.util.routes.getParameterOrBadRequest
 import com.rohengiralt.minecraftservermanager.util.routes.parseUUIDOrBadRequest
 import com.rohengiralt.minecraftservermanager.util.routes.parseUUIDOrNull
+import com.rohengiralt.shared.serverProcess.ServerIO
 import io.ktor.server.plugins.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*

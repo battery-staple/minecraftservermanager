@@ -1,8 +1,8 @@
 package com.rohengiralt.monitor
 
-import com.rohengiralt.shared.apiModel.ConsoleMessageAPIModel
 import com.rohengiralt.monitor.plugins.configureSecurity
 import com.rohengiralt.monitor.plugins.configureSockets
+import com.rohengiralt.shared.apiModel.ConsoleMessageAPIModel
 import com.rohengiralt.shared.serverProcess.MinecraftServerDispatcher
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import io.ktor.server.application.*
@@ -32,7 +32,9 @@ fun main() {
 
     val minSpaceMb = System.getenv("minSpaceMB")?.toUIntOrNull() ?: error("minSpaceMB must be specified")
     val maxSpaceMb = System.getenv("maxSpaceMB")?.toUIntOrNull() ?: error("maxSpaceMB must be specified")
+    val name = System.getenv("name") ?: error("name must be specified")
     val process = serverDispatcher.runServer(
+        name = name,
         jar = jarPath,
         contentDirectory = rundataPath,
         minSpaceMegabytes = minSpaceMb,

@@ -2,7 +2,7 @@ package com.rohengiralt.minecraftservermanager.domain.model.run
 
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerAddress
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerEnvironment
-import com.rohengiralt.minecraftservermanager.domain.model.server.ServerIO
+import com.rohengiralt.shared.serverProcess.ServerIO
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.Instant

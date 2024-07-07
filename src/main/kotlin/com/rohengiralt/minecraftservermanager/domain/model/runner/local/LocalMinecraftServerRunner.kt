@@ -1,12 +1,10 @@
 package com.rohengiralt.minecraftservermanager.domain.model.runner.local // To allow sealed interface inheritance
 
-import com.rohengiralt.minecraftservermanager.domain.infrastructure.LocalMinecraftServerDispatcher
 import com.rohengiralt.minecraftservermanager.domain.model.run.LogEntry
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRunRecord
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerPastRun
 import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerRunner
-import com.rohengiralt.minecraftservermanager.domain.model.runner.local.MinecraftServerProcess.ProcessMessage
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.contentdirectory.LocalMinecraftServerContentDirectoryRepository
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.currentruns.CurrentRunRepository
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJarResourceManager
@@ -20,6 +18,9 @@ import com.rohengiralt.minecraftservermanager.domain.model.server.Port
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerCurrentRunRecordRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerPastRunRepository
 import com.rohengiralt.minecraftservermanager.util.ifNull
+import com.rohengiralt.shared.serverProcess.MinecraftServerDispatcher
+import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
+import com.rohengiralt.shared.serverProcess.MinecraftServerProcess.ProcessMessage
 import com.uchuhimo.konf.Config
 import com.uchuhimo.konf.ConfigSpec
 import kotlinx.coroutines.CoroutineScope
@@ -60,7 +61,7 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
     private val currentRunRecordRepository: MinecraftServerCurrentRunRecordRepository by inject()
     private val runningProcesses: MutableMap<UUID, MinecraftServerProcess> = mutableMapOf()
 
-    private val serverDispatcher: LocalMinecraftServerDispatcher by inject()
+    private val serverDispatcher: MinecraftServerDispatcher by inject()
     private val serverJarResourceManager: MinecraftServerJarResourceManager by inject()
     private val serverContentDirectoryPathRepository: LocalMinecraftServerContentDirectoryRepository by inject()
     private val pastRunRepository: MinecraftServerPastRunRepository by inject()
@@ -180,9 +181,8 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         val startTime = Clock.System.now()
         val process = serverDispatcher.runServer(
             name = server.name,
-            jar = jar,
+            jar = jar.path,
             contentDirectory = contentDirectory,
-            port = environment.port.port,
             maxSpaceMegabytes = environment.maxHeapSize.memoryMB,
             minSpaceMegabytes = environment.minHeapSize.memoryMB,
         ) ?: return null

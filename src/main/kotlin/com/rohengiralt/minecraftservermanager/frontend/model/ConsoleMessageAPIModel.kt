@@ -1,32 +1,5 @@
 package com.rohengiralt.minecraftservermanager.frontend.model
 
-import com.rohengiralt.minecraftservermanager.domain.model.server.ServerIO
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-
-@Serializable
-sealed class ConsoleMessageAPIModel {
-    abstract val text: String
-    @Serializable
-    @SerialName("Input")
-    data class Input(override val text: String) : ConsoleMessageAPIModel()
-
-    @Serializable
-    sealed class Output : ConsoleMessageAPIModel() {
-        @Serializable
-        @SerialName("Log")
-        data class Log(override val text: String) : Output()
-
-        @Serializable
-        @SerialName("Error")
-        data class ProcessError(override val text: String) : Output()
-    }
-
-    companion object {
-        fun fromServerIO(serverIO: ServerIO): ConsoleMessageAPIModel = when (serverIO) {
-            is ServerIO.Output.LogMessage -> Output.Log(serverIO.text)
-            is ServerIO.Output.ErrorMessage -> Output.ProcessError(serverIO.text)
-            is ServerIO.Input.InputMessage -> Input(serverIO.text)
-        }
-    }
-}
+// Use same serialization format for console messages on the frontend as on the backend for now.
+// Might change in the future; if so, this would become a full class (rather than a typealias)
+typealias ConsoleMessageAPIModel = com.rohengiralt.shared.apiModel.ConsoleMessageAPIModel

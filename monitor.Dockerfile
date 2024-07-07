@@ -27,6 +27,7 @@ WORKDIR /bin/runner
 
 ENV minSpaceMB=256
 ENV maxSpaceMB=1024
+ENV name=test
 
 VOLUME data /monitor
 

@@ -16,6 +16,7 @@ class MinecraftServerDispatcher {
     private val javaExecutable: String = "java"
 
     fun runServer(
+        name: String,
         jar: Path,
         contentDirectory: Path,
         minSpaceMegabytes: UInt,
@@ -54,7 +55,7 @@ class MinecraftServerDispatcher {
             } ?: return null
 
         logger.trace("Successfully ran server with process {}", process)
-        return MinecraftServerProcess(process)
+        return MinecraftServerProcess(name, process)
     }
 
     private val Path.eulaFile get() = this/"eula.txt"

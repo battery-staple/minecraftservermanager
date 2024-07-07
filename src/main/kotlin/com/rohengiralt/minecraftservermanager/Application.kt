@@ -1,6 +1,5 @@
 package com.rohengiralt.minecraftservermanager
 
-import com.rohengiralt.minecraftservermanager.domain.infrastructure.LocalMinecraftServerDispatcher
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.MinecraftJarAPI
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.RedundantFallbackAPI
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.contentdirectory.LocalMinecraftServerContentDirectoryFactory
@@ -23,7 +22,8 @@ import com.rohengiralt.minecraftservermanager.user.auth.google.UserIDAuthorizer
 import com.rohengiralt.minecraftservermanager.user.auth.google.WhitelistFileUserIDAuthorizer
 import com.rohengiralt.minecraftservermanager.user.preferences.DatabaseUserPreferencesRepository
 import com.rohengiralt.minecraftservermanager.user.preferences.UserPreferencesRepository
-import com.rohengiralt.minecraftservermanager.util.assertsEnabled
+import com.rohengiralt.shared.serverProcess.MinecraftServerDispatcher
+import com.rohengiralt.shared.util.assertsEnabled
 import io.ktor.client.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.contentnegotiation.*
@@ -73,7 +73,7 @@ fun Application.module() {
                 single<MinecraftServerRepository> { DatabaseMinecraftServerRepository() }
                 single<MinecraftJarAPI> { RedundantFallbackAPI() }
                 single<MinecraftServerPastRunRepository> { DatabaseMinecraftServerPastRunRepository() }
-                single<LocalMinecraftServerDispatcher> { LocalMinecraftServerDispatcher() }
+                single<MinecraftServerDispatcher> { MinecraftServerDispatcher() }
                 single<MinecraftServerJarFactory> { APIMinecraftServerJarFactory() }
                 single<MinecraftServerJarResourceManager> {
                     FilesystemMinecraftServerJarResourceManager("/minecraftservermanager/local/jars")

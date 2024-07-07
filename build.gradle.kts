@@ -31,6 +31,8 @@ repositories {
 }
 
 dependencies {
+    implementation(project(":shared"))
+
     implementation("io.ktor:ktor-server-core:$ktor_version")
     implementation("io.ktor:ktor-server-auth:$ktor_version")
     implementation("io.ktor:ktor-server-sessions:$ktor_version")
