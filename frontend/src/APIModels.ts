@@ -8,10 +8,7 @@ export type Server = {
 }
 
 export const ALL_VERSION_PHASES = [
-    "PRE_CLASSIC",
-    "PRE_SURVIVAL_TEST",
-    "SURVIVAL_TEST",
-    "POST_SURVIVAL_TEST",
+    "CLASSIC",
     "INDEV",
     "INFDEV",
     "ALPHA",

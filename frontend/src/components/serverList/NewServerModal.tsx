@@ -104,10 +104,7 @@ function versionPhaseOptions(): VersionPhaseOption[] {
         {name: "Alpha", phase: "ALPHA"},
         {name: "Infdev", phase: "INFDEV"},
         {name: "Indev", phase: "INDEV"},
-        {name: "Post-Survival Test", phase: "POST_SURVIVAL_TEST"},
-        {name: "Survival Test", phase: "SURVIVAL_TEST"},
-        {name: "Pre-Survival Test", phase: "PRE_SURVIVAL_TEST"},
-        {name: "Pre-Classic", phase: "PRE_CLASSIC"},
+        {name: "Classic", phase: "CLASSIC"},
         {name: "Custom", phase: "CUSTOM"},
     ]
 
