@@ -25,6 +25,10 @@ WORKDIR /app
 
 COPY --chown=gradle:gradle build.gradle.kts settings.gradle.kts gradle.properties ./
 COPY --chown=gradle:gradle src src
+
+COPY --chown=gradle:gradle shared/build.gradle.kts shared/gradle.properties shared/
+COPY --chown=gradle:gradle shared/src shared/src
+
 COPY --chown=gradle:gradle --from=build_frontend frontend/build/. src/main/resources/static/react/
 
 RUN rm -f src/main/resources/app.properties
