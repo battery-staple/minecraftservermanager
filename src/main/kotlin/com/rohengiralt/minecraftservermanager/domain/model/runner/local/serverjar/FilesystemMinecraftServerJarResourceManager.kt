@@ -4,6 +4,8 @@ import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersi
 import com.rohengiralt.minecraftservermanager.domain.model.server.versionType
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.jsonb
 import com.rohengiralt.minecraftservermanager.util.ifNullAlso
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.core.component.KoinComponent
@@ -61,7 +63,14 @@ class FilesystemMinecraftServerJarResourceManager(private val directoryName: Str
         }.ifNullAlso { logger.trace("Could not find cached jar") }
     }
 
-    private suspend fun cacheNewJar(version: MinecraftVersion): MinecraftServerJar? {
+    /**
+     * Prevents concurrent attempts to cache a new jar.
+     * This is necessary because caching a new jar requires both creating a jar and moving it.
+     * These two steps must be done atomically; if not, we might overwrite a jar in the middle of moving it.
+     */
+    private val cacheNewJarMutex = Mutex()
+
+    private suspend fun cacheNewJar(version: MinecraftVersion): MinecraftServerJar? = cacheNewJarMutex.withLock {
         logger.debug("Trying to cache new jar for version {}", version)
         return jarFactory.newJar(version)?.let(::cacheJar)
     }
