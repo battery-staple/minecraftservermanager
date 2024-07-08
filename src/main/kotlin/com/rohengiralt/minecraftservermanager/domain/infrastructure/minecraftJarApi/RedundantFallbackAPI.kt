@@ -10,6 +10,8 @@ class RedundantFallbackAPI : MinecraftJarAPI {
         yield(LauncherAPI())
         logger.debug("Falling back to AWS API")
         yield(AWSAPI())
+        logger.debug("Falling back to BetaCraft API")
+        yield(BetaCraftAPI())
     }
 
     override suspend fun appendServerToPath(path: Path, version: MinecraftVersion): Boolean =
