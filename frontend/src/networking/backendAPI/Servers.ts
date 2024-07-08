@@ -6,11 +6,11 @@ import {
     fetchWithTimeout,
     jsonHeaders, LONG_TIMEOUT_MS
 } from "../FetchUtils";
-import {getHostname} from "../../config";
+import {hostname} from "../../config";
 import {getAndConfigWebsocket} from "../WebsocketUtils";
 
 export async function getServer(serverUUID: string): Promise<Server> {
-    const server = await fetchJsonWithTimeoutOrNull<Server>(`http://${await getHostname()}/api/v2/rest/servers/${serverUUID}`, DEFAULT_TIMEOUT_MS, {
+    const server = await fetchJsonWithTimeoutOrNull<Server>(`http://${await hostname}/api/v2/rest/servers/${serverUUID}`, DEFAULT_TIMEOUT_MS, {
         method: "GET",
         headers: defaultHeaders
     });
@@ -20,7 +20,7 @@ export async function getServer(serverUUID: string): Promise<Server> {
 
 export type CreateServerOptions = { name: string, versionPhase: VersionPhase, version: string, runnerUUID: string }
 export async function createServer(options: CreateServerOptions): Promise<boolean> {
-    const response = await fetchWithTimeout(`http://${await getHostname()}/api/v2/rest/servers`, LONG_TIMEOUT_MS, {
+    const response = await fetchWithTimeout(`http://${await hostname}/api/v2/rest/servers`, LONG_TIMEOUT_MS, {
         method: "POST",
         headers: jsonHeaders,
         body: JSON.stringify(options)
@@ -30,7 +30,7 @@ export async function createServer(options: CreateServerOptions): Promise<boolea
 }
 
 export async function deleteServer(serverUUID: string): Promise<boolean> {
-    const response = await fetchWithTimeout(`http://${await getHostname()}/api/v2/rest/servers/${serverUUID}`, DEFAULT_TIMEOUT_MS, {
+    const response = await fetchWithTimeout(`http://${await hostname}/api/v2/rest/servers/${serverUUID}`, DEFAULT_TIMEOUT_MS, {
         method: "DELETE",
         headers: defaultHeaders
     });
@@ -39,7 +39,7 @@ export async function deleteServer(serverUUID: string): Promise<boolean> {
 }
 
 export async function getServers(): Promise<Server[] | null> {
-    const response = await fetchWithTimeout(`http://${await getHostname()}/api/v2/rest/servers`, DEFAULT_TIMEOUT_MS, {
+    const response = await fetchWithTimeout(`http://${await hostname}/api/v2/rest/servers`, DEFAULT_TIMEOUT_MS, {
         method: "GET",
         headers: defaultHeaders
     });
@@ -50,7 +50,7 @@ export async function getServers(): Promise<Server[] | null> {
 }
 
 export async function startServer(server: Server): Promise<boolean> {
-    const response = await fetchWithTimeout(`http://${await getHostname()}/api/v2/rest/servers/` + server?.uuid + "/currentRun", LONG_TIMEOUT_MS,{
+    const response = await fetchWithTimeout(`http://${await hostname}/api/v2/rest/servers/` + server?.uuid + "/currentRun", LONG_TIMEOUT_MS,{
         headers: jsonHeaders,
         method: "POST",
         body: JSON.stringify({
@@ -64,7 +64,7 @@ export async function startServer(server: Server): Promise<boolean> {
 }
 
 export async function stopServer(server: Server): Promise<boolean> {
-    const response = await fetchWithTimeout(`http://${await getHostname()}/api/v2/rest/servers/` + server?.uuid + "/currentRun", LONG_TIMEOUT_MS, {
+    const response = await fetchWithTimeout(`http://${await hostname}/api/v2/rest/servers/` + server?.uuid + "/currentRun", LONG_TIMEOUT_MS, {
         headers: defaultHeaders,
         method: "DELETE"
     })
@@ -74,7 +74,7 @@ export async function stopServer(server: Server): Promise<boolean> {
 
 export async function getServersWebsocket(onMessage: (this: WebSocket, servers: Server[], event: MessageEvent<any>) => any, onClose: (this: WebSocket, ev: CloseEvent) => any): Promise<WebSocket> {
     return getAndConfigWebsocket(
-        `ws://${await getHostname()}/api/v2/websockets/servers`,
+        `ws://${await hostname}/api/v2/websockets/servers`,
         function (event: MessageEvent<any>) {
             const servers = parseServers(event.data);
             return onMessage.bind(this)(servers, event);

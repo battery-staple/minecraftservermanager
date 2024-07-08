@@ -20,7 +20,9 @@ export async function getConfig(knownHostname: string | null = null): Promise<Co
     }
 }
 
-export async function getHostname(): Promise<string> {
+export const hostname = getHostname();
+
+async function getHostname(): Promise<string> {
     if (process.env.NODE_ENV === "development") {
         return "localhost:8080"; // TODO: Customizable
     }

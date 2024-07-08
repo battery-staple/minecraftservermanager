@@ -1,9 +1,9 @@
 import {Runner} from "../../APIModels";
 import {DEFAULT_TIMEOUT_MS, defaultHeaders, fetchJsonWithTimeoutOrNull} from "../FetchUtils";
-import {getHostname} from "../../config";
+import {hostname} from "../../config";
 
 export async function getRunner(runnerUUID: string): Promise<Runner> {
-    const runner = await fetchJsonWithTimeoutOrNull<Runner>(`http://${await getHostname()}/api/v2/rest/runners/${runnerUUID}`, DEFAULT_TIMEOUT_MS, {
+    const runner = await fetchJsonWithTimeoutOrNull<Runner>(`http://${await hostname}/api/v2/rest/runners/${runnerUUID}`, DEFAULT_TIMEOUT_MS, {
         method: "GET",
         headers: defaultHeaders
     });
