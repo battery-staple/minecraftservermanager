@@ -45,6 +45,11 @@ abstract class MutexGuardedResource<out T> {
      */
     suspend inline fun <R> use(crossinline block: suspend (T) -> R) =
         mutex.withLock { block(resource) }
+
+    /**
+     * Gets a snapshot of the current value.
+     */
+    suspend inline fun get(): T = use { it }
 }
 
 /**

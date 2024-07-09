@@ -11,10 +11,10 @@ import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverja
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJarFactory
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJarResourceManager
 import com.rohengiralt.minecraftservermanager.domain.repository.*
-import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService
-import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIServiceImpl
 import com.rohengiralt.minecraftservermanager.domain.service.WebsocketAPIService
 import com.rohengiralt.minecraftservermanager.domain.service.WebsocketAPIServiceImpl
+import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService
+import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIServiceImpl
 import com.rohengiralt.minecraftservermanager.plugins.configureMonitoring
 import com.rohengiralt.minecraftservermanager.plugins.configureRouting
 import com.rohengiralt.minecraftservermanager.plugins.configureSecurity

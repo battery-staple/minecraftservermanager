@@ -6,6 +6,7 @@ import com.rohengiralt.minecraftservermanager.plugins.SecuritySpec.cookieSecretS
 import com.rohengiralt.minecraftservermanager.security.debugAuth
 import com.rohengiralt.minecraftservermanager.security.googleSessionAuth
 import com.rohengiralt.minecraftservermanager.security.googleSessionAuthRoute
+import com.rohengiralt.minecraftservermanager.security.monitorAuth
 import com.rohengiralt.minecraftservermanager.user.auth.UserSession
 import com.rohengiralt.minecraftservermanager.user.auth.google.UserIDAuthorizer
 import com.uchuhimo.konf.Config
@@ -52,6 +53,7 @@ fun Application.configureSecurity() {
         }
 
         googleSessionAuth(sessionAuthName, authorizer)
+        monitorAuth(monitorAuthName)
     }
 
     googleSessionAuthRoute()
@@ -60,7 +62,9 @@ fun Application.configureSecurity() {
 private const val sessionAuthName = "auth-session"
 private const val debugAuthName = "auth-debug"
 private const val websocketsDebugAuthName = "auth-debug-websocket"
+private const val monitorAuthName = "auth-monitor"
 
 val httpAuthProviders = if (debugMode) arrayOf(sessionAuthName, debugAuthName) else arrayOf(sessionAuthName)
 val websocketAuthProviders =
     if (debugMode) arrayOf(websocketsDebugAuthName, debugAuthName, sessionAuthName) else arrayOf(sessionAuthName)
+val monitorAuthProviders = arrayOf(monitorAuthName)
