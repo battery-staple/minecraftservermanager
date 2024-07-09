@@ -37,20 +37,30 @@ fun Application.configureSecurity() {
         cookie<UserSession>("user_session", directorySessionStorage(File("/minecraftservermanager/.ktor/sessions"))) {
             cookie.path = "/"
             cookie.maxAge = 30.days
-            transform(SessionTransportTransformerEncrypt(hex(securityConfig[cookieSecretEncryptKey]), hex(securityConfig[cookieSecretSignKey])))
+            transform(
+                SessionTransportTransformerEncrypt(
+                    hex(securityConfig[cookieSecretEncryptKey]),
+                    hex(securityConfig[cookieSecretSignKey])
+                )
+            )
         }
     }
 
     install(Authentication) {
         if (debugMode) {
-            debugAuth("auth-debug", "auth-debug-websocket")
+            debugAuth(debugAuthName, websocketsDebugAuthName)
         }
 
-        googleSessionAuth("auth-session", authorizer)
+        googleSessionAuth(sessionAuthName, authorizer)
     }
 
     googleSessionAuthRoute()
 }
 
-val httpAuthProviders = if (debugMode) arrayOf("auth-session", "auth-debug") else arrayOf("auth-session")
-val websocketAuthProviders = if (debugMode) arrayOf("auth-debug-websocket", "auth-debug", "auth-session") else arrayOf("auth-session")
+private const val sessionAuthName = "auth-session"
+private const val debugAuthName = "auth-debug"
+private const val websocketsDebugAuthName = "auth-debug-websocket"
+
+val httpAuthProviders = if (debugMode) arrayOf(sessionAuthName, debugAuthName) else arrayOf(sessionAuthName)
+val websocketAuthProviders =
+    if (debugMode) arrayOf(websocketsDebugAuthName, debugAuthName, sessionAuthName) else arrayOf(sessionAuthName)
