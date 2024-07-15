@@ -1,7 +1,7 @@
 package com.rohengiralt.minecraftservermanager.domain.model.run
 
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerAddress
-import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerEnvironment
+import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironmentSpec
 import com.rohengiralt.shared.serverProcess.ServerIO
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.flow.Flow
@@ -27,7 +27,7 @@ data class MinecraftServerCurrentRun(
     /**
      * The environment in which this run is running
      */
-    val environment: MinecraftServerEnvironment,
+    val environment: MinecraftServerRuntimeEnvironmentSpec, // TODO: Replace with something else
     /**
      * The address from which this run can be accessed
      */

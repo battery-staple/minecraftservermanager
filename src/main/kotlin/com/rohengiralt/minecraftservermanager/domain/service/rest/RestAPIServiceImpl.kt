@@ -4,7 +4,7 @@ import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCu
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerPastRun
 import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerRunner
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
-import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerEnvironment
+import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironmentSpec
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerPastRunRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerRepository
@@ -89,7 +89,7 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
         return Success()
     }
 
-    override suspend fun deleteServer(uuid: UUID): APIResult<Unit> {
+    override suspend fun deleteServer(uuid: UUID): APIResult<Unit> { // TODO: Ensure all environments removed
         logger.trace("Getting server with uuid {}", uuid)
         val server = serverRepository.getServer(uuid) ?: return Failure.MainResourceNotFound(uuid)
         logger.trace("Getting runner with uuid {}", uuid)
@@ -128,7 +128,7 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
         return Success(runner.getAllCurrentRuns())
     }
 
-    override suspend fun createCurrentRun(serverUUID: UUID, environment: MinecraftServerEnvironment): APIResult<MinecraftServerCurrentRun> {
+    override suspend fun createCurrentRun(serverUUID: UUID, environment: MinecraftServerRuntimeEnvironmentSpec): APIResult<MinecraftServerCurrentRun> {
         val server = serverRepository.getServer(serverUUID).ifNull {
             logger.trace("Couldn't find server for UUID {}", serverUUID)
             return Failure.MainResourceNotFound(serverUUID)

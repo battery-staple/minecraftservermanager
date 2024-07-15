@@ -2,7 +2,7 @@ package com.rohengiralt.minecraftservermanager.domain.model.runner
 
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
-import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerEnvironment
+import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironmentSpec
 import kotlinx.coroutines.flow.Flow
 import java.util.*
 
@@ -29,7 +29,14 @@ interface MinecraftServerRunner {
      * Prepares all resources required to allow [server] to run.
      * @return true if the environment was successfully set up
      */
+    @Deprecated("Use prepareEnvironment instead", ReplaceWith("prepareEnvironment(server) != null"))
     suspend fun initializeServer(server: MinecraftServer): Boolean
+
+    /**
+     * Prepares all resources required to allow [server] to run
+     * @return a newly provisioned environment, or null if setup failed
+     */
+    suspend fun prepareEnvironment(server: MinecraftServer): MinecraftServerEnvironment?
 
     /**
      * Deletes or marks for later deletion all resources in use by [server]
@@ -43,9 +50,10 @@ interface MinecraftServerRunner {
      * @param environmentOverrides additional configuration to specify how the server is run
      * @return a record representing the new run of [server], or null if running failed.
      */
+    @Deprecated("Use prepareEnvironment and then call runServer on the returned Environment")
     suspend fun runServer(
         server: MinecraftServer,
-        environmentOverrides: MinecraftServerEnvironment = MinecraftServerEnvironment.EMPTY
+        environmentOverrides: MinecraftServerRuntimeEnvironmentSpec = MinecraftServerRuntimeEnvironmentSpec.EMPTY
     ): MinecraftServerCurrentRun?
 
     /**

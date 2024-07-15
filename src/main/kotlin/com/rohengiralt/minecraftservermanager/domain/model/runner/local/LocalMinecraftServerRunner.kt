@@ -4,16 +4,16 @@ import com.rohengiralt.minecraftservermanager.domain.model.run.LogEntry
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRunRecord
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerPastRun
+import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerEnvironment
 import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerRunner
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.contentdirectory.LocalMinecraftServerContentDirectoryRepository
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.currentruns.CurrentRunRepository
+import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJar
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJarResourceManager
-import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.accessJar
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.freeJar
-import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.prepareJar
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerAddress
-import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerEnvironment
+import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironmentSpec
 import com.rohengiralt.minecraftservermanager.domain.model.server.Port
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerCurrentRunRecordRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerPastRunRepository
@@ -37,6 +37,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.slf4j.LoggerFactory
 import java.io.IOException
+import java.nio.file.Path
 import java.util.*
 import kotlin.io.path.div
 import kotlin.io.path.exists
@@ -90,26 +91,38 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         }
     }
 
-    override suspend fun initializeServer(server: MinecraftServer): Boolean {
-        logger.debug("Getting content directory for server ${server.name}")
-        val contentDirectorySuccess =
+    @Deprecated("Use prepareEnvironment instead", ReplaceWith("prepareEnvironment(server) != null"))
+    override suspend fun initializeServer(server: MinecraftServer): Boolean =
+        prepareEnvironment(server) != null
+
+    override suspend fun prepareEnvironment(server: MinecraftServer): MinecraftServerEnvironment? {
+        val environmentUUID = UUID.randomUUID()
+
+        logger.debug("Getting content directory for server {} in environment {}", server.name, environmentUUID)
+        val contentDirectory =
             serverContentDirectoryPathRepository
-                .createContentDirectoryIfNotExists(server)
+                .getOrCreateContentDirectory(server.uuid)
 
-        if (!contentDirectorySuccess) {
-            logger.error("Couldn't access content directory")
-            return false
+        if (contentDirectory == null) {
+            logger.error("Couldn't access content directory for server {} in environment {}", server.name, environmentUUID)
+            return null
         }
 
-        logger.trace("Getting jar for server ${server.name}")
-        val jarSuccess = serverJarResourceManager.prepareJar(server)
+        logger.trace("Getting jar for server {} in environment {}", server.name, environmentUUID)
+        val jar = serverJarResourceManager.accessJar(server.version, environmentUUID)
 
-        if (!jarSuccess) {
-            logger.error("Couldn't create server jar")
-            return false
+        if (jar == null) {
+            logger.error("Couldn't access server jar for server {} in environment {}", server.name, environmentUUID)
+            return null
         }
 
-        return true
+        return LocalMinecraftServerEnvironment(
+            uuid = environmentUUID,
+            serverUUID = server.uuid,
+            serverName = server.name,
+            contentDirectory = contentDirectory,
+            jar = jar
+        )
     }
 
     override suspend fun removeServer(server: MinecraftServer): Boolean {
@@ -128,7 +141,7 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
 
         val contentDirectorySuccess =
             serverContentDirectoryPathRepository
-                .deleteContentDirectory(server)
+                .deleteContentDirectory(server.uuid)
 
         val jarSuccess =
             serverJarResourceManager
@@ -151,65 +164,20 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         // TODO: If server already running (in same environment?), noop
         val environment = environmentOverrides.run { // TODO: Should use other default, get from config?
             copy(
-                port = port ?: MinecraftServerEnvironment.Port(Port(25565u)), // TODO: portRepository.getNextAvailablePort()
-                maxHeapSize = maxHeapSize ?: MinecraftServerEnvironment.MaxHeapSize(2048u),
-                minHeapSize = minHeapSize ?: MinecraftServerEnvironment.MinHeapSize(1024u)
+                port = port ?: MinecraftServerRuntimeEnvironmentSpec.Port(Port(25565u)), // TODO: portRepository.getNextAvailablePort()
+                maxHeapSize = maxHeapSize ?: MinecraftServerRuntimeEnvironmentSpec.MaxHeapSize(2048u),
+                minHeapSize = minHeapSize ?: MinecraftServerRuntimeEnvironmentSpec.MinHeapSize(1024u)
             )
         }
         assert(environment.port !== null && environment.maxHeapSize !== null && environment.minHeapSize !== null)
         environment.port!!; environment.maxHeapSize!!; environment.minHeapSize!! // Allows smart casts
 
-        logger.trace("Getting content directory for server ${server.name}")
-        val contentDirectory =
-            serverContentDirectoryPathRepository
-                .getOrCreateContentDirectory(server)
-                .ifNull {
-                    logger.error("Couldn't access content directory")
-                    return null
-                }
-
-        logger.trace("Getting jar for server ${server.name}")
-        val jar =
-            serverJarResourceManager
-                .accessJar(server)
-                .ifNull {
-                    logger.error("Couldn't get server jar")
-                    return null
-                }
-
-        logger.info("Starting server ${server.name}")
-        val startTime = Clock.System.now()
-        val process = serverDispatcher.runServer(
-            name = server.name,
-            jar = jar.path,
-            contentDirectory = contentDirectory,
-            maxSpaceMegabytes = environment.maxHeapSize.memoryMB,
-            minSpaceMegabytes = environment.minHeapSize.memoryMB,
-        ) ?: return null
-
-        val newCurrentRun = MinecraftServerCurrentRun(
-            uuid = UUID.randomUUID(),
-            serverUUID = server.uuid,
-            runnerUUID = uuid,
-            environment = environment,
-            address = MinecraftServerAddress(
-                host = domain,
-                port = environment.port.port
-            ),
-            startTime = startTime,
-            input = process.input,
-            interleavedIO = process.interleavedIO
-                .filterIsInstance<ProcessMessage.IO<*>>()
-                .map { it.content }
-        )
-
-        logger.trace("Recording new current run {}", newCurrentRun.uuid)
-        recordNewCurrentRun(newCurrentRun, process)
-
-        logger.trace("Starting archive on end job for run {}", newCurrentRun.uuid)
-        process.archiveOnEndJob(newCurrentRun)
-
-        return newCurrentRun
+        return prepareEnvironment(server)
+            ?.runServer(
+                environment.port.port,
+                environment.maxHeapSize.memoryMB,
+                environment.minHeapSize.memoryMB
+            )
     }
 
     private suspend fun recordNewCurrentRun(run: MinecraftServerCurrentRun, process: MinecraftServerProcess) {
@@ -304,8 +272,7 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
     )
 
     private fun getLatestLog(serverUUID: UUID): List<LogEntry>? {
-        val contentDirectory = serverContentDirectoryPathRepository.getExistingContentDirectory(serverUUID)
-            ?: return null // TODO: Should distinguish between empty log and no log?
+        val contentDirectory = serverContentDirectoryPathRepository.getExistingContentDirectory(serverUUID) ?: return null
 
         val log = contentDirectory / "logs" / "latest.log" // TODO: Ensure works on all versions of Minecraft
         if (!log.exists()) return null
@@ -315,5 +282,74 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         } catch (e: IOException) {
             null
         }
+    }
+
+    private class LocalMinecraftServerEnvironment( // TODO: Move to top level
+        override val uuid: UUID,
+        override val serverUUID: UUID,
+        private val serverName: String,
+        private val contentDirectory: Path,
+        private val jar: MinecraftServerJar
+    ) : MinecraftServerEnvironment {
+        override val runnerUUID: UUID = LocalMinecraftServerRunner.uuid
+
+        override suspend fun runServer(
+            port: Port,
+            maxHeapSizeMB: UInt,
+            minHeapSizeMB: UInt
+        ): MinecraftServerCurrentRun? {
+            // TODO: If server already running (in same environment?), noop
+
+            if (!contentDirectory.exists()) { // not using notExists because that returns false if we can't tell whether the file exists
+                logger.error("Couldn't access content directory for server {} in environment {}", serverName, uuid)
+                return null
+            }
+
+            logger.trace("Getting jar for for server {} in environment {}", serverName, uuid)
+            if (!jar.path.exists()) { // not using notExists because that returns false if we can't tell whether the file exists
+                logger.error("Couldn't access jar for server {} in environment {}", serverName, uuid)
+                return null
+            }
+
+            logger.info("Starting server $serverUUID in environment {}", uuid)
+            val startTime = Clock.System.now()
+            val process = serverDispatcher.runServer(
+                name = serverName,
+                jar = jar.path,
+                contentDirectory = contentDirectory,
+                maxSpaceMegabytes = maxHeapSizeMB,
+                minSpaceMegabytes = minHeapSizeMB,
+            ) ?: return null
+
+            val newCurrentRun = MinecraftServerCurrentRun(
+                uuid = UUID.randomUUID(),
+                serverUUID = serverUUID,
+                runnerUUID = LocalMinecraftServerRunner.uuid,
+                environment = MinecraftServerRuntimeEnvironmentSpec( // TODO: Replace with something else
+                    port = MinecraftServerRuntimeEnvironmentSpec.Port(port),
+                    maxHeapSize = MinecraftServerRuntimeEnvironmentSpec.MaxHeapSize(maxHeapSizeMB),
+                    minHeapSize = MinecraftServerRuntimeEnvironmentSpec.MinHeapSize(minHeapSizeMB)
+                ),
+                address = MinecraftServerAddress(
+                    host = domain,
+                    port = port
+                ),
+                startTime = startTime,
+                input = process.input,
+                interleavedIO = process.interleavedIO
+                    .filterIsInstance<ProcessMessage.IO<*>>()
+                    .map { it.content }
+            )
+
+            logger.trace("Recording new current run {} for server {} in environment {}", newCurrentRun.uuid, serverName, uuid)
+            recordNewCurrentRun(newCurrentRun, process)
+
+            logger.trace("Starting archive on end job for run {}", newCurrentRun.uuid)
+            process.archiveOnEndJob(newCurrentRun)
+
+            return newCurrentRun
+        }
+
+        private val logger = LoggerFactory.getLogger(this::class.java)
     }
 }

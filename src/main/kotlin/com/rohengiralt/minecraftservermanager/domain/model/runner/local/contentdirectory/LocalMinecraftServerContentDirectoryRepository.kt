@@ -1,6 +1,5 @@
 package com.rohengiralt.minecraftservermanager.domain.model.runner.local.contentdirectory
 
-import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.core.component.KoinComponent
@@ -15,18 +14,18 @@ import kotlin.io.path.Path
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.deleteRecursively
 
-class LocalMinecraftServerContentDirectoryRepository : KoinComponent {
+class LocalMinecraftServerContentDirectoryRepository : KoinComponent { // TODO: Document, remove unused methods
     init {
         transaction {
             SchemaUtils.create(ContentDirectoryTable) //TODO: Concurrency management?
         }
     }
 
-    fun createContentDirectoryIfNotExists(server: MinecraftServer): Boolean =
-        getOrCreateContentDirectory(server) != null
+    fun createContentDirectoryIfNotExists(serverUUID: UUID): Boolean =
+        getOrCreateContentDirectory(serverUUID) != null
 
-    fun getOrCreateContentDirectory(server: MinecraftServer): Path? =
-        getExistingContentDirectory(server.uuid) ?: getAndSaveNewContentDirectory(server)
+    fun getOrCreateContentDirectory(serverUUID: UUID): Path? =
+        getExistingContentDirectory(serverUUID) ?: getAndSaveNewContentDirectory(serverUUID)
 
     fun getExistingContentDirectory(serverUUID: UUID): Path? = transaction {
         ContentDirectoryTable
@@ -38,47 +37,47 @@ class LocalMinecraftServerContentDirectoryRepository : KoinComponent {
             ?.let(::Path)
     }
 
-    private fun getAndSaveNewContentDirectory(server: MinecraftServer): Path? =
-        contentDirectoryFactory.newContentDirectoryPath(server)?.let { newPath ->
+    private fun getAndSaveNewContentDirectory(serverUUID: UUID): Path? =
+        contentDirectoryFactory.newContentDirectoryPath(serverUUID)?.let { newPath ->
             saveContentDirectoryToDatabase(
-                server = server,
+                serverUUID = serverUUID,
                 path = newPath
             )
         }
 
-    private fun saveContentDirectoryToDatabase(server: MinecraftServer, path: Path): Path = transaction {
+    private fun saveContentDirectoryToDatabase(serverUUID: UUID, path: Path): Path = transaction {
         ContentDirectoryTable
             .insert {
-                it[serverUUID] = server.uuid
+                it[ContentDirectoryTable.serverUUID] = serverUUID
                 it[ContentDirectoryTable.path] = path.toRealPath().toString() // TODO: Correct serialization?
             }
         path
     }
 
-    fun deleteContentDirectory(server: MinecraftServer): Boolean {
-        val directory = getExistingContentDirectory(server.uuid) ?: run {
-            logger.warn("Could not find content directory for server ${server.uuid}")
+    fun deleteContentDirectory(serverUUID: UUID): Boolean {
+        val directory = getExistingContentDirectory(serverUUID) ?: run {
+            logger.warn("Could not find content directory for server $serverUUID")
             return true // TODO: Should this return true or false?
         }
 
-        val databaseDeletionSuccess = deleteContentDirectoryFromDatabase(server)
+        val databaseDeletionSuccess = deleteContentDirectoryFromDatabase(serverUUID)
 
         if (!databaseDeletionSuccess) {
-            logger.error("Could not delete content directory from database for server ${server.uuid}")
+            logger.error("Could not delete content directory from database for server $serverUUID")
             return false
         }
 
         val filesystemDeletionSuccess = deleteContentDirectoryFromFilesystem(directory)
 
         if (!filesystemDeletionSuccess) {
-            logger.error("Could not delete content directory from filesystem for server ${server.uuid}")
+            logger.error("Could not delete content directory from filesystem for server $serverUUID")
             return false
         }
 
         return true
     }
-    private fun deleteContentDirectoryFromDatabase(server: MinecraftServer): Boolean = transaction {
-        val rowsDeleted = ContentDirectoryTable.deleteWhere { ContentDirectoryTable.serverUUID eq server.uuid }
+    private fun deleteContentDirectoryFromDatabase(serverUUID: UUID): Boolean = transaction {
+        val rowsDeleted = ContentDirectoryTable.deleteWhere { ContentDirectoryTable.serverUUID eq serverUUID }
         rowsDeleted > 0
     }
 
