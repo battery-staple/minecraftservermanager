@@ -42,6 +42,7 @@ interface MinecraftServerRunner {
      * Deletes or marks for later deletion all resources in use by [server]
      * @return true if the resources were successfully cleaned up
      */
+    @Deprecated("Use cleanupEnvironment instead")
     suspend fun removeServer(server: MinecraftServer): Boolean
 
     /**

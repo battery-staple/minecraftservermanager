@@ -43,7 +43,7 @@ abstract class MutexGuardedResource<out T> {
      * To ensure concurrency safety, do not store references to any resources in any object with
      * a lifetime potentially greater than [block].
      */
-    suspend inline fun <R> use(crossinline block: suspend (T) -> R) =
+    suspend inline fun <R> use(block: (T) -> R) =
         mutex.withLock { block(resource) }
 
     /**
@@ -57,7 +57,7 @@ abstract class MutexGuardedResource<out T> {
  * To ensure concurrency safety, do not store references to any resources in any object with
  * a lifetime potentially greater than [block].
  */
-suspend inline fun <T, R> use(resource: MutexGuardedResource<T>, crossinline block: suspend (T) -> R) = resource.use(block)
+suspend inline fun <T, R> use(resource: MutexGuardedResource<T>, block: (T) -> R) = resource.use(block)
 
 /**
  * Synchronously executes [block], passing it the resources of all provided [MutexGuardedResource]s.

@@ -17,7 +17,10 @@ import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServe
 import com.rohengiralt.minecraftservermanager.domain.model.server.Port
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerCurrentRunRecordRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerPastRunRepository
+import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.ReadOnlyMutexGuardedResource
 import com.rohengiralt.minecraftservermanager.util.ifNull
+import com.rohengiralt.minecraftservermanager.util.iff
+import com.rohengiralt.minecraftservermanager.util.wrapWith
 import com.rohengiralt.shared.serverProcess.MinecraftServerDispatcher
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess.ProcessMessage
@@ -26,10 +29,7 @@ import com.uchuhimo.konf.ConfigSpec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
@@ -61,6 +61,8 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
     private val currentRuns: CurrentRunRepository by inject()
     private val currentRunRecordRepository: MinecraftServerCurrentRunRecordRepository by inject()
     private val runningProcesses: MutableMap<UUID, MinecraftServerProcess> = mutableMapOf()
+    private val serversToEnvironmentsResource: ReadOnlyMutexGuardedResource<MutableMap<UUID, LocalMinecraftServerEnvironment>> =
+        ReadOnlyMutexGuardedResource(mutableMapOf()) // TODO: make property on MinecraftServer
 
     private val serverDispatcher: MinecraftServerDispatcher by inject()
     private val serverJarResourceManager: MinecraftServerJarResourceManager by inject()
@@ -95,7 +97,11 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
     override suspend fun initializeServer(server: MinecraftServer): Boolean =
         prepareEnvironment(server) != null
 
-    override suspend fun prepareEnvironment(server: MinecraftServer): MinecraftServerEnvironment? {
+    override suspend fun prepareEnvironment(server: MinecraftServer): MinecraftServerEnvironment? = serversToEnvironmentsResource.use { serversToEnvironments ->
+        if (server.uuid in serversToEnvironments) {
+            return null // TODO: throw exception
+        }
+
         val environmentUUID = UUID.randomUUID()
 
         logger.debug("Getting content directory for server {} in environment {}", server.name, environmentUUID)
@@ -116,59 +122,42 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
             return null
         }
 
-        return LocalMinecraftServerEnvironment(
+        val newEnvironment = LocalMinecraftServerEnvironment(
             uuid = environmentUUID,
             serverUUID = server.uuid,
             serverName = server.name,
             contentDirectory = contentDirectory,
             jar = jar
         )
+
+        assert(newEnvironment.serverUUID !in serversToEnvironments)
+        serversToEnvironments[newEnvironment.serverUUID] = newEnvironment
+
+        newEnvironment
     }
 
+    @Deprecated("Use cleanupEnvironment instead")
     override suspend fun removeServer(server: MinecraftServer): Boolean {
-        logger.trace("Removing server ${server.name} from local runner")
-
-        val currentRun = getCurrentRunByServer(server.uuid)
-        if (currentRun != null) {
-            logger.trace("Server ${server.name} is currently running. Stopping.")
-            val stopRunSuccess = stopRunByServer(server.uuid)
-
-            if (!stopRunSuccess) {
-                logger.error("Failed to stop server ${server.name}")
-                return false
-            }
+        return serversToEnvironmentsResource.use { serversToEnvironments ->
+            val environment = serversToEnvironments[server.uuid] ?: return true
+            cleanupEnvironment(environment)
         }
-
-        val contentDirectorySuccess =
-            serverContentDirectoryPathRepository
-                .deleteContentDirectory(server.uuid)
-
-        val jarSuccess =
-            serverJarResourceManager
-                .freeJar(server)
-
-        if (!contentDirectorySuccess) {
-            logger.error("Couldn't remove server content directory")
-            return false
-        }
-
-        if (!jarSuccess) {
-            logger.error("Couldn't free server jar")
-            return false
-        }
-
-        return true
     }
 
-    override suspend fun cleanupEnvironment(environment: MinecraftServerEnvironment): Boolean {
+    override suspend fun cleanupEnvironment(environment: MinecraftServerEnvironment): Boolean = serversToEnvironmentsResource.use { serversToEnvironments ->
         require(environment is LocalMinecraftServerEnvironment)
-
+        require(serversToEnvironments.containsValue(environment))
+        
         logger.trace("Cleaning up environment {} from local runner", environment.uuid)
 
-        val currentRun = environment.currentRun
+        val currentRun = environment.currentRun.value
         if (currentRun != null) {
             logger.trace("Server in environment {} is currently running. Stopping.", environment.uuid)
-            val stopRunSuccess = stopRun(currentRun.uuid)
+            val stopRunSuccess = try {
+                stopRun(currentRun.uuid)
+            } catch (e: IllegalArgumentException) {
+                true // stopRun throws IllegalArgumentException if the run was already stopped
+            }
 
             if (!stopRunSuccess) {
                 logger.error("Failed to stop server in environment {}", environment.uuid)
@@ -194,7 +183,8 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
             return false
         }
 
-        return true
+        serversToEnvironments.remove(environment.serverUUID)
+        true
     }
 
     @Deprecated("Use prepareEnvironment and then call runServer on the returned Environment")
@@ -325,9 +315,9 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
     private class LocalMinecraftServerEnvironment( // TODO: Move to top level
         override val uuid: UUID,
         override val serverUUID: UUID,
-        private val serverName: String,
-        private val contentDirectory: Path,
-        private val jar: MinecraftServerJar
+        val serverName: String,
+        val contentDirectory: Path,
+        val jar: MinecraftServerJar
     ) : MinecraftServerEnvironment {
         override val runnerUUID: UUID = LocalMinecraftServerRunner.uuid
 
@@ -385,8 +375,12 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
             logger.trace("Starting archive on end job for run {}", newCurrentRun.uuid)
             process.archiveOnEndJob(newCurrentRun)
 
+            _currentRun.update { newCurrentRun }
             return newCurrentRun
         }
+
+        private val _currentRun = MutableStateFlow<MinecraftServerCurrentRun?>(null)
+        val currentRun: StateFlow<MinecraftServerCurrentRun?> = _currentRun
 
         private val logger = LoggerFactory.getLogger(this::class.java)
     }
