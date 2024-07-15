@@ -49,3 +49,6 @@ suspend fun MinecraftServerJarResourceManager.accessJar(server: MinecraftServer)
 
 suspend fun MinecraftServerJarResourceManager.freeJar(server: MinecraftServer) =
     freeJar(server.version, server.uuid)
+
+suspend fun MinecraftServerJarResourceManager.freeJar(jar: MinecraftServerJar, accessorKey: UUID) =
+    freeJar(jar.version, accessorKey)

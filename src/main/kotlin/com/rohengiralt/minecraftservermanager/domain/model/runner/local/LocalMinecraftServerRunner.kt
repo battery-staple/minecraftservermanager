@@ -160,7 +160,45 @@ object LocalMinecraftServerRunner : MinecraftServerRunner, KoinComponent {
         return true
     }
 
-    override suspend fun runServer(server: MinecraftServer, environmentOverrides: MinecraftServerEnvironment): MinecraftServerCurrentRun? {
+    override suspend fun cleanupEnvironment(environment: MinecraftServerEnvironment): Boolean {
+        require(environment is LocalMinecraftServerEnvironment)
+
+        logger.trace("Cleaning up environment {} from local runner", environment.uuid)
+
+        val currentRun = environment.currentRun
+        if (currentRun != null) {
+            logger.trace("Server in environment {} is currently running. Stopping.", environment.uuid)
+            val stopRunSuccess = stopRun(currentRun.uuid)
+
+            if (!stopRunSuccess) {
+                logger.error("Failed to stop server in environment {}", environment.uuid)
+                return false
+            }
+        }
+
+        val contentDirectorySuccess =
+            serverContentDirectoryPathRepository
+                .deleteContentDirectory(environment.serverUUID)
+
+        val jarSuccess =
+            serverJarResourceManager
+                .freeJar(environment.jar, environment.uuid)
+
+        if (!contentDirectorySuccess) {
+            logger.error("Couldn't remove server content directory for environment {}", environment.uuid)
+            return false
+        }
+
+        if (!jarSuccess) {
+            logger.error("Couldn't free server jar for environment {}", environment.uuid)
+            return false
+        }
+
+        return true
+    }
+
+    @Deprecated("Use prepareEnvironment and then call runServer on the returned Environment")
+    override suspend fun runServer(server: MinecraftServer, environmentOverrides: MinecraftServerRuntimeEnvironmentSpec): MinecraftServerCurrentRun? {
         // TODO: If server already running (in same environment?), noop
         val environment = environmentOverrides.run { // TODO: Should use other default, get from config?
             copy(

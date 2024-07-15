@@ -45,6 +45,13 @@ interface MinecraftServerRunner {
     suspend fun removeServer(server: MinecraftServer): Boolean
 
     /**
+     * Deletes or marks for later deletion all resources belonging to [environment].
+     * @throws IllegalArgumentException if [environment] was created by a different runner
+     * @return true if the environment was successfully cleaned up; false if cleanup failed.
+     */
+    suspend fun cleanupEnvironment(environment: MinecraftServerEnvironment): Boolean
+
+    /**
      * Prepares the environment to run the given server, and then runs the server.
      * @param server the server to run
      * @param environmentOverrides additional configuration to specify how the server is run
