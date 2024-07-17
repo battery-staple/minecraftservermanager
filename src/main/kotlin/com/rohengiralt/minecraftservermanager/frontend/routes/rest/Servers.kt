@@ -72,6 +72,8 @@ fun Route.serversRoute() { // TODO: Better response codes in general
                 uuid = serverUUID,
                 name = serverAPIModel.name,
             ).orThrow()
+
+            call.respond(HttpStatusCode.OK)
         }
 
         put {
@@ -100,6 +102,8 @@ fun Route.serversRoute() { // TODO: Better response codes in general
             val serverUUID = call.getParameterOrBadRequest("id").parseUUIDOrBadRequest()
 
             restApiService.deleteServer(serverUUID).orThrow()
+
+            call.respond(HttpStatusCode.OK)
         }
 
         route("/currentRun") {
