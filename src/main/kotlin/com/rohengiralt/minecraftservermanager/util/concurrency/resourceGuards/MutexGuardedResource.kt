@@ -1,7 +1,12 @@
+@file:OptIn(ExperimentalContracts::class)
+
 package com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.InvocationKind
+import kotlin.contracts.contract
 
 /**
  * A version of [MutexGuardedResources] that guards only one resource at a time.
@@ -43,8 +48,13 @@ abstract class MutexGuardedResource<out T> {
      * To ensure concurrency safety, do not store references to any resources in any object with
      * a lifetime potentially greater than [block].
      */
-    suspend inline fun <R> use(block: (T) -> R) =
-        mutex.withLock { block(resource) }
+    suspend inline fun <R> use(block: (T) -> R): R {
+        contract {
+            callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+        }
+
+        return mutex.withLock { block(resource) }
+    }
 
     /**
      * Gets a snapshot of the current value.
@@ -57,7 +67,12 @@ abstract class MutexGuardedResource<out T> {
  * To ensure concurrency safety, do not store references to any resources in any object with
  * a lifetime potentially greater than [block].
  */
-suspend inline fun <T, R> use(resource: MutexGuardedResource<T>, block: (T) -> R) = resource.use(block)
+suspend inline fun <T, R> use(resource: MutexGuardedResource<T>, block: (T) -> R) {
+    contract {
+        callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+    }
+    resource.use(block)
+}
 
 /**
  * Synchronously executes [block], passing it the resources of all provided [MutexGuardedResource]s.
@@ -65,7 +80,10 @@ suspend inline fun <T, R> use(resource: MutexGuardedResource<T>, block: (T) -> R
  * To ensure concurrency safety, do not store references to any resources in any object with
  * a lifetime potentially greater than [block].
  */
-suspend inline fun <reified T, R> useAll(vararg guardedResources: MutexGuardedResource<T>, crossinline block: suspend (Array<out T>) -> R): R {
+suspend inline fun <reified T, R> useAll(vararg guardedResources: MutexGuardedResource<T>, block: (Array<out T>) -> R): R {
+    contract {
+        callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+    }
     // Implementation should mirror Mutex#withLock
     guardedResources.forEach { it.mutex.lock() }
     try {
@@ -84,15 +102,19 @@ suspend inline fun <reified T, R> useAll(vararg guardedResources: MutexGuardedRe
 suspend inline fun <T1, T2, R> useAll(
     guardedResource1: MutexGuardedResource<T1>,
     guardedResource2: MutexGuardedResource<T2>,
-    crossinline block: suspend (T1, T2) -> R
-) = useAll(guardedResource1, guardedResource2) { resources ->
-    @Suppress("UNCHECKED_CAST")
-    block(
-        resources[0] as T1,
-        resources[1] as T2,
-    )
+    block: (T1, T2) -> R
+) {
+    contract {
+        callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+    }
+    useAll(guardedResource1, guardedResource2) { resources ->
+        @Suppress("UNCHECKED_CAST")
+        block(
+            resources[0] as T1,
+            resources[1] as T2,
+        )
+    }
 }
-
 /**
  * Synchronously executes [block], passing it the resources of all provided [MutexGuardedResource]s.
  * Acquires and releases the locks in the order they are passed to the function.
@@ -103,14 +125,19 @@ suspend inline fun <T1, T2, T3, R> useAll(
     guardedResource1: MutexGuardedResource<T1>,
     guardedResource2: MutexGuardedResource<T2>,
     guardedResource3: MutexGuardedResource<T3>,
-    crossinline block: suspend (T1, T2, T3) -> R
-) = useAll(guardedResource1, guardedResource2, guardedResource3) { resources ->
-    @Suppress("UNCHECKED_CAST")
-    block(
-        resources[0] as T1,
-        resources[1] as T2,
-        resources[2] as T3,
-    )
+    block: (T1, T2, T3) -> R
+) {
+    contract {
+        callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+    }
+    return useAll(guardedResource1, guardedResource2, guardedResource3) { resources ->
+        @Suppress("UNCHECKED_CAST")
+        block(
+            resources[0] as T1,
+            resources[1] as T2,
+            resources[2] as T3,
+        )
+    }
 }
 
 /**
@@ -124,15 +151,20 @@ suspend inline fun <T1, T2, T3, T4, R> useAll(
     guardedResource2: MutexGuardedResource<T2>,
     guardedResource3: MutexGuardedResource<T3>,
     guardedResource4: MutexGuardedResource<T4>,
-    crossinline block: suspend (T1, T2, T3, T4) -> R
-) = useAll(guardedResource1, guardedResource2, guardedResource3, guardedResource4) { resources ->
-    @Suppress("UNCHECKED_CAST")
-    block(
-        resources[0] as T1,
-        resources[1] as T2,
-        resources[2] as T3,
-        resources[3] as T4,
-    )
+    block: (T1, T2, T3, T4) -> R
+) {
+    contract {
+        callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+    }
+    return useAll(guardedResource1, guardedResource2, guardedResource3, guardedResource4) { resources ->
+        @Suppress("UNCHECKED_CAST")
+        block(
+            resources[0] as T1,
+            resources[1] as T2,
+            resources[2] as T3,
+            resources[3] as T4,
+        )
+    }
 }
 
 /**
@@ -147,14 +179,25 @@ suspend inline fun <T1, T2, T3, T4, T5, R> useAll(
     guardedResource3: MutexGuardedResource<T3>,
     guardedResource4: MutexGuardedResource<T4>,
     guardedResource5: MutexGuardedResource<T5>,
-    crossinline block: suspend (T1, T2, T3, T4, T5) -> R
-) = useAll(guardedResource1, guardedResource2, guardedResource3, guardedResource4, guardedResource5) { resources ->
-    @Suppress("UNCHECKED_CAST")
-    block(
-        resources[0] as T1,
-        resources[1] as T2,
-        resources[2] as T3,
-        resources[3] as T4,
-        resources[4] as T5,
-    )
+    block: (T1, T2, T3, T4, T5) -> R
+) {
+    contract {
+        callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+    }
+    return useAll(
+        guardedResource1,
+        guardedResource2,
+        guardedResource3,
+        guardedResource4,
+        guardedResource5
+    ) { resources ->
+        @Suppress("UNCHECKED_CAST")
+        block(
+            resources[0] as T1,
+            resources[1] as T2,
+            resources[2] as T3,
+            resources[3] as T4,
+            resources[4] as T5,
+        )
+    }
 }

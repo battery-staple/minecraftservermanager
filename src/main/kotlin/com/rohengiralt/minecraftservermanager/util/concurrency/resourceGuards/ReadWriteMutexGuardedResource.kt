@@ -1,7 +1,12 @@
+@file:OptIn(ExperimentalContracts::class)
+
 package com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards
 
 import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.ReadWriteMutexGuardedResource.MutableResource
 import kotlinx.coroutines.sync.withLock
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.InvocationKind
+import kotlin.contracts.contract
 
 /**
  * A [MutexGuardedResource] in which [resource] is readable and writable.
@@ -16,7 +21,7 @@ data class ReadWriteMutexGuardedResource<T>(
      * To ensure concurrency safety, do not store references to any resources in any object with
      * a lifetime potentially greater than [block].
      */
-    suspend inline fun <R> useMutable(crossinline block: suspend (MutableResource) -> R) =
+    suspend inline fun <R> useMutable( block: (MutableResource) -> R) =
         mutex.withLock {
             block(MutableResource())
         }
@@ -40,10 +45,15 @@ data class ReadWriteMutexGuardedResource<T>(
  */
 suspend inline fun <T, R> useMutable(
     guardedResource: ReadWriteMutexGuardedResource<T>,
-    crossinline block: suspend (ReadWriteMutexGuardedResource<T>.MutableResource) -> R
-) = guardedResource.mutex.withLock {
+    block: (ReadWriteMutexGuardedResource<T>.MutableResource) -> R
+) {
+    contract {
+        callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+    }
+    return guardedResource.mutex.withLock {
         block(guardedResource.MutableResource())
     }
+}
 
 /**
  * Synchronously executes [block], passing it a [MutableResource] for all provided [ReadWriteMutexGuardedResource].
@@ -54,12 +64,16 @@ suspend inline fun <T, R> useMutable(
  */
 suspend inline fun <T, R> useAllMutable(
     vararg guardedResources: ReadWriteMutexGuardedResource<T>,
-    crossinline block: suspend (Array<out ReadWriteMutexGuardedResource<T>.MutableResource>) -> R
-): R =
-    useAllMutableUnsafe(*guardedResources) {
+    block: (Array<out ReadWriteMutexGuardedResource<T>.MutableResource>) -> R
+): R {
+    contract {
+        callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+    }
+    return useAllMutableUnsafe(*guardedResources) {
         @Suppress("UNCHECKED_CAST")
         block(it as Array<out ReadWriteMutexGuardedResource<T>.MutableResource>)
     }
+}
 
 /**
  * Does the same as [useAllMutable], but without type checking any of the resources.
@@ -68,8 +82,11 @@ suspend inline fun <T, R> useAllMutable(
  */
 @PublishedApi internal suspend inline fun <R> useAllMutableUnsafe(
     vararg guardedResources: ReadWriteMutexGuardedResource<*>,
-    crossinline block: suspend (Array<out ReadWriteMutexGuardedResource<*>.MutableResource>) -> R
+    block: (Array<out ReadWriteMutexGuardedResource<*>.MutableResource>) -> R
 ): R {
+    contract {
+        callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+    }
     // Implementation should mirror Mutex#withLock
     guardedResources.forEach { it.mutex.lock() }
     try {
@@ -89,19 +106,24 @@ suspend inline fun <T, R> useAllMutable(
 suspend inline fun <T1, T2, R> useAllMutable(
     guardedResource1: ReadWriteMutexGuardedResource<T1>,
     guardedResource2: ReadWriteMutexGuardedResource<T2>,
-    crossinline block: suspend (
+    block: (
         ReadWriteMutexGuardedResource<T1>.MutableResource,
         ReadWriteMutexGuardedResource<T2>.MutableResource,
     ) -> R
-): R = useAllMutableUnsafe(
-    guardedResource1,
-    guardedResource2,
-) { resources ->
-    @Suppress("UNCHECKED_CAST")
-    block(
-        resources[0] as ReadWriteMutexGuardedResource<T1>.MutableResource,
-        resources[1] as ReadWriteMutexGuardedResource<T2>.MutableResource,
-    )
+): R {
+    contract {
+        callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+    }
+    return useAllMutableUnsafe(
+        guardedResource1,
+        guardedResource2,
+    ) { resources ->
+        @Suppress("UNCHECKED_CAST")
+        block(
+            resources[0] as ReadWriteMutexGuardedResource<T1>.MutableResource,
+            resources[1] as ReadWriteMutexGuardedResource<T2>.MutableResource,
+        )
+    }
 }
 
 /**
@@ -115,22 +137,27 @@ suspend inline fun <T1, T2, T3, R> useAllMutable(
     guardedResource1: ReadWriteMutexGuardedResource<T1>,
     guardedResource2: ReadWriteMutexGuardedResource<T2>,
     guardedResource3: ReadWriteMutexGuardedResource<T3>,
-    crossinline block: suspend (
+    block: (
         ReadWriteMutexGuardedResource<T1>.MutableResource,
         ReadWriteMutexGuardedResource<T2>.MutableResource,
         ReadWriteMutexGuardedResource<T3>.MutableResource,
     ) -> R
-): R = useAllMutableUnsafe(
-    guardedResource1,
-    guardedResource2,
-    guardedResource3,
-) { resources ->
-    @Suppress("UNCHECKED_CAST")
-    block(
-        resources[0] as ReadWriteMutexGuardedResource<T1>.MutableResource,
-        resources[1] as ReadWriteMutexGuardedResource<T2>.MutableResource,
-        resources[2] as ReadWriteMutexGuardedResource<T3>.MutableResource,
-    )
+): R {
+    contract {
+        callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+    }
+    return useAllMutableUnsafe(
+        guardedResource1,
+        guardedResource2,
+        guardedResource3,
+    ) { resources ->
+        @Suppress("UNCHECKED_CAST")
+        block(
+            resources[0] as ReadWriteMutexGuardedResource<T1>.MutableResource,
+            resources[1] as ReadWriteMutexGuardedResource<T2>.MutableResource,
+            resources[2] as ReadWriteMutexGuardedResource<T3>.MutableResource,
+        )
+    }
 }
 
 /**
@@ -145,25 +172,30 @@ suspend inline fun <T1, T2, T3, T4, R> useAllMutable(
     guardedResource2: ReadWriteMutexGuardedResource<T2>,
     guardedResource3: ReadWriteMutexGuardedResource<T3>,
     guardedResource4: ReadWriteMutexGuardedResource<T4>,
-    crossinline block: suspend (
+    block: (
         ReadWriteMutexGuardedResource<T1>.MutableResource,
         ReadWriteMutexGuardedResource<T2>.MutableResource,
         ReadWriteMutexGuardedResource<T3>.MutableResource,
         ReadWriteMutexGuardedResource<T4>.MutableResource,
     ) -> R
-): R = useAllMutableUnsafe(
-    guardedResource1,
-    guardedResource2,
-    guardedResource3,
-    guardedResource4,
-) { resources ->
-    @Suppress("UNCHECKED_CAST")
-    block(
-        resources[0] as ReadWriteMutexGuardedResource<T1>.MutableResource,
-        resources[1] as ReadWriteMutexGuardedResource<T2>.MutableResource,
-        resources[2] as ReadWriteMutexGuardedResource<T3>.MutableResource,
-        resources[3] as ReadWriteMutexGuardedResource<T4>.MutableResource,
-    )
+): R {
+    contract {
+        callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+    }
+    return useAllMutableUnsafe(
+        guardedResource1,
+        guardedResource2,
+        guardedResource3,
+        guardedResource4,
+    ) { resources ->
+        @Suppress("UNCHECKED_CAST")
+        block(
+            resources[0] as ReadWriteMutexGuardedResource<T1>.MutableResource,
+            resources[1] as ReadWriteMutexGuardedResource<T2>.MutableResource,
+            resources[2] as ReadWriteMutexGuardedResource<T3>.MutableResource,
+            resources[3] as ReadWriteMutexGuardedResource<T4>.MutableResource,
+        )
+    }
 }
 
 /**
@@ -179,26 +211,31 @@ suspend inline fun <T1, T2, T3, T4, T5, R> useAllMutable(
     guardedResource3: ReadWriteMutexGuardedResource<T3>,
     guardedResource4: ReadWriteMutexGuardedResource<T4>,
     guardedResource5: ReadWriteMutexGuardedResource<T5>,
-    crossinline block: suspend (
+    block: (
         ReadWriteMutexGuardedResource<T1>.MutableResource,
         ReadWriteMutexGuardedResource<T2>.MutableResource,
         ReadWriteMutexGuardedResource<T3>.MutableResource,
         ReadWriteMutexGuardedResource<T4>.MutableResource,
         ReadWriteMutexGuardedResource<T5>.MutableResource,
     ) -> R
-): R = useAllMutableUnsafe(
-    guardedResource1,
-    guardedResource2,
-    guardedResource3,
-    guardedResource4,
-    guardedResource5,
-) { resources ->
-    @Suppress("UNCHECKED_CAST")
-    block(
-        resources[0] as ReadWriteMutexGuardedResource<T1>.MutableResource,
-        resources[1] as ReadWriteMutexGuardedResource<T2>.MutableResource,
-        resources[2] as ReadWriteMutexGuardedResource<T3>.MutableResource,
-        resources[3] as ReadWriteMutexGuardedResource<T4>.MutableResource,
-        resources[4] as ReadWriteMutexGuardedResource<T5>.MutableResource,
-    )
+): R {
+    contract {
+        callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+    }
+    return useAllMutableUnsafe(
+        guardedResource1,
+        guardedResource2,
+        guardedResource3,
+        guardedResource4,
+        guardedResource5,
+    ) { resources ->
+        @Suppress("UNCHECKED_CAST")
+        block(
+            resources[0] as ReadWriteMutexGuardedResource<T1>.MutableResource,
+            resources[1] as ReadWriteMutexGuardedResource<T2>.MutableResource,
+            resources[2] as ReadWriteMutexGuardedResource<T3>.MutableResource,
+            resources[3] as ReadWriteMutexGuardedResource<T4>.MutableResource,
+            resources[4] as ReadWriteMutexGuardedResource<T5>.MutableResource,
+        )
+    }
 }
