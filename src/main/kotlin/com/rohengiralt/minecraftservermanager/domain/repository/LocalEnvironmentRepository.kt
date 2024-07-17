@@ -2,7 +2,6 @@ package com.rohengiralt.minecraftservermanager.domain.repository
 
 import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerEnvironment
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.LocalMinecraftServerEnvironment
-import com.rohengiralt.minecraftservermanager.domain.model.runner.local.contentdirectory.LocalMinecraftServerContentDirectoryRepository
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJarResourceManager
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.insertSuccess
@@ -16,7 +15,9 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.slf4j.LoggerFactory
+import java.nio.file.InvalidPathException
 import java.util.*
+import kotlin.io.path.Path
 
 /**
  * A repository designed to store [LocalMinecraftServerEnvironment]s.
@@ -150,6 +151,7 @@ private class DatabaseLocalEnvironmentRepository : EnvironmentRepository<LocalMi
             .insertSuccess {
                 it[uuid] = environment.uuid
                 it[serverUUID] = environment.serverUUID
+                it[contentDirectory] = environment.contentDirectory.toAbsolutePath().toString()
                 it[jarVersion] = environment.jar.version
             }
 
@@ -173,9 +175,11 @@ private class DatabaseLocalEnvironmentRepository : EnvironmentRepository<LocalMi
             return null
         }
 
-        val contentDirectory = contentDirectories.getExistingContentDirectory(serverUUID)
-        if (contentDirectory == null) {
-            logger.error("Inconsistent database state: Environment {} references content directory for server {}, which does not exist", this[LocalEnvironmentTable.uuid], serverUUID)
+        val contentDirectoryStr = this[LocalEnvironmentTable.contentDirectory]
+        val contentDirectory = try {
+            Path(contentDirectoryStr)
+        } catch (e: InvalidPathException) {
+            logger.error("Invalid content directory path {} stored in the database", contentDirectoryStr)
             return null
         }
 
@@ -197,7 +201,6 @@ private class DatabaseLocalEnvironmentRepository : EnvironmentRepository<LocalMi
     }
 
     private val minecraftServers: MinecraftServerRepository by inject()
-    private val contentDirectories: LocalMinecraftServerContentDirectoryRepository by inject()
     private val jars: MinecraftServerJarResourceManager by inject()
 
     private val logger = LoggerFactory.getLogger(LocalEnvironmentRepository::class.java)
@@ -206,7 +209,7 @@ private class DatabaseLocalEnvironmentRepository : EnvironmentRepository<LocalMi
 private object LocalEnvironmentTable : Table() {
     val uuid = uuid("uuid")
     val serverUUID = uuid("server_uuid")
-//    val contentDirectory = text("path") TODO: store directly here rather than pulling from contentDirectoryRepository
+    val contentDirectory = text("path")
     val jarVersion = jsonb("version", MinecraftVersion.serializer())
 
     override val primaryKey = PrimaryKey(uuid)

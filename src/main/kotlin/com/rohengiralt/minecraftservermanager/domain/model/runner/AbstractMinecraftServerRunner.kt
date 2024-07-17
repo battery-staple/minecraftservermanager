@@ -16,14 +16,11 @@ import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerP
 import com.rohengiralt.minecraftservermanager.util.ifNull
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess.ProcessMessage
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.Clock
@@ -62,7 +59,7 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
      * Attempts to get the log stored by a particular run.
      * @return the log for a particular run, or null if retrieval fails
      */
-    protected abstract fun getLog(runRecord: MinecraftServerCurrentRunRecord): List<LogEntry>? // TODO: Include as part of MSProcess/Instance
+    protected abstract suspend fun getLog(runRecord: MinecraftServerCurrentRunRecord): List<LogEntry>? // TODO: Include as part of MSProcess/Instance
 
     /**
      * Stores the environments created by this runner
@@ -86,17 +83,19 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
     init {
         try {
             logger.info("Archiving left over current runs")
-            val runsToArchive = currentRunRecordRepository.getAllRecords()
-                .map { record ->
-                    MinecraftServerPastRun(
-                        uuid = record.runUUID,
-                        serverUUID = record.serverUUID,
-                        runnerUUID = record.runnerUUID,
-                        startTime = record.startTime,
-                        stopTime = null,
-                        log = getLog(record) ?: emptyList()
-                    )
-                }
+            val runsToArchive = runBlocking {
+                currentRunRecordRepository.getAllRecords()
+                    .map { record ->
+                        MinecraftServerPastRun(
+                            uuid = record.runUUID,
+                            serverUUID = record.serverUUID,
+                            runnerUUID = record.runnerUUID,
+                            startTime = record.startTime,
+                            stopTime = null,
+                            log = getLog(record) ?: emptyList()
+                        )
+                    }
+            }
 
             pastRunRepository.savePastRuns(runsToArchive)
             logger.info("Archived ${runsToArchive.size} left over current run(s)")
@@ -247,7 +246,7 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
             .firstOrNull()
     }
 
-    private fun MinecraftServerCurrentRunRecord.toPastRun(
+    private suspend fun MinecraftServerCurrentRunRecord.toPastRun(
         endTime: Instant = Clock.System.now()
     ) = MinecraftServerPastRun(
         uuid = uuid,

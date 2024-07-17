@@ -3,7 +3,6 @@ package com.rohengiralt.minecraftservermanager
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.MinecraftJarAPI
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.RedundantFallbackAPI
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.contentdirectory.LocalMinecraftServerContentDirectoryFactory
-import com.rohengiralt.minecraftservermanager.domain.model.runner.local.contentdirectory.LocalMinecraftServerContentDirectoryRepository
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.currentruns.CurrentRunRepository
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.currentruns.InMemoryCurrentRunRepository
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.APIMinecraftServerJarFactory
@@ -77,9 +76,6 @@ fun Application.module() {
                 single<MinecraftServerJarFactory> { APIMinecraftServerJarFactory() }
                 single<MinecraftServerJarResourceManager> {
                     FilesystemMinecraftServerJarResourceManager("/minecraftservermanager/local/jars")
-                }
-                single<LocalMinecraftServerContentDirectoryRepository> {
-                    LocalMinecraftServerContentDirectoryRepository()
                 }
                 single<LocalMinecraftServerContentDirectoryFactory> {
                     LocalMinecraftServerContentDirectoryFactory(
