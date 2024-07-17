@@ -14,6 +14,7 @@ import java.time.ZoneOffset
 import java.util.*
 
 interface MinecraftServerCurrentRunRecordRepository {
+    fun getRecord(runUUID: UUID): MinecraftServerCurrentRunRecord?
     fun addRecord(record: MinecraftServerCurrentRunRecord): Boolean
     fun removeRecord(runUUID: UUID): Boolean
     fun getAllRecords(): List<MinecraftServerCurrentRunRecord>
@@ -26,6 +27,19 @@ class DatabaseMinecraftServerCurrentRunRecordRepository : MinecraftServerCurrent
             SchemaUtils.create(CurrentRunRecordTable)
         }
     }
+
+    override fun getRecord(runUUID: UUID): MinecraftServerCurrentRunRecord? = transaction {
+        try {
+            CurrentRunRecordTable
+                .select { CurrentRunRecordTable.runUUID eq runUUID }
+                .singleOrNull()
+                ?.toRecord()
+        } catch (e: SQLException) {
+            logger.error("Couldn't get current run record, got $e")
+            null
+        }
+    }
+
     override fun addRecord(record: MinecraftServerCurrentRunRecord): Boolean = transaction {
         try {
             CurrentRunRecordTable.insertIgnore {
@@ -53,21 +67,22 @@ class DatabaseMinecraftServerCurrentRunRecordRepository : MinecraftServerCurrent
     }
 
     override fun getAllRecords(): List<MinecraftServerCurrentRunRecord> = transaction {
-        CurrentRunRecordTable.selectAll().map {
-            with(CurrentRunRecordTable) {
-                MinecraftServerCurrentRunRecord(
-                    runUUID = it[runUUID],
-                    serverUUID = it[serverUUID],
-                    runnerUUID = it[runnerUUID],
-                    startTime = it[startTimeUtc].toInstant(ZoneOffset.UTC).toKotlinInstant()
-                )
-            }
-        }
+        CurrentRunRecordTable.selectAll().map { it.toRecord() }
     }
 
     override fun removeAllRecords(): Boolean = transaction {
         val rowsDeleted = CurrentRunRecordTable.deleteAll()
         rowsDeleted > 0
+    }
+
+    private fun ResultRow.toRecord(): MinecraftServerCurrentRunRecord = with(CurrentRunRecordTable) {
+        val row = this@toRecord
+        MinecraftServerCurrentRunRecord(
+            runUUID = row[runUUID],
+            serverUUID = row[serverUUID],
+            runnerUUID = row[runnerUUID],
+            startTime = row[startTimeUtc].toInstant(ZoneOffset.UTC).toKotlinInstant()
+        )
     }
 
     private val logger = LoggerFactory.getLogger(this::class.java)

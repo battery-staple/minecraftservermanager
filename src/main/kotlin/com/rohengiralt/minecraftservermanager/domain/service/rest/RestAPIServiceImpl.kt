@@ -4,7 +4,7 @@ import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCu
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerPastRun
 import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerRunner
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
-import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironmentSpec
+import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironment
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerPastRunRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerRepository
@@ -45,7 +45,11 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
 
         val runner = runnerRepository.getRunner(runnerUUID) ?: return Failure.AuxiliaryResourceNotFound(runnerUUID)
 
-        runner.initializeServer(server).ifFalse { return Failure.Unknown() }
+        try {
+            runner.initializeServer(server).ifFalse { return Failure.Unknown() }
+        } catch (e: IllegalArgumentException) {
+            return Failure.AlreadyExists(server.uuid)
+        }
 
         val addSuccess = runCatching { serverRepository.addServer(server) }.getOrElse { false }
         if (addSuccess) {
@@ -128,7 +132,7 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
         return Success(runner.getAllCurrentRuns())
     }
 
-    override suspend fun createCurrentRun(serverUUID: UUID, environment: MinecraftServerRuntimeEnvironmentSpec): APIResult<MinecraftServerCurrentRun> {
+    override suspend fun createCurrentRun(serverUUID: UUID, environment: MinecraftServerRuntimeEnvironment): APIResult<MinecraftServerCurrentRun> {
         val server = serverRepository.getServer(serverUUID).ifNull {
             logger.trace("Couldn't find server for UUID {}", serverUUID)
             return Failure.MainResourceNotFound(serverUUID)

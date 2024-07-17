@@ -4,7 +4,7 @@ import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCu
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerPastRun
 import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerRunner
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
-import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironmentSpec
+import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironment
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
 import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService.APIResult
 import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService.APIResult.Failure
@@ -35,7 +35,7 @@ interface RestAPIService {
     suspend fun getAllRunners(): APIResult<List<MinecraftServerRunner>>
     suspend fun getRunner(uuid: UUID): APIResult<MinecraftServerRunner>
     suspend fun getAllCurrentRuns(runnerUUID: UUID): APIResult<List<MinecraftServerCurrentRun>>
-    suspend fun createCurrentRun(serverUUID: UUID, environment: MinecraftServerRuntimeEnvironmentSpec): APIResult<MinecraftServerCurrentRun>
+    suspend fun createCurrentRun(serverUUID: UUID, environment: MinecraftServerRuntimeEnvironment): APIResult<MinecraftServerCurrentRun>
     suspend fun getCurrentRun(runnerUUID: UUID, runUUID: UUID): APIResult<MinecraftServerCurrentRun>
     suspend fun getCurrentRunByServer(serverUUID: UUID): APIResult<MinecraftServerCurrentRun>
     suspend fun stopCurrentRun(runnerUUID: UUID, runUUID: UUID): APIResult<Unit>

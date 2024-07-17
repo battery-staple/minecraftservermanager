@@ -2,7 +2,7 @@ package com.rohengiralt.minecraftservermanager.domain.model.runner
 
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
-import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironmentSpec
+import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironment
 import kotlinx.coroutines.flow.Flow
 import java.util.*
 
@@ -28,29 +28,15 @@ interface MinecraftServerRunner {
     /**
      * Prepares all resources required to allow [server] to run.
      * @return true if the environment was successfully set up
+     * @throws IllegalArgumentException if the server has already been set up
      */
-    @Deprecated("Use prepareEnvironment instead", ReplaceWith("prepareEnvironment(server) != null"))
     suspend fun initializeServer(server: MinecraftServer): Boolean
-
-    /**
-     * Prepares all resources required to allow [server] to run
-     * @return a newly provisioned environment, or null if setup failed
-     */
-    suspend fun prepareEnvironment(server: MinecraftServer): MinecraftServerEnvironment?
 
     /**
      * Deletes or marks for later deletion all resources in use by [server]
      * @return true if the resources were successfully cleaned up
      */
-    @Deprecated("Use cleanupEnvironment instead")
     suspend fun removeServer(server: MinecraftServer): Boolean
-
-    /**
-     * Deletes or marks for later deletion all resources belonging to [environment].
-     * @throws IllegalArgumentException if [environment] was created by a different runner
-     * @return true if the environment was successfully cleaned up; false if cleanup failed.
-     */
-    suspend fun cleanupEnvironment(environment: MinecraftServerEnvironment): Boolean
 
     /**
      * Prepares the environment to run the given server, and then runs the server.
@@ -58,10 +44,9 @@ interface MinecraftServerRunner {
      * @param environmentOverrides additional configuration to specify how the server is run
      * @return a record representing the new run of [server], or null if running failed.
      */
-    @Deprecated("Use prepareEnvironment and then call runServer on the returned Environment")
     suspend fun runServer(
         server: MinecraftServer,
-        environmentOverrides: MinecraftServerRuntimeEnvironmentSpec = MinecraftServerRuntimeEnvironmentSpec.EMPTY
+        environmentOverrides: MinecraftServerRuntimeEnvironment = MinecraftServerRuntimeEnvironment.EMPTY
     ): MinecraftServerCurrentRun?
 
     /**
@@ -119,7 +104,7 @@ interface MinecraftServerRunner {
      * @param server the server whose flow to query
      * @return the update flow
      */
-    suspend fun getAllCurrentRunsFlow(server: MinecraftServer? = null): Flow<List<MinecraftServerCurrentRun>>
+    suspend fun getAllCurrentRunsFlow(server: MinecraftServer): Flow<List<MinecraftServerCurrentRun>>
 
 //    fun addEnvironment(serverRun: E)
 //    fun getAllEnvironments(): Sequence<E>

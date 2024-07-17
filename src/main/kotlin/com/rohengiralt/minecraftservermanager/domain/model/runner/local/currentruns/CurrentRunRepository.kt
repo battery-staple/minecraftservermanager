@@ -120,7 +120,7 @@ class InMemoryCurrentRunRepository : CurrentRunRepository {
     }
 
     override suspend fun getCurrentRunByServer(serverUUID: UUID): MinecraftServerCurrentRun? = currentRunsGuard.use {
-        logger.debug("Getting current run {} by server", serverUUID)
+        logger.debug("Getting current run for server {}", serverUUID)
         currentRunsByServerUUID[serverUUID]
     }
 

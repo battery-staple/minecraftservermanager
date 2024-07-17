@@ -1,6 +1,6 @@
 package com.rohengiralt.minecraftservermanager.domain.model.server
 
-data class MinecraftServerRuntimeEnvironmentSpec( // TODO: Make APIModel only
+data class MinecraftServerRuntimeEnvironment( // TODO: Make APIModel only
     val port: Port? = null,
     val maxHeapSize: MaxHeapSize? = null,
     val minHeapSize: MinHeapSize? = null,
@@ -12,6 +12,6 @@ data class MinecraftServerRuntimeEnvironmentSpec( // TODO: Make APIModel only
 //    class JRE(version: JREVersion) TODO
 
     companion object {
-        val EMPTY = MinecraftServerRuntimeEnvironmentSpec(null, null, null)
+        val EMPTY = MinecraftServerRuntimeEnvironment(null, null, null)
     }
 }

@@ -17,7 +17,7 @@ data class MinecraftServerCurrentRunAPIModel(
         uuid = run.uuid,
         serverId = run.serverUUID,
         runnerId = run.runnerUUID,
-        environment = MinecraftServerEnvironmentAPIModel(run.environment),
+        environment = MinecraftServerEnvironmentAPIModel(run.runtimeEnvironment),
         address = MinecraftServerAddressAPIModel(run.address)
     )
 }

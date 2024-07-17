@@ -1,7 +1,8 @@
 package com.rohengiralt.minecraftservermanager.domain.model.runner
 
-import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
 import com.rohengiralt.minecraftservermanager.domain.model.server.Port
+import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
+import kotlinx.coroutines.flow.StateFlow
 import java.util.*
 
 /**
@@ -31,5 +32,10 @@ interface MinecraftServerEnvironment {
         port: Port,
         maxHeapSizeMB: UInt,
         minHeapSizeMB: UInt
-    ): MinecraftServerCurrentRun?
+    ): MinecraftServerProcess?
+
+    /**
+     * The server process that is currently running
+     */
+    val currentProcess : StateFlow<MinecraftServerProcess?>
 }
