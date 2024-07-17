@@ -105,9 +105,9 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
             logger.warn("Failed to remove server {} from runner {}", uuid, server.runnerUUID)
             return Failure.Unknown() // Early exit; don't remove it from the database unless it's been fully cleaned up. TODO: some better transactionality?
         }
-        logger.trace("Removing server with uuid {} from server repository}", uuid)
+        logger.trace("Removing server with uuid {} from server repository", uuid)
         val removeFromRepositorySuccess = serverRepository.removeServer(uuid)
-        logger.trace("Removing server with uuid {} from server repository {}}", uuid, if (removeFromRepositorySuccess) "SUCCEEDED" else "FAILED")
+        logger.trace("Removing server with uuid {} from server repository {}", uuid, if (removeFromRepositorySuccess) "SUCCEEDED" else "FAILED")
         if (!removeFromRepositorySuccess) {
             logger.warn("Failed to remove server {} from repository", uuid)
             return Failure.Unknown()

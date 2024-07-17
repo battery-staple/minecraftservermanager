@@ -10,9 +10,9 @@ import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServe
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerAddress
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironment
 import com.rohengiralt.minecraftservermanager.domain.model.server.Port
+import com.rohengiralt.minecraftservermanager.domain.repository.EnvironmentRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerCurrentRunRecordRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerPastRunRepository
-import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.ReadOnlyMutexGuardedResource
 import com.rohengiralt.minecraftservermanager.util.ifNull
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess.ProcessMessage
@@ -24,6 +24,8 @@ import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import org.koin.core.component.KoinComponent
@@ -61,15 +63,17 @@ abstract class AbstractMinecraftServerRunner(
      */
     protected abstract fun getLog(runRecord: MinecraftServerCurrentRunRecord): List<LogEntry>? // TODO: Include as part of MSProcess/Instance
 
+    /**
+     * Stores the environments created by this runner
+     */
+    protected abstract val environments: EnvironmentRepository
+
     private val logger = LoggerFactory.getLogger(this::class.java)
 
+    private val environmentsMutex = Mutex()
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
     private val currentRuns: CurrentRunRepository by inject()
     private val currentRunRecordRepository: MinecraftServerCurrentRunRecordRepository by inject()
-    private val serversToEnvironmentsResource: ReadOnlyMutexGuardedResource<MutableMap<UUID, MinecraftServerEnvironment>> =
-        ReadOnlyMutexGuardedResource(mutableMapOf()) // TODO: make property on MinecraftServer
-    private val environmentsResource: ReadOnlyMutexGuardedResource<MutableMap<UUID, MinecraftServerEnvironment>> =
-        ReadOnlyMutexGuardedResource(mutableMapOf()) // TODO: make distinct repository
     private val pastRunRepository: MinecraftServerPastRunRepository by inject()
 
     /*
@@ -101,10 +105,10 @@ abstract class AbstractMinecraftServerRunner(
         }
     }
 
-    override suspend fun initializeServer(server: MinecraftServer): Boolean = serversToEnvironmentsResource.use { serversToEnvironments ->
+    override suspend fun initializeServer(server: MinecraftServer): Boolean = environmentsMutex.withLock {
         logger.trace("Initializing server {} ('{}')", server.uuid, server.name)
 
-        val existingEnvironment = serversToEnvironments[server.uuid]
+        val existingEnvironment = environments.getEnvironmentByServer(server.uuid)
         if (existingEnvironment != null) {
             logger.trace("Cannot initialize server {}; already initialized with environment {}", server.uuid, existingEnvironment.uuid)
             throw IllegalArgumentException("Server ${server.uuid} already set up")
@@ -113,25 +117,18 @@ abstract class AbstractMinecraftServerRunner(
         val newEnvironment = prepareEnvironment(server)
         if (newEnvironment == null) {
             logger.trace("Failed to prepare environment for server {}", server)
-            return@use false
+            return false
         }
 
-        logger.trace("Adding environment {} to environments", newEnvironment.uuid)
-        environmentsResource.use { environments ->
-            assert(newEnvironment.uuid !in environments)
-            environments[newEnvironment.uuid] = newEnvironment
-        }
-
-        logger.trace("Adding environment {} to serversToEnvironments", newEnvironment.uuid)
-        assert(newEnvironment.serverUUID !in serversToEnvironments)
-        serversToEnvironments[newEnvironment.serverUUID] = newEnvironment
+        logger.trace("Recording environment {}", newEnvironment.uuid)
+        environments.addEnvironment(newEnvironment)
 
         logger.trace("Successfully initialized server {}", server)
-        return@use true
+        return true
     }
 
-    override suspend fun removeServer(server: MinecraftServer): Boolean = serversToEnvironmentsResource.use { serversToEnvironments ->
-        val environment = serversToEnvironments[server.uuid] ?: return true
+    override suspend fun removeServer(server: MinecraftServer): Boolean = environmentsMutex.withLock {
+        val environment = environments.getEnvironmentByServer(server.uuid) ?: return true
 
         val currentProcess = environment.currentProcess.value
         if (currentProcess != null) {
@@ -140,17 +137,23 @@ abstract class AbstractMinecraftServerRunner(
 
             if (!stopRunSuccess) {
                 logger.error("Failed to stop server in environment {}", environment.uuid)
-                return@use false
+                return false
             }
         }
 
         val cleanupSuccess = cleanupEnvironment(environment)
-        if (cleanupSuccess) {
-            environmentsResource.use { environments -> environments.remove(environment.uuid) }
-            serversToEnvironments.remove(server.uuid)
+        if (!cleanupSuccess) {
+            logger.trace("Failed to clean up environment {}", environment.uuid)
+            return false
         }
 
-        return@use cleanupSuccess
+        val removalSuccess = environments.removeEnvironment(environment)
+        if (!removalSuccess) {
+            logger.trace("Failed to remove environment {}", environment.uuid)
+            return false
+        }
+
+        return true
     }
 
     override suspend fun runServer(
@@ -170,7 +173,7 @@ abstract class AbstractMinecraftServerRunner(
 
         logger.trace("Running server {} with {}", server.uuid, runtimeEnvironment)
 
-        val environment = serversToEnvironmentsResource.use { serversToEnvironments -> serversToEnvironments[server.uuid] }
+        val environment = environments.getEnvironmentByServer(server.uuid)
         if (environment == null) {
             logger.error("No environment exists for server {}.", server.uuid)
             return null
@@ -271,7 +274,7 @@ abstract class AbstractMinecraftServerRunner(
             throw IllegalArgumentException("Run $uuid not found")
         }
 
-        val environment = environmentsResource.use { environments -> environments[run.environmentUUID] }
+        val environment = environments.getEnvironment(run.environmentUUID)
         if (environment == null) {
             logger.trace("Cannot stop run {}; environment {} not found", run.uuid, run.environmentUUID)
             return false
@@ -302,12 +305,11 @@ abstract class AbstractMinecraftServerRunner(
         }
     }
 
-    override suspend fun stopAllRuns(): Boolean = environmentsResource.use { environments ->
+    override suspend fun stopAllRuns(): Boolean =
         environments
-            .map { (_, environment) -> environment.currentProcess.value }
-            .filterNotNull()
+            .getAllEnvironments()
+            .mapNotNull { environment -> environment.currentProcess.value }
             .all { process -> process.stop() }
-    }
 
     override suspend fun getCurrentRun(uuid: UUID): MinecraftServerCurrentRun? =
         currentRuns.getCurrentRunByUUID(uuid)

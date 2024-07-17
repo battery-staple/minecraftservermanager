@@ -1,6 +1,5 @@
 package com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar
 
-import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
 import java.util.*
 import kotlin.coroutines.CoroutineContext
@@ -13,7 +12,7 @@ interface MinecraftServerJarResourceManager { // TODO: Refactor, remove prepareJ
      * Ensures that a jar with version [version] is present in cache.
      * This method may block, so it should only be called in a [CoroutineContext] equipped to handle this.
      * Once this jar is no longer in use, the caller should also call [freeJar]
-     * with the same [accessorKey] as passed to this method to prevent me mory/storage leaks.
+     * with the same [accessorKey] as passed to this method to prevent memory/storage leaks.
      * @param version the version of the jar to cache
      * @param accessorKey a key uniquely identifying the user of the jar, used for reference counting.
      * @return true if the jar was successfully cached (or already cached), false if caching failed.
@@ -40,15 +39,6 @@ interface MinecraftServerJarResourceManager { // TODO: Refactor, remove prepareJ
      */
     suspend fun freeJar(version: MinecraftVersion, accessorKey: UUID): Boolean
 }
-
-suspend fun MinecraftServerJarResourceManager.prepareJar(server: MinecraftServer) =
-    prepareJar(server.version, server.uuid)
-
-suspend fun MinecraftServerJarResourceManager.accessJar(server: MinecraftServer) =
-    accessJar(server.version, server.uuid)
-
-suspend fun MinecraftServerJarResourceManager.freeJar(server: MinecraftServer) =
-    freeJar(server.version, server.uuid)
 
 suspend fun MinecraftServerJarResourceManager.freeJar(jar: MinecraftServerJar, accessorKey: UUID) =
     freeJar(jar.version, accessorKey)

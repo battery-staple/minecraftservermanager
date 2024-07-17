@@ -5,12 +5,11 @@ import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersi
 import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.ReadOnlyMutexGuardedResource
 import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.ReadWriteMutexGuardedResource
 import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.useAll
+import com.rohengiralt.minecraftservermanager.util.extensions.exposed.insertSuccess
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.jsonb
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.upsert
 import com.rohengiralt.minecraftservermanager.util.ifTrue.ifTrueAlso
-import com.rohengiralt.minecraftservermanager.util.sql.SQLState
 import com.rohengiralt.minecraftservermanager.util.sql.ioExnTransaction
-import com.rohengiralt.minecraftservermanager.util.sql.state
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,14 +53,7 @@ class DatabaseMinecraftServerRepository : MinecraftServerRepository {
     }
 
     override fun addServer(minecraftServer: MinecraftServer): Boolean = ioExnTransaction {
-        try {
-            MinecraftServerTable.insert { insertBody(it, minecraftServer) }
-        } catch (e: SQLException) {
-            if (e.state == SQLState.UNIQUE_VIOLATION) {
-                return@ioExnTransaction false
-            } else throw e
-        }
-        return@ioExnTransaction true
+        MinecraftServerTable.insertSuccess { insertBody(it, minecraftServer) }
     }.ifTrueAlso { serverWatcher.pushUpdate(minecraftServer) }
 
     override fun saveServer(minecraftServer: MinecraftServer) {
@@ -180,7 +172,7 @@ private class ServerWatcher {
     }
 }
 
-object MinecraftServerTable : Table() {
+private object MinecraftServerTable : Table() {
     val uuid = uuid("uuid")
     val name = text("name")
     val version = jsonb("version", MinecraftVersion.serializer())

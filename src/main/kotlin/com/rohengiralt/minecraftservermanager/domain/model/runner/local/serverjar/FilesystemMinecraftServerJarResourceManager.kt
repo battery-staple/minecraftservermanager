@@ -176,6 +176,7 @@ private class JarReferenceCounter(private val deleteJar: (version: MinecraftVers
             logger.trace("After removing reference, $currentReferences remain")
 
             if (currentReferences <= 0) {
+                logger.trace("No references left; deleting jar with version {}", version.versionString)
                 deleteJar(version)
             }
         }

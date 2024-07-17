@@ -14,6 +14,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.deleteRecursively
 
+// TODO: Remove and integrate into LocalEnvironmentRepository
 class LocalMinecraftServerContentDirectoryRepository : KoinComponent { // TODO: Document, remove unused methods
     init {
         transaction {
@@ -56,23 +57,25 @@ class LocalMinecraftServerContentDirectoryRepository : KoinComponent { // TODO: 
 
     fun deleteContentDirectory(serverUUID: UUID): Boolean {
         val directory = getExistingContentDirectory(serverUUID) ?: run {
-            logger.warn("Could not find content directory for server $serverUUID")
+            logger.warn("Could not find content directory for server {}", serverUUID)
             return true // TODO: Should this return true or false?
         }
 
         val databaseDeletionSuccess = deleteContentDirectoryFromDatabase(serverUUID)
 
         if (!databaseDeletionSuccess) {
-            logger.error("Could not delete content directory from database for server $serverUUID")
+            logger.error("Could not delete content directory from database for server {}", serverUUID)
             return false
         }
 
         val filesystemDeletionSuccess = deleteContentDirectoryFromFilesystem(directory)
 
         if (!filesystemDeletionSuccess) {
-            logger.error("Could not delete content directory from filesystem for server $serverUUID")
+            logger.error("Could not delete content directory from filesystem for server {}", serverUUID)
             return false
         }
+
+        logger.trace("Deleted content directory from database for server {}", serverUUID)
 
         return true
     }

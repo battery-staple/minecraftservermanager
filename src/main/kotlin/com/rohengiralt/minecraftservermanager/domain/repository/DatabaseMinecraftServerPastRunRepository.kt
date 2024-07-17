@@ -103,7 +103,7 @@ class DatabaseMinecraftServerPastRunRepository : MinecraftServerPastRunRepositor
     private val logger = LoggerFactory.getLogger(this::class.java)
 }
 
-object MinecraftServerPastRunTable : Table() {
+private object MinecraftServerPastRunTable : Table() {
     val uuid = uuid("uuid")
     val serverId = uuid("server_uuid").index()
     val runnerId = uuid("runner_uuid").index()

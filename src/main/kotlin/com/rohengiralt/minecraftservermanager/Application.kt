@@ -89,6 +89,7 @@ fun Application.module() {
                 single<MinecraftServerRunnerRepository>(createdAtStart = true) { // Needs to be created at start to archive old currentRuns
                     HardcodedMinecraftServerRunnerRepository()
                 }
+                single<LocalEnvironmentRepository> { LocalEnvironmentRepository() }
                 single<CurrentRunRepository> { InMemoryCurrentRunRepository() }
                 single<MinecraftServerCurrentRunRecordRepository> { DatabaseMinecraftServerCurrentRunRecordRepository() }
                 single<UserPreferencesRepository> { DatabaseUserPreferencesRepository() }
