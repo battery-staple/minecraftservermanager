@@ -23,7 +23,7 @@ import java.util.*
  * Environments are stored primarily in memory, but persisted in the database
  * for retrieval after server restarts.
  */
-class LocalEnvironmentRepository : EnvironmentRepository, KoinComponent {
+class LocalEnvironmentRepository : EnvironmentRepository<LocalMinecraftServerEnvironment>, KoinComponent {
     /**
      * An in-memory cache for environments.
      * This serves to speed up accesses and reduce database load,
@@ -33,7 +33,7 @@ class LocalEnvironmentRepository : EnvironmentRepository, KoinComponent {
      * This cache is never manually cleared except when an environment is deleted.
      * It should be the primary source of truth for environments, with the database only as a backup.
      */
-    private val cache: EnvironmentRepository = InMemoryEnvironmentRepository()
+    private val cache: EnvironmentRepository<LocalMinecraftServerEnvironment> = InMemoryEnvironmentRepository()
     private val cacheLock: Mutex = Mutex()
 
     /**
@@ -42,12 +42,12 @@ class LocalEnvironmentRepository : EnvironmentRepository, KoinComponent {
      */
     private val db: DatabaseLocalEnvironmentRepository = DatabaseLocalEnvironmentRepository()
 
-    override suspend fun getEnvironment(environmentUUID: UUID): MinecraftServerEnvironment? = cacheLock.withLock {
+    override suspend fun getEnvironment(environmentUUID: UUID): LocalMinecraftServerEnvironment? = cacheLock.withLock {
         cache.getEnvironment(environmentUUID)
             ?: getFromDatabaseAndCache(environmentUUID)
     }
 
-    override suspend fun getEnvironmentByServer(serverUUID: UUID): MinecraftServerEnvironment? = cacheLock.withLock {
+    override suspend fun getEnvironmentByServer(serverUUID: UUID): LocalMinecraftServerEnvironment? = cacheLock.withLock {
         cache.getEnvironmentByServer(serverUUID)
             ?: getByServerFromDatabaseAndCache(serverUUID)
     }
@@ -55,26 +55,21 @@ class LocalEnvironmentRepository : EnvironmentRepository, KoinComponent {
     /**
      * Retrieves an environment from the database by its `uuid`, caching it.
      */
-    private suspend fun getFromDatabaseAndCache(environmentUUID: UUID) =
+    private suspend fun getFromDatabaseAndCache(environmentUUID: UUID): LocalMinecraftServerEnvironment? =
         db.getEnvironment(environmentUUID)?.also { cache.addEnvironment(it) }
 
     /**
      * Retrieves an environment from the database by its `serverUUID`, caching it
      */
-    private suspend fun getByServerFromDatabaseAndCache(serverUUID: UUID) =
+    private suspend fun getByServerFromDatabaseAndCache(serverUUID: UUID): LocalMinecraftServerEnvironment? =
         db.getEnvironmentByServer(serverUUID)?.also { cache.addEnvironment(it) }
 
-    override suspend fun getAllEnvironments(): List<MinecraftServerEnvironment> =
+    override suspend fun getAllEnvironments(): List<LocalMinecraftServerEnvironment> =
         // Database is only source of truth for all envs, but we want to pull the version from cache if it exists
         db.getAllEnvironmentUUIDs()
             .mapNotNull { uuid -> getEnvironment(uuid) }
 
-    override suspend fun addEnvironment(environment: MinecraftServerEnvironment): Boolean {
-        if (environment !is LocalMinecraftServerEnvironment) {
-            logger.warn("Cannot persist environment of type {}", environment::class.simpleName)
-            return false
-        }
-
+    override suspend fun addEnvironment(environment: LocalMinecraftServerEnvironment): Boolean {
         cacheLock.withLock {
             val cacheSuccess = cache.addEnvironment(environment)
             if (!cacheSuccess) {
@@ -93,12 +88,7 @@ class LocalEnvironmentRepository : EnvironmentRepository, KoinComponent {
         }
     }
 
-    override suspend fun removeEnvironment(environment: MinecraftServerEnvironment): Boolean {
-        if (environment !is LocalMinecraftServerEnvironment) {
-            logger.warn("Cannot remove environment of type {}", environment::class.simpleName)
-            return false
-        }
-
+    override suspend fun removeEnvironment(environment: LocalMinecraftServerEnvironment): Boolean {
         cacheLock.withLock {
             val cacheSuccess = cache.removeEnvironment(environment)
             if (!cacheSuccess) {
@@ -122,7 +112,7 @@ class LocalEnvironmentRepository : EnvironmentRepository, KoinComponent {
  * This can lead to unexpected behavior as [MinecraftServerEnvironment]s can be stateful.
  * Thus, this class is only safe to use as a backing for an in-memory cache.
  */
-private class DatabaseLocalEnvironmentRepository : EnvironmentRepository, KoinComponent {
+private class DatabaseLocalEnvironmentRepository : EnvironmentRepository<LocalMinecraftServerEnvironment>, KoinComponent {
     init {
         transaction { SchemaUtils.create(LocalEnvironmentTable) }
     }
@@ -155,9 +145,7 @@ private class DatabaseLocalEnvironmentRepository : EnvironmentRepository, KoinCo
             .map { it[LocalEnvironmentTable.uuid] }
     }
 
-    override suspend fun addEnvironment(environment: MinecraftServerEnvironment): Boolean = suspendIOExnTransaction {
-        require(environment is LocalMinecraftServerEnvironment)
-
+    override suspend fun addEnvironment(environment: LocalMinecraftServerEnvironment): Boolean = suspendIOExnTransaction {
         LocalEnvironmentTable
             .insertSuccess {
                 it[uuid] = environment.uuid
@@ -168,9 +156,7 @@ private class DatabaseLocalEnvironmentRepository : EnvironmentRepository, KoinCo
         return@suspendIOExnTransaction true
     }
 
-    override suspend fun removeEnvironment(environment: MinecraftServerEnvironment): Boolean = suspendIOExnTransaction {
-        require(environment is LocalMinecraftServerEnvironment)
-
+    override suspend fun removeEnvironment(environment: LocalMinecraftServerEnvironment): Boolean = suspendIOExnTransaction {
         val rowsDeleted = LocalEnvironmentTable
             .deleteWhere { LocalEnvironmentTable.uuid eq environment.uuid }
 

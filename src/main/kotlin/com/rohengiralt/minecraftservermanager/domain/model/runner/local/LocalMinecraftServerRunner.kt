@@ -27,13 +27,13 @@ private object LocalRunnerSpec : ConfigSpec() {
 }
 
 
-object LocalMinecraftServerRunner : AbstractMinecraftServerRunner(
+object LocalMinecraftServerRunner : AbstractMinecraftServerRunner<LocalMinecraftServerEnvironment>(
     uuid = UUID.fromString("d72add0d-4746-4b46-9ecc-2dcd868062f9"), // Randomly generated, but constant
     name = "Local"
 ) {
     override val domain: String = localRunnerConfig[LocalRunnerSpec.domain]
 
-    override suspend fun prepareEnvironment(server: MinecraftServer): MinecraftServerEnvironment? {
+    override suspend fun prepareEnvironment(server: MinecraftServer): LocalMinecraftServerEnvironment? {
         val environmentUUID = UUID.randomUUID()
 
         logger.debug("Getting content directory for server {} in environment {}", server.name, environmentUUID)

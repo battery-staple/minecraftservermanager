@@ -38,8 +38,9 @@ import kotlin.time.Duration.Companion.seconds
  * A useful class to inherit from for [MinecraftServerRunner] implementations.
  * Handles creating [MinecraftServerCurrentRun]s and [MinecraftServerPastRun]s when processes are created or end.
  * Also handles graceful recovery from abrupt application exits.
+ * @param E the type of environment used by this runner
  */
-abstract class AbstractMinecraftServerRunner(
+abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
     final override val uuid: UUID,
     final override var name: String,
 ) : MinecraftServerRunner, KoinComponent {
@@ -48,7 +49,7 @@ abstract class AbstractMinecraftServerRunner(
      * Prepares all resources required to allow [server] to run
      * @return a newly provisioned environment, or null if setup failed
      */
-    protected abstract suspend fun prepareEnvironment(server: MinecraftServer): MinecraftServerEnvironment?
+    protected abstract suspend fun prepareEnvironment(server: MinecraftServer): E?
 
     /**
      * Deletes or marks for later deletion all resources belonging to [environment].
@@ -66,7 +67,7 @@ abstract class AbstractMinecraftServerRunner(
     /**
      * Stores the environments created by this runner
      */
-    protected abstract val environments: EnvironmentRepository
+    protected abstract val environments: EnvironmentRepository<E>
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -189,7 +190,7 @@ abstract class AbstractMinecraftServerRunner(
         val newCurrentRun = MinecraftServerCurrentRun(
             uuid = UUID.randomUUID(),
             serverUUID = server.uuid,
-            runnerUUID = LocalMinecraftServerRunner.uuid,
+            runnerUUID = uuid,
             environmentUUID = environment.uuid,
             runtimeEnvironment = runtimeEnvironment,
             address = MinecraftServerAddress(
