@@ -5,7 +5,7 @@ import {Accessed} from "../networking/backendAPI/AccessError";
 
 /**
  * A hook that accesses all servers.
- * The run will update whenever a new server is added or removed.
+ * The list will update whenever a new server is added or removed.
  * @return an array of all servers, or an AccessError if they are not known.
  */
 export function useServers(): Accessed<Server[]> {

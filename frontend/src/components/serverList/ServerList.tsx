@@ -1,36 +1,21 @@
-import {JSX, useCallback, useEffect, useMemo, useState} from "react";
-import {DEFAULT_SORT_STRATEGY, Server, SortStrategy} from "../../APIModels";
+import {JSX, useEffect, useMemo, useState} from "react";
+import {Server, SortStrategy} from "../../APIModels";
 import {useAutoAnimate} from "@formkit/auto-animate/react";
 import "./ServerList.css"
-import {getPreferences, updatePreferences} from "../../networking/backendAPI/Preferences";
 import {OrderDropdownBar} from "./OrderDropdownBar";
 import {HeaderButtons, HeaderButtonsState} from "./HeaderButtons";
 import {NewServerModal} from "./NewServerModal";
 import {ServerOption} from "./ServerOption";
 import {useServers} from "../../hooks/UseServers";
 import {isError} from "../../networking/backendAPI/AccessError";
+import {useSortStrategy} from "../../hooks/UseSortStrategy";
 
 export function ServerList(props: { setHeader: (headerElement: JSX.Element) => void }): JSX.Element {
     const servers = useServers();
 
-    const [sortStrategyState, setSortStrategyState] = useState<SortStrategy | null>(null)
     const [editing, setEditing] = useState(false)
     const [creatingNew, setCreatingNew] = useState(false)
-
-    const sortStrategy = useMemo(() => sortStrategyState ?? DEFAULT_SORT_STRATEGY, [sortStrategyState])
-
-    const setSortStrategy = useCallback((newSortStrategy: SortStrategy) => {
-        setSortStrategyState(newSortStrategy)
-        updatePreferences({
-            serverSortStrategy: newSortStrategy
-        }).then(success => {
-            if (success) {
-                setSortStrategyState(newSortStrategy)
-            } else {
-                console.error("Failed to save preferences update to server")
-            }
-        })
-    }, []);
+    const [sortStrategy, setSortStrategy] = useSortStrategy();
 
     /**
      * Can't be creating and editing at the same time.
@@ -42,13 +27,6 @@ export function ServerList(props: { setHeader: (headerElement: JSX.Element) => v
             setEditing(false)
         }
     }, [creatingNew]);
-
-    useEffect(() => {
-        getPreferences()
-            .then(preferences => {
-                if (preferences !== null) setSortStrategyState(preferences.serverSortStrategy)
-            })
-    }, [])
 
     const serverOptions: JSX.Element[] = useMemo(() => {
         if (servers === null || isError(servers)) return [];
