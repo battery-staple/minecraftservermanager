@@ -1,7 +1,7 @@
 package com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar
 
+import com.rohengiralt.minecraftservermanager.domain.ResourceUUID
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
-import java.util.*
 import kotlin.coroutines.CoroutineContext
 
 /**
@@ -17,7 +17,7 @@ interface MinecraftServerJarResourceManager { // TODO: Refactor, remove prepareJ
      * @param accessorKey a key uniquely identifying the user of the jar, used for reference counting.
      * @return true if the jar was successfully cached (or already cached), false if caching failed.
      */
-    suspend fun prepareJar(version: MinecraftVersion, accessorKey: UUID): Boolean
+    suspend fun prepareJar(version: MinecraftVersion, accessorKey: ResourceUUID): Boolean
 
     /**
      * Retrieves a cached jar, or downloads it if not present.
@@ -28,7 +28,7 @@ interface MinecraftServerJarResourceManager { // TODO: Refactor, remove prepareJ
      * @param accessorKey a key uniquely identifying the user of the jar, used for reference counting.
      * @return a jar with version [version], or null if retrieval failed.
      */
-    suspend fun accessJar(version: MinecraftVersion, accessorKey: UUID): MinecraftServerJar?
+    suspend fun accessJar(version: MinecraftVersion, accessorKey: ResourceUUID): MinecraftServerJar?
 
     /**
      * Marks a jar as no longer in use by [accessorKey].
@@ -37,8 +37,8 @@ interface MinecraftServerJarResourceManager { // TODO: Refactor, remove prepareJ
      * @param accessorKey a key uniquely identifying the user of the jar, used for reference counting.
      * @return true TODO: remove return value
      */
-    suspend fun freeJar(version: MinecraftVersion, accessorKey: UUID): Boolean
+    suspend fun freeJar(version: MinecraftVersion, accessorKey: ResourceUUID): Boolean
 }
 
-suspend fun MinecraftServerJarResourceManager.freeJar(jar: MinecraftServerJar, accessorKey: UUID) =
+suspend fun MinecraftServerJarResourceManager.freeJar(jar: MinecraftServerJar, accessorKey: ResourceUUID) =
     freeJar(jar.version, accessorKey)

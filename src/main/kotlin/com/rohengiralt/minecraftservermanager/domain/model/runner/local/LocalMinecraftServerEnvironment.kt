@@ -1,8 +1,11 @@
 package com.rohengiralt.minecraftservermanager.domain.model.runner.local
 
+import com.rohengiralt.minecraftservermanager.domain.model.runner.EnvironmentUUID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerEnvironment
+import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJar
 import com.rohengiralt.minecraftservermanager.domain.model.server.Port
+import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import com.rohengiralt.shared.serverProcess.MinecraftServerDispatcher
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import kotlinx.atomicfu.atomic
@@ -12,20 +15,19 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
-import java.util.*
 import kotlin.io.path.exists
 
 /**
  * An environment for running Minecraft servers on the same machine as the application.
  */
 class LocalMinecraftServerEnvironment(
-    override val uuid: UUID,
-    override val serverUUID: UUID,
+    override val uuid: EnvironmentUUID,
+    override val serverUUID: ServerUUID,
     val serverName: String,
     val contentDirectory: Path,
     val jar: MinecraftServerJar
 ) : MinecraftServerEnvironment, KoinComponent {
-    override val runnerUUID: UUID = LocalMinecraftServerRunner.uuid
+    override val runnerUUID: RunnerUUID = LocalMinecraftServerRunner.uuid
 
     override suspend fun runServer(
         port: Port,

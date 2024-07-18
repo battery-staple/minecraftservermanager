@@ -5,7 +5,8 @@ import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerPast
 import com.rohengiralt.minecraftservermanager.frontend.routes.orThrow
 import com.rohengiralt.minecraftservermanager.plugins.NotAllowedException
 import com.rohengiralt.minecraftservermanager.util.routes.getParameterOrBadRequest
-import com.rohengiralt.minecraftservermanager.util.routes.parseUUIDOrBadRequest
+import com.rohengiralt.minecraftservermanager.util.routes.parseRunUUIDOrBadRequest
+import com.rohengiralt.minecraftservermanager.util.routes.parseServerUUIDOrBadRequest
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -16,14 +17,14 @@ fun Route.pastRuns() {
 
     get {
         call.application.environment.log.info("Getting all past runs")
-        val serverUUID = call.getParameterOrBadRequest("serverId").parseUUIDOrBadRequest()
+        val serverUUID = call.getParameterOrBadRequest("serverId").parseServerUUIDOrBadRequest()
 
         call.respond(restApiService.getAllPastRuns(serverUUID).orThrow().map(::MinecraftServerPastRunAPIModel))
     }
 
     route("/{runId}") {
         get {
-            val runUUID = call.getParameterOrBadRequest("runId").parseUUIDOrBadRequest()
+            val runUUID = call.getParameterOrBadRequest("runId").parseRunUUIDOrBadRequest()
 
             call.respond(
                 restApiService

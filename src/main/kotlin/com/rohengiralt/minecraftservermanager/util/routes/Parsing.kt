@@ -4,20 +4,6 @@ import io.ktor.server.application.*
 import io.ktor.server.plugins.*
 import io.ktor.server.request.*
 import org.slf4j.LoggerFactory
-import java.util.*
-
-internal fun uuidFromStringOrNull(string: String): UUID? = //TODO: Static extension of UUID when introduced
-    try {
-        UUID.fromString(string)
-    } catch (e: IllegalArgumentException) {
-        null
-    }
-
-internal fun uuidFromStringOrBadRequest(string: String): UUID = //TODO: Static extension of UUID when introduced
-    uuidFromStringOrNull(string) ?: throw BadRequestException("Expected UUID, got $string")
-
-internal fun String.parseUUIDOrNull(): UUID? = uuidFromStringOrNull(this)
-internal fun String.parseUUIDOrBadRequest(): UUID = uuidFromStringOrBadRequest(this)
 
 internal suspend inline fun <reified T> ApplicationCall.receiveSerializable(): T = try {
     receive()

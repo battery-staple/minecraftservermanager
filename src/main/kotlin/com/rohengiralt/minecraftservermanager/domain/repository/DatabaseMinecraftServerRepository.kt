@@ -1,7 +1,9 @@
 package com.rohengiralt.minecraftservermanager.domain.repository
 
+import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
+import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.ReadOnlyMutexGuardedResource
 import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.ReadWriteMutexGuardedResource
 import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.useAll
@@ -28,7 +30,6 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import java.sql.SQLException
 import java.time.ZoneOffset
-import java.util.*
 
 /**
  * A [MinecraftServerRepository] that persists servers in a database
@@ -42,8 +43,8 @@ class DatabaseMinecraftServerRepository : MinecraftServerRepository {
 
     private val serverWatcher = ServerWatcher()
 
-    override fun getServer(uuid: UUID): MinecraftServer? = ioExnTransaction {
-        MinecraftServerTable.select { MinecraftServerTable.uuid eq uuid }
+    override fun getServer(uuid: ServerUUID): MinecraftServer? = ioExnTransaction {
+        MinecraftServerTable.select { MinecraftServerTable.uuid eq uuid.value }
             .singleOrNull()
             ?.toMinecraftServer()
     }
@@ -66,12 +67,12 @@ class DatabaseMinecraftServerRepository : MinecraftServerRepository {
         serverWatcher.pushUpdate(minecraftServer)
     }
 
-    override fun removeServer(uuid: UUID): Boolean = ioExnTransaction {
-        val rowsDeleted = MinecraftServerTable.deleteWhere { MinecraftServerTable.uuid eq uuid }
+    override fun removeServer(uuid: ServerUUID): Boolean = ioExnTransaction {
+        val rowsDeleted = MinecraftServerTable.deleteWhere { MinecraftServerTable.uuid eq uuid.value }
         rowsDeleted > 0
     }.ifTrueAlso { serverWatcher.pushDelete(uuid) }
 
-    override suspend fun getServerUpdates(uuid: UUID): StateFlow<MinecraftServer?> {
+    override suspend fun getServerUpdates(uuid: ServerUUID): StateFlow<MinecraftServer?> {
         val initialServer = try {
             getServer(uuid)
         } catch (e: SQLException) {
@@ -87,18 +88,18 @@ class DatabaseMinecraftServerRepository : MinecraftServerRepository {
 
     private fun ResultRow.toMinecraftServer() =
         MinecraftServer(
-            uuid = get(MinecraftServerTable.uuid),
+            uuid = ServerUUID(get(MinecraftServerTable.uuid)),
             name = get(MinecraftServerTable.name),
             version = get(MinecraftServerTable.version),
-            runnerUUID = get(MinecraftServerTable.runnerUUID),
+            runnerUUID = RunnerUUID(get(MinecraftServerTable.runnerUUID)),
             creationTime = get(MinecraftServerTable.creationTime).toInstant(ZoneOffset.UTC).toKotlinInstant()
         )
 
     private fun MinecraftServerTable.insertBody(insertStatement: InsertStatement<Number>, server: MinecraftServer) {
-        insertStatement[uuid] = server.uuid
+        insertStatement[uuid] = server.uuid.value
         insertStatement[name] = server.name
         insertStatement[version] = server.version
-        insertStatement[runnerUUID] = server.runnerUUID
+        insertStatement[runnerUUID] = server.runnerUUID.value
         insertStatement[creationTime] = server.creationTime.toLocalDateTime(TimeZone.UTC).toJavaLocalDateTime()
     }
 
@@ -113,7 +114,7 @@ private class ServerWatcher {
     /**
      * A resource guarding all the state flows that emit when a particular server is updated (including deleted).
      */
-    private val watchingServerFlowsResource = ReadOnlyMutexGuardedResource(mutableMapOf<UUID, MutableStateFlow<MinecraftServer?>>())
+    private val watchingServerFlowsResource = ReadOnlyMutexGuardedResource(mutableMapOf<ServerUUID, MutableStateFlow<MinecraftServer?>>())
 
     /**
      * A resource guarding a state flow that emits when any server is updated (including deleted).
@@ -123,7 +124,7 @@ private class ServerWatcher {
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
 
-    suspend fun serverUpdatesFlow(uuid: UUID, initialValue: MinecraftServer?): StateFlow<MinecraftServer?> = watchingServerFlowsResource.use { watchingServerFlows ->
+    suspend fun serverUpdatesFlow(uuid: ServerUUID, initialValue: MinecraftServer?): StateFlow<MinecraftServer?> = watchingServerFlowsResource.use { watchingServerFlows ->
         watchingServerFlows.getOrPut(uuid) {
             MutableStateFlow(initialValue)
         }.asStateFlow()
@@ -162,7 +163,7 @@ private class ServerWatcher {
      * Updates all flows dependent on this server's updates, causing them to signal deletion.
      * This method should be called whenever the server with uuid [uuid] is deleted.
      */
-    fun pushDelete(uuid: UUID) = coroutineScope.launch {
+    fun pushDelete(uuid: ServerUUID) = coroutineScope.launch {
         useAll(watchingServerFlowsResource, allUpdatesFlowResource) { watchingServerFlows, allUpdatesFlow ->
             watchingServerFlows[uuid]?.emit(null)
             allUpdatesFlow?.update { servers ->

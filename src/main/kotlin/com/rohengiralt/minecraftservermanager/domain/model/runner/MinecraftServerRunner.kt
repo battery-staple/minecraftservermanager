@@ -1,9 +1,14 @@
 package com.rohengiralt.minecraftservermanager.domain.model.runner
 
+import com.rohengiralt.minecraftservermanager.domain.ResourceUUID
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
+import com.rohengiralt.minecraftservermanager.domain.model.run.RunUUID
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironment
+import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
+import com.rohengiralt.minecraftservermanager.util.extensions.uuid.UUIDSerializer
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.Serializable
 import java.util.*
 
 /**
@@ -13,7 +18,7 @@ interface MinecraftServerRunner {
     /**
      * A unique identifier for this runner
      */
-    val uuid: UUID
+    val uuid: RunnerUUID
 
     /**
      * The name of this runner
@@ -56,16 +61,16 @@ interface MinecraftServerRunner {
      * @return true if the run was ended
      * @throws IllegalArgumentException if no run exists with the UUID [uuid].
      */
-    suspend fun stopRun(uuid: UUID): Boolean
+    suspend fun stopRun(uuid: RunUUID): Boolean
 
     /**
      * Stops the provided server's run if one exists.
      * Note that this method may suspend until the run has been successfully ended.
-     * @param serverUUID the UUID of the server whose run to stop
+     * @param uuid the UUID of the server whose run to stop
      * @return true if the run is stopped.
      *         Returns true even if the server was already stopped before this method.
      */
-    suspend fun stopRunByServer(serverUUID: UUID): Boolean
+    suspend fun stopRunByServer(uuid: ServerUUID): Boolean
 
     /**
      * Stops all servers running on this runner.
@@ -78,7 +83,7 @@ interface MinecraftServerRunner {
      * Gets a run with the given [uuid], if such a run exists.
      * @return a run running on this runner with the given [uuid] if it exists, null otherwise.
      */
-    suspend fun getCurrentRun(uuid: UUID): MinecraftServerCurrentRun?
+    suspend fun getCurrentRun(uuid: RunUUID): MinecraftServerCurrentRun?
 
     /**
      * Gets all current runs on this runner.
@@ -88,16 +93,16 @@ interface MinecraftServerRunner {
 
     /**
      * Gets the current run of the given server on this runner if it exists.
-     * @param serverUUID the UUID of the server whose runs to query
+     * @param uuid the UUID of the server whose runs to query
      * @return the server's current run if it exists, null otherwise
      */
-    suspend fun getCurrentRunByServer(serverUUID: UUID): MinecraftServerCurrentRun?
+    suspend fun getCurrentRunByServer(uuid: ServerUUID): MinecraftServerCurrentRun?
 
     /**
      * Queries if the server with the uuid [serverUUID] is running on this runner.
      * @return true if the server exists and is running on this runner, false otherwise.
      */
-    suspend fun isRunning(serverUUID: UUID): Boolean = getCurrentRunByServer(serverUUID) != null
+    suspend fun isRunning(serverUUID: ServerUUID): Boolean = getCurrentRunByServer(serverUUID) != null
 
     /** TODO: replace this and getCurrentRunByServer with one method returning StateFlow
      * Gets a flow that pushes the new value returned by [getCurrentRunByServer] whenever its value changes.
@@ -109,3 +114,10 @@ interface MinecraftServerRunner {
 //    fun addEnvironment(serverRun: E)
 //    fun getAllEnvironments(): Sequence<E>
 }
+
+@Serializable
+@JvmInline
+value class RunnerUUID(
+    @Serializable(with = UUIDSerializer::class)
+    override val value: UUID
+) : ResourceUUID

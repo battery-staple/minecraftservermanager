@@ -1,11 +1,15 @@
 package com.rohengiralt.minecraftservermanager.domain.service.rest
 
+import com.rohengiralt.minecraftservermanager.domain.ResourceUUID
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerPastRun
+import com.rohengiralt.minecraftservermanager.domain.model.run.RunUUID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerRunner
+import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironment
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
+import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService.APIResult
 import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService.APIResult.Failure
 import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService.APIResult.Success
@@ -13,7 +17,6 @@ import com.rohengiralt.minecraftservermanager.user.UserLoginInfo
 import com.rohengiralt.minecraftservermanager.user.preferences.UserPreferences
 import io.ktor.server.application.*
 import io.ktor.util.pipeline.*
-import java.util.*
 
 /**
  * An interface defining all the methods used by the Rest API.
@@ -26,24 +29,24 @@ import java.util.*
  */
 interface RestAPIService {
     suspend fun getAllServers(): APIResult<List<MinecraftServer>>
-    suspend fun createServer(uuid: UUID? = null, name: String, version: MinecraftVersion, runnerUUID: UUID): APIResult<MinecraftServer>
-    suspend fun getServer(uuid: UUID): APIResult<MinecraftServer>
-    suspend fun setServer(uuid: UUID, name: String, version: MinecraftVersion, runnerUUID: UUID): APIResult<MinecraftServer>
-    suspend fun updateServer(uuid: UUID, name: String? = null): APIResult<Unit>
-    suspend fun deleteServer(uuid: UUID): APIResult<Unit>
+    suspend fun createServer(uuid: ServerUUID? = null, name: String, version: MinecraftVersion, runnerUUID: RunnerUUID): APIResult<MinecraftServer>
+    suspend fun getServer(uuid: ServerUUID): APIResult<MinecraftServer>
+    suspend fun setServer(uuid: ServerUUID, name: String, version: MinecraftVersion, runnerUUID: RunnerUUID): APIResult<MinecraftServer>
+    suspend fun updateServer(uuid: ServerUUID, name: String? = null): APIResult<Unit>
+    suspend fun deleteServer(uuid: ServerUUID): APIResult<Unit>
 
     suspend fun getAllRunners(): APIResult<List<MinecraftServerRunner>>
-    suspend fun getRunner(uuid: UUID): APIResult<MinecraftServerRunner>
-    suspend fun getAllCurrentRuns(runnerUUID: UUID): APIResult<List<MinecraftServerCurrentRun>>
-    suspend fun createCurrentRun(serverUUID: UUID, environment: MinecraftServerRuntimeEnvironment): APIResult<MinecraftServerCurrentRun>
-    suspend fun getCurrentRun(runnerUUID: UUID, runUUID: UUID): APIResult<MinecraftServerCurrentRun>
-    suspend fun getCurrentRunByServer(serverUUID: UUID): APIResult<MinecraftServerCurrentRun>
-    suspend fun stopCurrentRun(runnerUUID: UUID, runUUID: UUID): APIResult<Unit>
-    suspend fun stopCurrentRunByServer(serverUUID: UUID): APIResult<Unit>
-    suspend fun stopAllCurrentRuns(runnerUUID: UUID): APIResult<Unit>
+    suspend fun getRunner(uuid: RunnerUUID): APIResult<MinecraftServerRunner>
+    suspend fun getAllCurrentRuns(runnerUUID: RunnerUUID): APIResult<List<MinecraftServerCurrentRun>>
+    suspend fun createCurrentRun(serverUUID: ServerUUID, environment: MinecraftServerRuntimeEnvironment): APIResult<MinecraftServerCurrentRun>
+    suspend fun getCurrentRun(runnerUUID: RunnerUUID, runUUID: RunUUID): APIResult<MinecraftServerCurrentRun>
+    suspend fun getCurrentRunByServer(serverUUID: ServerUUID): APIResult<MinecraftServerCurrentRun>
+    suspend fun stopCurrentRun(runnerUUID: RunnerUUID, runUUID: RunUUID): APIResult<Unit>
+    suspend fun stopCurrentRunByServer(uuid: ServerUUID): APIResult<Unit>
+    suspend fun stopAllCurrentRuns(runnerUUID: RunnerUUID): APIResult<Unit>
 
-    suspend fun getAllPastRuns(serverUUID: UUID): APIResult<List<MinecraftServerPastRun>>
-    suspend fun getPastRun(runUUID: UUID): APIResult<MinecraftServerPastRun>
+    suspend fun getAllPastRuns(serverUUID: ServerUUID): APIResult<List<MinecraftServerPastRun>>
+    suspend fun getPastRun(runUUID: RunUUID): APIResult<MinecraftServerPastRun>
 
     context(API) suspend fun getCurrentUserLoginInfo(): APIResult<UserLoginInfo>
     context(API) suspend fun deleteCurrentUser(): APIResult<Unit>
@@ -75,18 +78,18 @@ interface RestAPIService {
              * For instance, the main resource of a `get*` method should be the resource attempting to be retrieved.
              * @param resourceUUID the UUID of the resource not found, or null if the resource's UUID is not known.
              */
-            data class MainResourceNotFound(val resourceUUID: UUID?) : Failure
+            data class MainResourceNotFound(val resourceUUID: ResourceUUID?) : Failure
 
             /**
              * Represents a failure due to any resource other than the main one not being found.
              * @param resourceUUID the UUID of the resource not found
              */
-            data class AuxiliaryResourceNotFound(val resourceUUID: UUID) : Failure
+            data class AuxiliaryResourceNotFound(val resourceUUID: ResourceUUID) : Failure
 
             /**
              * Represents a failure due to attempting to create a resource that already exists
              */
-            data class AlreadyExists(val resourceUUID: UUID) : Failure
+            data class AlreadyExists(val resourceUUID: ResourceUUID) : Failure
 
             /**
              * Represents a failure due to a parameter with the correct type but invalid value.

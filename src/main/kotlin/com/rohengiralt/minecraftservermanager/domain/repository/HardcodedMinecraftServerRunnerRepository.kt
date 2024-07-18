@@ -1,8 +1,8 @@
 package com.rohengiralt.minecraftservermanager.domain.repository
 
 import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerRunner
+import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.LocalMinecraftServerRunner
-import java.util.*
 
 // TODO: Allow mutation; storage of changes
 class HardcodedMinecraftServerRunnerRepository : MinecraftServerRunnerRepository {
@@ -10,7 +10,7 @@ class HardcodedMinecraftServerRunnerRepository : MinecraftServerRunnerRepository
         LocalMinecraftServerRunner,
     )
 
-    override fun getRunner(uuid: UUID): MinecraftServerRunner? =
+    override fun getRunner(uuid: RunnerUUID): MinecraftServerRunner? =
         runners.find { it.uuid == uuid }
 
     override fun getRunner(name: String): MinecraftServerRunner? =

@@ -1,15 +1,8 @@
 package com.rohengiralt.minecraftservermanager.domain.model.runner
 
-import com.rohengiralt.minecraftservermanager.domain.model.run.LogEntry
-import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
-import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRunRecord
-import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerPastRun
-import com.rohengiralt.minecraftservermanager.domain.model.runner.local.LocalMinecraftServerRunner
+import com.rohengiralt.minecraftservermanager.domain.model.run.*
+import com.rohengiralt.minecraftservermanager.domain.model.server.*
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.currentruns.CurrentRunRepository
-import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
-import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerAddress
-import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironment
-import com.rohengiralt.minecraftservermanager.domain.model.server.Port
 import com.rohengiralt.minecraftservermanager.domain.repository.EnvironmentRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerCurrentRunRecordRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerPastRunRepository
@@ -38,7 +31,7 @@ import kotlin.time.Duration.Companion.seconds
  * @param E the type of environment used by this runner
  */
 abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
-    final override val uuid: UUID,
+    final override val uuid: RunnerUUID,
     final override var name: String,
 ) : MinecraftServerRunner, KoinComponent {
 
@@ -187,7 +180,7 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
         ) ?: return null
 
         val newCurrentRun = MinecraftServerCurrentRun(
-            uuid = UUID.randomUUID(),
+            uuid = RunUUID(UUID.randomUUID()),
             serverUUID = server.uuid,
             runnerUUID = uuid,
             environmentUUID = environment.uuid,
@@ -249,7 +242,7 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
     private suspend fun MinecraftServerCurrentRunRecord.toPastRun(
         endTime: Instant = Clock.System.now()
     ) = MinecraftServerPastRun(
-        uuid = uuid,
+        uuid = runUUID,
         serverUUID = serverUUID,
         runnerUUID = runnerUUID,
         startTime = startTime,
@@ -267,7 +260,7 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
         return true
     }
 
-    override suspend fun stopRun(uuid: UUID): Boolean {
+    override suspend fun stopRun(uuid: RunUUID): Boolean {
         val run = currentRuns.getCurrentRunByUUID(uuid)
         if (run == null) {
             logger.trace("Cannot stop run {}; run not found", uuid)
@@ -290,11 +283,11 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
         return process.stop()
     }
 
-    override suspend fun stopRunByServer(serverUUID: UUID): Boolean {
-        val run = getCurrentRunByServer(serverUUID)
+    override suspend fun stopRunByServer(uuid: ServerUUID): Boolean {
+        val run = getCurrentRunByServer(uuid)
 
         if (run == null) {
-            logger.trace("Cannot stop run for server {}; none found", serverUUID)
+            logger.trace("Cannot stop run for server {}; none found", uuid)
             return false
         }
 
@@ -311,11 +304,11 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
             .mapNotNull { environment -> environment.currentProcess.value }
             .all { process -> process.stop() }
 
-    override suspend fun getCurrentRun(uuid: UUID): MinecraftServerCurrentRun? =
+    override suspend fun getCurrentRun(uuid: RunUUID): MinecraftServerCurrentRun? =
         currentRuns.getCurrentRunByUUID(uuid)
 
-    override suspend fun getCurrentRunByServer(serverUUID: UUID): MinecraftServerCurrentRun? =
-        currentRuns.getCurrentRunByServer(serverUUID)
+    override suspend fun getCurrentRunByServer(uuid: ServerUUID): MinecraftServerCurrentRun? =
+        currentRuns.getCurrentRunByServer(uuid)
 
     override suspend fun getAllCurrentRuns(): List<MinecraftServerCurrentRun> =
         currentRuns.getAllCurrentRuns()

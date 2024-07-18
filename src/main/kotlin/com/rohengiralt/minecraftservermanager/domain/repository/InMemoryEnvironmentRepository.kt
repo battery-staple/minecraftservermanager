@@ -1,10 +1,11 @@
 package com.rohengiralt.minecraftservermanager.domain.repository
 
+import com.rohengiralt.minecraftservermanager.domain.model.runner.EnvironmentUUID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerEnvironment
+import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.ReadOnlyMutexGuardedResource
 import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.useAll
 import com.rohengiralt.minecraftservermanager.util.wrapWith
-import java.util.*
 
 /**
  * An [EnvironmentRepository] that stores environments exclusively in memory.
@@ -18,17 +19,17 @@ class InMemoryEnvironmentRepository<E : MinecraftServerEnvironment> : Environmen
      * 2. byServerCacheResource
      */
 
-    private val byEnvCacheResource: ReadOnlyMutexGuardedResource<MutableMap<UUID, E>> =
+    private val byEnvCacheResource: ReadOnlyMutexGuardedResource<MutableMap<EnvironmentUUID, E>> =
         ReadOnlyMutexGuardedResource(mutableMapOf())
 
-    private val byServerCacheResource: ReadOnlyMutexGuardedResource<MutableMap<UUID, E>> =
+    private val byServerCacheResource: ReadOnlyMutexGuardedResource<MutableMap<ServerUUID, E>> =
         ReadOnlyMutexGuardedResource(mutableMapOf())
 
-    override suspend fun getEnvironment(environmentUUID: UUID): E? = wrapWith({ assertInv() }) {
-        byEnvCacheResource.use { cache -> cache[environmentUUID] }
+    override suspend fun getEnvironment(uuid: EnvironmentUUID): E? = wrapWith({ assertInv() }) {
+        byEnvCacheResource.use { cache -> cache[uuid] }
     }
 
-    override suspend fun getEnvironmentByServer(serverUUID: UUID): E? = wrapWith({ assertInv() }) {
+    override suspend fun getEnvironmentByServer(serverUUID: ServerUUID): E? = wrapWith({ assertInv() }) {
         byServerCacheResource.use { cache -> cache[serverUUID] }
     }
 

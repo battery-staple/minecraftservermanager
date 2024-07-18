@@ -1,9 +1,9 @@
 package com.rohengiralt.minecraftservermanager.domain.repository
 
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
+import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import io.ktor.utils.io.errors.*
 import kotlinx.coroutines.flow.StateFlow
-import java.util.*
 
 /**
  * A repository that stores Minecraft servers
@@ -13,7 +13,7 @@ interface MinecraftServerRepository {
      * Gets the server with uuid [uuid].
      * @return the corresponding server, or null if such a server is not present in the repository.
      */
-    fun getServer(uuid: UUID): MinecraftServer?
+    fun getServer(uuid: ServerUUID): MinecraftServer?
 
     /**
      * Gets all servers stored in the repository.
@@ -40,7 +40,7 @@ interface MinecraftServerRepository {
      * @return true if a server was successfully removed; false if no server with uuid [uuid] exists.
      * @throws IOException if deletion fails for any reason other than not being present
      */
-    fun removeServer(uuid: UUID): Boolean
+    fun removeServer(uuid: ServerUUID): Boolean
 
     /**
      * Returns a [StateFlow] that always contains the up-to-date state of the server with uuid [uuid].
@@ -48,7 +48,7 @@ interface MinecraftServerRepository {
      * If the server is removed, the state flow will emit `null`.
      * If there is an issue with retrieving the server state, the flow will also emit `null`.
      */
-    suspend fun getServerUpdates(uuid: UUID): StateFlow<MinecraftServer?>
+    suspend fun getServerUpdates(uuid: ServerUUID): StateFlow<MinecraftServer?>
 
     /**
      * Returns a [StateFlow] that always contains a list of all servers stored in the repository.

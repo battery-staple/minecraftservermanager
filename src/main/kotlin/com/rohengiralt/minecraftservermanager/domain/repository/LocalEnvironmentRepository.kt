@@ -1,9 +1,11 @@
 package com.rohengiralt.minecraftservermanager.domain.repository
 
+import com.rohengiralt.minecraftservermanager.domain.model.runner.EnvironmentUUID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerEnvironment
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.LocalMinecraftServerEnvironment
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJarResourceManager
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
+import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.insertSuccess
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.jsonb
 import com.rohengiralt.minecraftservermanager.util.extensions.httpClient.logger
@@ -16,7 +18,6 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.slf4j.LoggerFactory
 import java.nio.file.InvalidPathException
-import java.util.*
 import kotlin.io.path.Path
 
 /**
@@ -43,12 +44,12 @@ class LocalEnvironmentRepository : EnvironmentRepository<LocalMinecraftServerEnv
      */
     private val db: DatabaseLocalEnvironmentRepository = DatabaseLocalEnvironmentRepository()
 
-    override suspend fun getEnvironment(environmentUUID: UUID): LocalMinecraftServerEnvironment? = cacheLock.withLock {
-        cache.getEnvironment(environmentUUID)
-            ?: getFromDatabaseAndCache(environmentUUID)
+    override suspend fun getEnvironment(uuid: EnvironmentUUID): LocalMinecraftServerEnvironment? = cacheLock.withLock {
+        cache.getEnvironment(uuid)
+            ?: getFromDatabaseAndCache(uuid)
     }
 
-    override suspend fun getEnvironmentByServer(serverUUID: UUID): LocalMinecraftServerEnvironment? = cacheLock.withLock {
+    override suspend fun getEnvironmentByServer(serverUUID: ServerUUID): LocalMinecraftServerEnvironment? = cacheLock.withLock {
         cache.getEnvironmentByServer(serverUUID)
             ?: getByServerFromDatabaseAndCache(serverUUID)
     }
@@ -56,13 +57,13 @@ class LocalEnvironmentRepository : EnvironmentRepository<LocalMinecraftServerEnv
     /**
      * Retrieves an environment from the database by its `uuid`, caching it.
      */
-    private suspend fun getFromDatabaseAndCache(environmentUUID: UUID): LocalMinecraftServerEnvironment? =
-        db.getEnvironment(environmentUUID)?.also { cache.addEnvironment(it) }
+    private suspend fun getFromDatabaseAndCache(uuid: EnvironmentUUID): LocalMinecraftServerEnvironment? =
+        db.getEnvironment(uuid)?.also { cache.addEnvironment(it) }
 
     /**
      * Retrieves an environment from the database by its `serverUUID`, caching it
      */
-    private suspend fun getByServerFromDatabaseAndCache(serverUUID: UUID): LocalMinecraftServerEnvironment? =
+    private suspend fun getByServerFromDatabaseAndCache(serverUUID: ServerUUID): LocalMinecraftServerEnvironment? =
         db.getEnvironmentByServer(serverUUID)?.also { cache.addEnvironment(it) }
 
     override suspend fun getAllEnvironments(): List<LocalMinecraftServerEnvironment> =
@@ -118,17 +119,17 @@ private class DatabaseLocalEnvironmentRepository : EnvironmentRepository<LocalMi
         transaction { SchemaUtils.create(LocalEnvironmentTable) }
     }
 
-    override suspend fun getEnvironment(environmentUUID: UUID): LocalMinecraftServerEnvironment? = suspendIOExnTransaction {
+    override suspend fun getEnvironment(uuid: EnvironmentUUID): LocalMinecraftServerEnvironment? = suspendIOExnTransaction {
         LocalEnvironmentTable
-            .select { LocalEnvironmentTable.uuid eq environmentUUID }
+            .select { LocalEnvironmentTable.uuid eq uuid.value }
             .firstOrNull()
             ?.toEnvironment()
-            ?.also { assert(it.uuid == environmentUUID) }
+            ?.also { assert(it.uuid == uuid) }
     }
 
-    override suspend fun getEnvironmentByServer(serverUUID: UUID): LocalMinecraftServerEnvironment? = suspendIOExnTransaction {
+    override suspend fun getEnvironmentByServer(serverUUID: ServerUUID): LocalMinecraftServerEnvironment? = suspendIOExnTransaction {
         LocalEnvironmentTable
-            .select { LocalEnvironmentTable.serverUUID eq serverUUID }
+            .select { LocalEnvironmentTable.serverUUID eq serverUUID.value }
             .firstOrNull()
             ?.toEnvironment()
             ?.also { assert(it.serverUUID == serverUUID) }
@@ -140,17 +141,18 @@ private class DatabaseLocalEnvironmentRepository : EnvironmentRepository<LocalMi
             .mapNotNull { it.toEnvironment() }
     }
 
-    suspend fun getAllEnvironmentUUIDs(): List<UUID> = suspendIOExnTransaction {
+    suspend fun getAllEnvironmentUUIDs(): List<EnvironmentUUID> = suspendIOExnTransaction {
         LocalEnvironmentTable
             .selectAll()
             .map { it[LocalEnvironmentTable.uuid] }
+            .map(::EnvironmentUUID)
     }
 
     override suspend fun addEnvironment(environment: LocalMinecraftServerEnvironment): Boolean = suspendIOExnTransaction {
         LocalEnvironmentTable
             .insertSuccess {
-                it[uuid] = environment.uuid
-                it[serverUUID] = environment.serverUUID
+                it[uuid] = environment.uuid.value
+                it[serverUUID] = environment.serverUUID.value
                 it[contentDirectory] = environment.contentDirectory.toAbsolutePath().toString()
                 it[jarVersion] = environment.jar.version
             }
@@ -160,15 +162,15 @@ private class DatabaseLocalEnvironmentRepository : EnvironmentRepository<LocalMi
 
     override suspend fun removeEnvironment(environment: LocalMinecraftServerEnvironment): Boolean = suspendIOExnTransaction {
         val rowsDeleted = LocalEnvironmentTable
-            .deleteWhere { LocalEnvironmentTable.uuid eq environment.uuid }
+            .deleteWhere { LocalEnvironmentTable.uuid eq environment.uuid.value }
 
         return@suspendIOExnTransaction rowsDeleted > 0
     }
 
     private suspend fun ResultRow.toEnvironment(): LocalMinecraftServerEnvironment? {
-        val uuid = this[LocalEnvironmentTable.uuid]
-        val serverUUID = this[LocalEnvironmentTable.serverUUID]
+        val uuid = EnvironmentUUID(this[LocalEnvironmentTable.uuid])
 
+        val serverUUID = ServerUUID(this[LocalEnvironmentTable.serverUUID])
         val server = minecraftServers.getServer(serverUUID)
         if (server == null) {
             logger.error("Inconsistent database state: Environment {} references server {}, which does not exist", this[LocalEnvironmentTable.uuid], serverUUID)

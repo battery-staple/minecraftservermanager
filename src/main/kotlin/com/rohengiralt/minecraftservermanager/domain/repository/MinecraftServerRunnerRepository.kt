@@ -1,15 +1,15 @@
 package com.rohengiralt.minecraftservermanager.domain.repository
 
 import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerRunner
+import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
 import io.ktor.utils.io.errors.*
-import java.util.*
 
 interface MinecraftServerRunnerRepository {
     /**
      * Gets a runner by its UUID.
      * @return a runner with UUID [uuid], or null if no runner exists with that UUID
      */
-    fun getRunner(uuid: UUID): MinecraftServerRunner?
+    fun getRunner(uuid: RunnerUUID): MinecraftServerRunner?
 
     /**
      * Gets a runner by its name.

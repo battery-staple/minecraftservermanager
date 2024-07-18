@@ -1,7 +1,10 @@
 package com.rohengiralt.minecraftservermanager.domain.service
 
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
+import com.rohengiralt.minecraftservermanager.domain.model.run.RunUUID
+import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
+import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerRunnerRepository
 import com.rohengiralt.shared.serverProcess.ServerIO
@@ -16,7 +19,6 @@ import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.slf4j.LoggerFactory
-import java.util.*
 
 interface WebsocketAPIService {
     /**
@@ -25,22 +27,22 @@ interface WebsocketAPIService {
      * it is part of the contract of this method that callers **must** only send instances of [ServerIO.Input]
      * to the channel.
      */
-    suspend fun getRunConsoleChannel(runnerId: UUID, runUUID: UUID): Channel<ServerIO>?
+    suspend fun getRunConsoleChannel(runnerUUID: RunnerUUID, runUUID: RunUUID): Channel<ServerIO>?
 //    fun getRunLogChannel(runnerId: UUID, runUUID: UUID): Channel<String>?  // Use FileWatcher
 
     /**
      * Returns a flow for a that sends a new [MinecraftServer] instance whenever the server
-     * with UUID [serverId] changes.
+     * with UUID [serverUUID] changes.
      * If the server is deleted, sends `null`.
      */
-    suspend fun getServerUpdatesFlow(serverId: UUID): Flow<MinecraftServer?>
+    suspend fun getServerUpdatesFlow(serverUUID: ServerUUID): Flow<MinecraftServer?>
 
     /**
      * Returns a flow that sends a new [List] of [MinecraftServerCurrentRun]s whenever the
-     * current runs of the server with UUID [serverId] change.
+     * current runs of the server with UUID [serverUUID] change.
      * @return a flow of current run updates, or `null` if the server or runner could not be retrieved.
      */
-    suspend fun getAllCurrentRunsFlow(serverId: UUID): Flow<List<MinecraftServerCurrentRun>>?
+    suspend fun getAllCurrentRunsFlow(serverUUID: ServerUUID): Flow<List<MinecraftServerCurrentRun>>?
 
     /**
      * Returns a flow that sends a new [List] of [MinecraftServer]s whenever servers
@@ -51,8 +53,8 @@ interface WebsocketAPIService {
 
 class WebsocketAPIServiceImpl : WebsocketAPIService, KoinComponent {
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
-    override suspend fun getRunConsoleChannel(runnerId: UUID, runUUID: UUID): Channel<ServerIO>? {
-        val runner = runnerRepository.getRunner(runnerId) ?: return null
+    override suspend fun getRunConsoleChannel(runnerUUID: RunnerUUID, runUUID: RunUUID): Channel<ServerIO>? {
+        val runner = runnerRepository.getRunner(runnerUUID) ?: return null
         val run = runner.getCurrentRun(runUUID) ?: return null
 
         val output = Channel<ServerIO>()
@@ -75,11 +77,12 @@ class WebsocketAPIServiceImpl : WebsocketAPIService, KoinComponent {
         return object : Channel<ServerIO>, SendChannel<ServerIO> by input, ReceiveChannel<ServerIO> by output {}
     }
 
-    override suspend fun getServerUpdatesFlow(serverId: UUID): Flow<MinecraftServer?> = // TODO: Stateflow to remove the need to GET before websocket
-        serverRepository.getServerUpdates(serverId)
 
-    override suspend fun getAllCurrentRunsFlow(serverId: UUID): Flow<List<MinecraftServerCurrentRun>>? {
-        val server = runCatching { serverRepository.getServer(serverId) }.getOrNull() ?: return null
+    override suspend fun getServerUpdatesFlow(serverUUID: ServerUUID): Flow<MinecraftServer?> = // TODO: Stateflow to remove the need to GET before websocket
+        serverRepository.getServerUpdates(serverUUID)
+
+    override suspend fun getAllCurrentRunsFlow(serverUUID: ServerUUID): Flow<List<MinecraftServerCurrentRun>>? {
+        val server = runCatching { serverRepository.getServer(serverUUID) }.getOrNull() ?: return null
         val runner = runnerRepository.getRunner(server.runnerUUID) ?: return null
 
         return runner.getAllCurrentRunsFlow(server)

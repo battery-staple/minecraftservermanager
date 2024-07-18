@@ -1,21 +1,21 @@
 package com.rohengiralt.minecraftservermanager.frontend.model
 
+import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
+import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import com.rohengiralt.minecraftservermanager.domain.model.server.versionType
-import com.rohengiralt.minecraftservermanager.util.extensions.uuid.UUIDSerializer
 import kotlinx.datetime.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import java.util.*
 
 @Serializable
 data class MinecraftServerAPIModel(
-    @Serializable(with = UUIDSerializer::class) val uuid: UUID? = null,
+    val uuid: ServerUUID? = null,
     val name: String? = null,
     val versionPhase: MinecraftVersion.VersionType?,
     @SerialName("version") val versionString: String?,
-    @Serializable(with = UUIDSerializer::class) val runnerUUID: UUID?,
+    val runnerUUID: RunnerUUID?,
     val creationTime: Instant? = null,
 ) {
     constructor(minecraftServer: MinecraftServer) : this(

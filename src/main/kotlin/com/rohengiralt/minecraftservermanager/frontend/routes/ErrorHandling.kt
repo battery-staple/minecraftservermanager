@@ -23,10 +23,10 @@ fun <T> APIResult<T>.orThrow(): T {
     return when (this) {
         is Success -> content
         is Failure.Unknown -> throw InternalServerException()
-        is Failure.MainResourceNotFound -> throw NotFoundException("Could not find ${resourceUUID ?: "the requested resource"}")
-        is Failure.AuxiliaryResourceNotFound -> throw BadRequestException("Missing parameter $resourceUUID")
+        is Failure.MainResourceNotFound -> throw NotFoundException("Could not find ${resourceUUID?.value ?: "the requested resource"}")
+        is Failure.AuxiliaryResourceNotFound -> throw BadRequestException("Missing parameter ${resourceUUID.value}")
         is Failure.InvalidValue -> throw BadRequestException("Invalid value $value")
-        is Failure.AlreadyExists -> throw ConflictException("Resource $resourceUUID already exists")
+        is Failure.AlreadyExists -> throw ConflictException("Resource ${resourceUUID.value} already exists")
     }
 }
 

@@ -5,9 +5,7 @@ import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerCurr
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerEnvironmentAPIModel
 import com.rohengiralt.minecraftservermanager.frontend.routes.orThrow
 import com.rohengiralt.minecraftservermanager.plugins.NotAllowedException
-import com.rohengiralt.minecraftservermanager.util.routes.getParameterOrBadRequest
-import com.rohengiralt.minecraftservermanager.util.routes.parseUUIDOrBadRequest
-import com.rohengiralt.minecraftservermanager.util.routes.receiveSerializable
+import com.rohengiralt.minecraftservermanager.util.routes.*
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
@@ -18,7 +16,7 @@ fun Route.currentRuns() {
     val restApiService: RestAPIService by this@currentRuns.inject()
     get {
         call.application.environment.log.info("Getting all runs")
-        val runnerUUID = call.getParameterOrBadRequest("runnerId").parseUUIDOrBadRequest()
+        val runnerUUID = call.getParameterOrBadRequest("runnerId").parseRunnerUUIDOrBadRequest()
 
         val runs = restApiService
             .getAllCurrentRuns(runnerUUID).orThrow()
@@ -29,7 +27,7 @@ fun Route.currentRuns() {
 
     post {
         call.application.environment.log.info("Creating new run")
-        val serverUUID = call.getParameterOrBadRequest("serverId").parseUUIDOrBadRequest()
+        val serverUUID = call.getParameterOrBadRequest("serverId").parseServerUUIDOrBadRequest()
         val environment = call.receiveSerializable<MinecraftServerEnvironmentAPIModel>().toMinecraftServerEnvironment()
 
         val createdRun = restApiService.createCurrentRun(serverUUID, environment).orThrow()
@@ -39,7 +37,7 @@ fun Route.currentRuns() {
     delete {
         call.application.environment.log.info("Stopping current runs")
 
-        val runnerUUID = call.getParameterOrBadRequest("runnerId").parseUUIDOrBadRequest()
+        val runnerUUID = call.getParameterOrBadRequest("runnerId").parseRunnerUUIDOrBadRequest()
 
         restApiService.stopAllCurrentRuns(runnerUUID).orThrow()
 
@@ -48,8 +46,8 @@ fun Route.currentRuns() {
 
     route("/{runId}") {
         get {
-            val runnerUUID = call.getParameterOrBadRequest("runnerId").parseUUIDOrBadRequest()
-            val runUUID = call.getParameterOrBadRequest("runId").parseUUIDOrBadRequest()
+            val runnerUUID = call.getParameterOrBadRequest("runnerId").parseRunnerUUIDOrBadRequest()
+            val runUUID = call.getParameterOrBadRequest("runId").parseRunUUIDOrBadRequest()
 
             call.respond(
                 restApiService
@@ -68,8 +66,8 @@ fun Route.currentRuns() {
 
         delete {
             call.application.environment.log.info("Ending run")
-            val runnerUUID = call.getParameterOrBadRequest("runnerId").parseUUIDOrBadRequest()
-            val runUUID = call.getParameterOrBadRequest("runId").parseUUIDOrBadRequest()
+            val runnerUUID = call.getParameterOrBadRequest("runnerId").parseRunnerUUIDOrBadRequest()
+            val runUUID = call.getParameterOrBadRequest("runId").parseRunUUIDOrBadRequest()
 
             restApiService.stopCurrentRun(runUUID = runUUID, runnerUUID = runnerUUID).orThrow()
 
@@ -78,7 +76,7 @@ fun Route.currentRuns() {
 
         route("/consoleURL") {
             get {
-                val runId = call.getParameterOrBadRequest("runId").parseUUIDOrBadRequest()
+                val runId = call.getParameterOrBadRequest("runId").parseRunUUIDOrBadRequest()
                 call.respond("/api/v2/websockets/runs/${runId}/console") // TODO: prevent hardcoding URL by using Resources plugin
             }
         }

@@ -6,9 +6,7 @@ import com.rohengiralt.minecraftservermanager.domain.service.WebsocketAPIService
 import com.rohengiralt.minecraftservermanager.frontend.model.ConsoleMessageAPIModel
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerAPIModel
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerCurrentRunAPIModel
-import com.rohengiralt.minecraftservermanager.util.routes.getParameterOrBadRequest
-import com.rohengiralt.minecraftservermanager.util.routes.parseUUIDOrBadRequest
-import com.rohengiralt.minecraftservermanager.util.routes.parseUUIDOrNull
+import com.rohengiralt.minecraftservermanager.util.routes.*
 import com.rohengiralt.shared.serverProcess.ServerIO
 import io.ktor.server.plugins.*
 import io.ktor.server.routing.*
@@ -32,7 +30,7 @@ fun Route.websockets() {
         webSocket {
             call.application.environment.log.info("Received current runs updates websocket connection request for server ${call.parameters["serverId"]}")
             coroutineScope {
-                val serverUUID = call.parameters["serverId"]?.parseUUIDOrNull()
+                val serverUUID = call.parameters["serverId"]?.parseServerUUIDOrNull()
                     ?: return@coroutineScope close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Could not parse server UUID"))
 
                 val currentRunsFlow = websocketAPIService.getAllCurrentRunsFlow(serverUUID)
@@ -72,10 +70,10 @@ fun Route.websockets() {
                 coroutineScope {
                     val runnerUUID = call
                         .getParameterOrBadRequest("runnerId")
-                        .parseUUIDOrBadRequest() // TODO: Is BadRequest valid in websocket?
-                    val runUUID = call.getParameterOrBadRequest("runId").parseUUIDOrBadRequest()
+                        .parseRunnerUUIDOrBadRequest() // TODO: Is BadRequest valid in websocket?
+                    val runUUID = call.getParameterOrBadRequest("runId").parseRunUUIDOrBadRequest()
 
-                    val runChannel = websocketAPIService.getRunConsoleChannel(runnerId = runnerUUID, runUUID = runUUID)
+                    val runChannel = websocketAPIService.getRunConsoleChannel(runnerUUID = runnerUUID, runUUID = runUUID)
                         ?: throw NotFoundException()
 
                     call.application.environment.log.debug(
@@ -154,7 +152,7 @@ fun Route.websockets() {
                     call.parameters["serverId"]
                 )
                 coroutineScope {
-                    val serverUUID = call.getParameterOrBadRequest("serverId").parseUUIDOrBadRequest()
+                    val serverUUID = call.getParameterOrBadRequest("serverId").parseServerUUIDOrBadRequest()
                     val serverUpdatesFlow = websocketAPIService.getServerUpdatesFlow(serverUUID)
 
                     call.application.environment.log.debug("Opening server updates websocket for server {}", serverUUID)

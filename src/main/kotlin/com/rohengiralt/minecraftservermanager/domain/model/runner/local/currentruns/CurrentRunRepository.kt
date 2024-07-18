@@ -1,7 +1,9 @@
 package com.rohengiralt.minecraftservermanager.domain.model.runner.local.currentruns
 
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
+import com.rohengiralt.minecraftservermanager.domain.model.run.RunUUID
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
+import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.MutexGuardedResources
 import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.ResourceContext
 import com.rohengiralt.minecraftservermanager.util.wrapWith
@@ -10,7 +12,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import org.slf4j.LoggerFactory
-import java.util.*
 
 /**
  * A repository that stores a set of current runs and allows lookup by various relevant properties.
@@ -20,13 +21,13 @@ interface CurrentRunRepository {
      * Gets the current run with the id [uuid], if present.
      * @return the matching run, or null if not present
      */
-    suspend fun getCurrentRunByUUID(uuid: UUID): MinecraftServerCurrentRun?
+    suspend fun getCurrentRunByUUID(uuid: RunUUID): MinecraftServerCurrentRun?
 
     /**
      * Gets the current run of the server with id [serverUUID], if present.
      * @return the run matching the server, or null if not present
      */
-    suspend fun getCurrentRunByServer(serverUUID: UUID): MinecraftServerCurrentRun?
+    suspend fun getCurrentRunByServer(serverUUID: ServerUUID): MinecraftServerCurrentRun?
 
     /**
      * Gets all the current runs in this repository
@@ -44,7 +45,7 @@ interface CurrentRunRepository {
      * Deletes the current run with id [uuid] from this repository, if present
      * @return the deleted run, or null if nothing was deleted
      */
-    suspend fun deleteCurrentRun(uuid: UUID): MinecraftServerCurrentRun?
+    suspend fun deleteCurrentRun(uuid: RunUUID): MinecraftServerCurrentRun?
 
     /**
      * Gets a [StateFlow] representing all current runs in this repository, optionally filtered by [server]
@@ -82,18 +83,18 @@ class InMemoryCurrentRunRepository : CurrentRunRepository {
         val allCurrentRuns = MutableStateFlow<List<MinecraftServerCurrentRun>>(emptyList())
 
         /**
-         * A map of **current run** [UUID]s to the runs themselves.
+         * A map of run UUIDs to the runs themselves.
          *
          * Contains all [MinecraftServerCurrentRun]s stored in the repository.
          */
-        val currentRunsByRunUUID = mutableMapOf<UUID, MinecraftServerCurrentRun>()
+        val currentRunsByRunUUID = mutableMapOf<RunUUID, MinecraftServerCurrentRun>()
 
         /**
-         * A map of **server** [UUID]s to their current runs.
+         * A map of server UUIDs to their current runs.
          *
          * Contains all [MinecraftServerCurrentRun]s stored in the repository.
          */
-        val currentRunsByServerUUID = mutableMapOf<UUID, MinecraftServerCurrentRun>()
+        val currentRunsByServerUUID = mutableMapOf<ServerUUID, MinecraftServerCurrentRun>()
     }
 
     /**
@@ -114,12 +115,12 @@ class InMemoryCurrentRunRepository : CurrentRunRepository {
         }
     }
 
-    override suspend fun getCurrentRunByUUID(uuid: UUID): MinecraftServerCurrentRun? = currentRunsGuard.use {
+    override suspend fun getCurrentRunByUUID(uuid: RunUUID): MinecraftServerCurrentRun? = currentRunsGuard.use {
         logger.debug("Getting current run {} by UUID", uuid)
         currentRunsByRunUUID[uuid]
     }
 
-    override suspend fun getCurrentRunByServer(serverUUID: UUID): MinecraftServerCurrentRun? = currentRunsGuard.use {
+    override suspend fun getCurrentRunByServer(serverUUID: ServerUUID): MinecraftServerCurrentRun? = currentRunsGuard.use {
         logger.debug("Getting current run for server {}", serverUUID)
         currentRunsByServerUUID[serverUUID]
     }
@@ -140,7 +141,7 @@ class InMemoryCurrentRunRepository : CurrentRunRepository {
         true
     }
 
-    override suspend fun deleteCurrentRun(uuid: UUID): MinecraftServerCurrentRun? = currentRunsGuard.use {
+    override suspend fun deleteCurrentRun(uuid: RunUUID): MinecraftServerCurrentRun? = currentRunsGuard.use {
         logger.debug("Deleting current run {}", uuid)
         wrapWith({ assertInv() }) {
             currentRunsByRunUUID.remove(uuid)

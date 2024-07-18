@@ -1,6 +1,9 @@
 package com.rohengiralt.minecraftservermanager.domain.repository
 
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRunRecord
+import com.rohengiralt.minecraftservermanager.domain.model.run.RunUUID
+import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
+import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toKotlinInstant
@@ -11,12 +14,11 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import java.sql.SQLException
 import java.time.ZoneOffset
-import java.util.*
 
 interface MinecraftServerCurrentRunRecordRepository {
-    fun getRecord(runUUID: UUID): MinecraftServerCurrentRunRecord?
+    fun getRecord(runUUID: RunUUID): MinecraftServerCurrentRunRecord?
     fun addRecord(record: MinecraftServerCurrentRunRecord): Boolean
-    fun removeRecord(runUUID: UUID): Boolean
+    fun removeRecord(runUUID: RunUUID): Boolean
     fun getAllRecords(): List<MinecraftServerCurrentRunRecord>
     fun removeAllRecords(): Boolean
 }
@@ -28,10 +30,10 @@ class DatabaseMinecraftServerCurrentRunRecordRepository : MinecraftServerCurrent
         }
     }
 
-    override fun getRecord(runUUID: UUID): MinecraftServerCurrentRunRecord? = transaction {
+    override fun getRecord(runUUID: RunUUID): MinecraftServerCurrentRunRecord? = transaction {
         try {
             CurrentRunRecordTable
-                .select { CurrentRunRecordTable.runUUID eq runUUID }
+                .select { CurrentRunRecordTable.runUUID eq runUUID.value }
                 .singleOrNull()
                 ?.toRecord()
         } catch (e: SQLException) {
@@ -43,9 +45,9 @@ class DatabaseMinecraftServerCurrentRunRecordRepository : MinecraftServerCurrent
     override fun addRecord(record: MinecraftServerCurrentRunRecord): Boolean = transaction {
         try {
             CurrentRunRecordTable.insertIgnore {
-                it[runUUID] = record.runUUID
-                it[serverUUID] = record.serverUUID
-                it[runnerUUID] = record.runnerUUID
+                it[runUUID] = record.runUUID.value
+                it[serverUUID] = record.serverUUID.value
+                it[runnerUUID] = record.runnerUUID.value
                 it[startTimeUtc] = record.startTime.toLocalDateTime(TimeZone.UTC).toJavaLocalDateTime()
             }
 
@@ -56,9 +58,9 @@ class DatabaseMinecraftServerCurrentRunRecordRepository : MinecraftServerCurrent
         }
     }
 
-    override fun removeRecord(runUUID: UUID): Boolean = transaction {
+    override fun removeRecord(runUUID: RunUUID): Boolean = transaction {
         try {
-            val rowsDeleted = CurrentRunRecordTable.deleteWhere { CurrentRunRecordTable.runUUID eq runUUID }
+            val rowsDeleted = CurrentRunRecordTable.deleteWhere { CurrentRunRecordTable.runUUID eq runUUID.value }
             rowsDeleted > 0
         } catch (e: SQLException) {
             logger.error("Couldn't add current run record, got $e")
@@ -78,9 +80,9 @@ class DatabaseMinecraftServerCurrentRunRecordRepository : MinecraftServerCurrent
     private fun ResultRow.toRecord(): MinecraftServerCurrentRunRecord = with(CurrentRunRecordTable) {
         val row = this@toRecord
         MinecraftServerCurrentRunRecord(
-            runUUID = row[runUUID],
-            serverUUID = row[serverUUID],
-            runnerUUID = row[runnerUUID],
+            runUUID = RunUUID(row[runUUID]),
+            serverUUID = ServerUUID(row[serverUUID]),
+            runnerUUID = RunnerUUID(row[runnerUUID]),
             startTime = row[startTimeUtc].toInstant(ZoneOffset.UTC).toKotlinInstant()
         )
     }

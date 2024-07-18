@@ -5,7 +5,7 @@ import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerRunn
 import com.rohengiralt.minecraftservermanager.frontend.routes.orThrow
 import com.rohengiralt.minecraftservermanager.plugins.NotAllowedException
 import com.rohengiralt.minecraftservermanager.util.routes.getParameterOrBadRequest
-import com.rohengiralt.minecraftservermanager.util.routes.parseUUIDOrBadRequest
+import com.rohengiralt.minecraftservermanager.util.routes.parseRunnerUUIDOrBadRequest
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -25,7 +25,7 @@ fun Route.runnersRoute() {
     route("/{runnerId}") {
         get {
             call.application.environment.log.info("Getting runner with id ${call.parameters["runnerId"]}")
-            val runnerUUID = call.getParameterOrBadRequest("runnerId").parseUUIDOrBadRequest()
+            val runnerUUID = call.getParameterOrBadRequest("runnerId").parseRunnerUUIDOrBadRequest()
 
             call.respond(
                 restApiService.getRunner(runnerUUID).orThrow().let(::MinecraftServerRunnerAPIModel)

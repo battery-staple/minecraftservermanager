@@ -1,15 +1,16 @@
 package com.rohengiralt.minecraftservermanager.frontend.model
 
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
-import com.rohengiralt.minecraftservermanager.util.extensions.uuid.UUIDSerializer
+import com.rohengiralt.minecraftservermanager.domain.model.run.RunUUID
+import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
+import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import kotlinx.serialization.Serializable
-import java.util.*
 
 @Serializable
 data class MinecraftServerCurrentRunAPIModel(
-    @Serializable(with = UUIDSerializer::class) val uuid: UUID? = null,
-    @Serializable(with = UUIDSerializer::class) val serverId: UUID? = null,
-    @Serializable(with = UUIDSerializer::class) val runnerId: UUID? = null,
+    val uuid: RunUUID? = null,
+    val serverId: ServerUUID? = null,
+    val runnerId: RunnerUUID? = null,
     val environment: MinecraftServerEnvironmentAPIModel? = null,
     val address: MinecraftServerAddressAPIModel? = null
 ) {

@@ -1,25 +1,29 @@
 package com.rohengiralt.minecraftservermanager.domain.model.runner
 
+import com.rohengiralt.minecraftservermanager.domain.ResourceUUID
 import com.rohengiralt.minecraftservermanager.domain.model.server.Port
+import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
+import com.rohengiralt.minecraftservermanager.util.extensions.uuid.UUIDSerializer
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.serialization.Serializable
 import java.util.*
 
 /**
  * An environment in which a particular Minecraft Server can be run
  */
 interface MinecraftServerEnvironment {
-    val uuid: UUID
+    val uuid: EnvironmentUUID
 
     /**
      * The server that can be run in this environment
      */
-    val serverUUID: UUID
+    val serverUUID: ServerUUID
 
     /**
      * The runner that provisioned this environment
      */
-    val runnerUUID: UUID
+    val runnerUUID: RunnerUUID
 
     /**
      * Runs the server associated with this environment.
@@ -39,3 +43,9 @@ interface MinecraftServerEnvironment {
      */
     val currentProcess : StateFlow<MinecraftServerProcess?>
 }
+
+@Serializable
+@JvmInline
+value class EnvironmentUUID(
+    @Serializable(with = UUIDSerializer::class) override val value: UUID
+) : ResourceUUID

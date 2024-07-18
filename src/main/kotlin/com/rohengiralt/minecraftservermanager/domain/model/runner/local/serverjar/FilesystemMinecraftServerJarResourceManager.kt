@@ -1,5 +1,6 @@
 package com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar
 
+import com.rohengiralt.minecraftservermanager.domain.ResourceUUID
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
 import com.rohengiralt.minecraftservermanager.domain.model.server.versionType
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.jsonb
@@ -13,11 +14,10 @@ import org.koin.core.component.inject
 import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.sql.SQLException
-import java.util.*
 import kotlin.io.path.*
 
 class FilesystemMinecraftServerJarResourceManager(private val directoryName: String) : MinecraftServerJarResourceManager, KoinComponent {
-    override suspend fun prepareJar(version: MinecraftVersion, accessorKey: UUID): Boolean { // TODO: Delete cached jar after some time?
+    override suspend fun prepareJar(version: MinecraftVersion, accessorKey: ResourceUUID): Boolean { // TODO: Delete cached jar after some time?
         logger.debug("Preparing jar with version {}", version)
         jarReferenceCounter.addReference(version, accessorKey)
         return if (getCachedJar(version) != null) {
@@ -27,14 +27,14 @@ class FilesystemMinecraftServerJarResourceManager(private val directoryName: Str
         }
     }
 
-    override suspend fun accessJar(version: MinecraftVersion, accessorKey: UUID): MinecraftServerJar? {
+    override suspend fun accessJar(version: MinecraftVersion, accessorKey: ResourceUUID): MinecraftServerJar? {
         logger.debug("Trying to access with jar {} and accessor {}", version, accessorKey)
         if (!prepareJar(version, accessorKey)) return null
 
         return getCachedJar(version)
     }
 
-    override suspend fun freeJar(version: MinecraftVersion, accessorKey: UUID): Boolean {
+    override suspend fun freeJar(version: MinecraftVersion, accessorKey: ResourceUUID): Boolean {
         logger.debug("Freeing jar with version {} and accessor {}", version, accessorKey)
         jarReferenceCounter.removeReference(version, accessorKey)
         return true
@@ -148,21 +148,21 @@ class FilesystemMinecraftServerJarResourceManager(private val directoryName: Str
 }
 
 private class JarReferenceCounter(private val deleteJar: (version: MinecraftVersion) -> Unit) {
-    fun addReference(version: MinecraftVersion, accessorKey: UUID) {
+    fun addReference(version: MinecraftVersion, accessorKey: ResourceUUID) {
         logger.debug("Adding reference to jar with version {} and accessor {}", version, accessorKey)
         transaction {
             JarReferenceTable.insertIgnore {
                 it[JarReferenceTable.version] = version
-                it[JarReferenceTable.accessorKey] = accessorKey
+                it[JarReferenceTable.accessorKey] = accessorKey.value
             }
         }
     }
-    fun removeReference(version: MinecraftVersion, accessorKey: UUID) {
+    fun removeReference(version: MinecraftVersion, accessorKey: ResourceUUID) {
         logger.debug("Removing reference to jar with version {} and accessor {}", version, accessorKey)
         transaction {
             try {
                 JarReferenceTable.deleteWhere {
-                    (JarReferenceTable.version eq version) and (JarReferenceTable.accessorKey eq accessorKey)
+                    (JarReferenceTable.version eq version) and (JarReferenceTable.accessorKey eq accessorKey.value)
                 }
             } catch (e: SQLException) {
                 // TODO: Should it just swallow the error like this if there are no current references?

@@ -1,16 +1,17 @@
 package com.rohengiralt.minecraftservermanager.frontend.model
 
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerPastRun
-import com.rohengiralt.minecraftservermanager.util.extensions.uuid.UUIDSerializer
+import com.rohengiralt.minecraftservermanager.domain.model.run.RunUUID
+import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
+import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
-import java.util.*
 
 @Serializable
 data class MinecraftServerPastRunAPIModel(
-    @Serializable(with = UUIDSerializer::class) val uuid: UUID,
-    @Serializable(with = UUIDSerializer::class) val serverId: UUID,
-    @Serializable(with = UUIDSerializer::class) val runnerId: UUID,
+    val uuid: RunUUID,
+    val serverId: ServerUUID,
+    val runnerId: RunnerUUID,
     @Serializable val startTime: Instant,
     @Serializable val stopTime: Instant?,
     @Serializable val log: List<String>,

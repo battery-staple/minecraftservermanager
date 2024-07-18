@@ -3,7 +3,9 @@ package com.rohengiralt.minecraftservermanager.domain.model.runner.local // To a
 import com.rohengiralt.minecraftservermanager.domain.model.run.LogEntry
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRunRecord
 import com.rohengiralt.minecraftservermanager.domain.model.runner.AbstractMinecraftServerRunner
+import com.rohengiralt.minecraftservermanager.domain.model.runner.EnvironmentUUID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerEnvironment
+import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.contentdirectory.LocalMinecraftServerContentDirectoryFactory
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJarResourceManager
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.freeJar
@@ -26,13 +28,13 @@ private object LocalRunnerSpec : ConfigSpec() {
 
 
 object LocalMinecraftServerRunner : AbstractMinecraftServerRunner<LocalMinecraftServerEnvironment>(
-    uuid = UUID.fromString("d72add0d-4746-4b46-9ecc-2dcd868062f9"), // Randomly generated, but constant
+    uuid = RunnerUUID(UUID.fromString("d72add0d-4746-4b46-9ecc-2dcd868062f9")), // Randomly generated, but constant
     name = "Local"
 ) {
     override val domain: String = localRunnerConfig[LocalRunnerSpec.domain]
 
     override suspend fun prepareEnvironment(server: MinecraftServer): LocalMinecraftServerEnvironment? {
-        val environmentUUID = UUID.randomUUID()
+        val environmentUUID = EnvironmentUUID(UUID.randomUUID())
 
         logger.debug("Getting content directory for server {} in environment {}", server.name, environmentUUID)
         val contentDirectory =
