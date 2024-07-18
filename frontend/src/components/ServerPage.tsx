@@ -6,8 +6,9 @@ import {
 } from "../networking/backendAPI/AccessError";
 import "./ServerPage.css"
 import {getServer, startServer, stopServer} from "../networking/backendAPI/Servers";
-import {getConsoleWebsocket, getCurrentRunWebsocket} from "../networking/backendAPI/CurrentRuns";
-import {getCurrentRun} from "../networking/backendAPI/CurrentRuns";
+import {getConsoleWebsocket} from "../networking/backendAPI/CurrentRuns";
+
+import {useCurrentRunLive} from "../hooks/UseCurrentRunLive";
 
 export function ServerPage(props: { serverUUID: string }) {
     /**
@@ -15,53 +16,16 @@ export function ServerPage(props: { serverUUID: string }) {
      */
     const [server, setServer] = useState<Server | AccessError>("loading")
 
-    /**
-     * The current run of the server on this page, or null if the server is not running.
-     * If the running status of the server is currently unknown, then this is an AccessError.
-     */
-    const [currentRun, setCurrentRun] = useState<CurrentRun | null | AccessError>("loading")
-
-    /**
-     * The websocket that provides updates whenever the server's current run changes (i.e., when the server starts or stops).
-     */
-    const currentRunWebsocket = useRef<WebSocket | null>(null);
-
-    const setCurrentRunWebsocket = useCallback(async (serverUUID: string) => {
-        try {
-            const server = await getServer(serverUUID);
-            const currentRun = await getCurrentRun(server.uuid);
-
-            setCurrentRun(currentRun);
-
-            currentRunWebsocket.current =
-                await getCurrentRunWebsocket(
-                    server.runnerUUID,
-                    server.uuid,
-                    (event: MessageEvent<string>) => {
-                        const currentRuns: CurrentRun[] = JSON.parse(event.data)
-
-                        setCurrentRun(currentRuns[0] ?? null)
-                    },
-                    function () {
-                        if (this === currentRunWebsocket.current) currentRunWebsocket.current = null
-                    }
-                );
-
-            setServer(server);
-        } catch (e) {
-            setServer('unavailable');
-            throw e;
-        }
-    }, []);
+    const currentRun = useCurrentRunLive(server);
 
     useEffect(() => {
-        // noinspection JSIgnoredPromiseFromCall
-        setCurrentRunWebsocket(props.serverUUID)
-
-        return () => { // Cleanup
-            currentRunWebsocket.current?.close()
-        }
-    }, [props.serverUUID, setCurrentRunWebsocket])
+        getServer(props.serverUUID)
+            .catch<AccessError>(e => {
+                console.error(e);
+                return 'unavailable';
+            })
+            .then(setServer);
+    }, [props.serverUUID])
 
     switch (server) {
         case "unavailable":

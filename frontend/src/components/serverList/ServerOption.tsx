@@ -1,7 +1,8 @@
-import {CurrentRun, Server} from "../../APIModels";
-import {JSX, useCallback, useEffect, useMemo, useState} from "react";
-import {getCurrentRun} from "../../networking/backendAPI/CurrentRuns";
+import {Server} from "../../APIModels";
+import {JSX, useCallback, useMemo} from "react";
 import {deleteServer} from "../../networking/backendAPI/Servers";
+import {useCurrentRunLive} from "../../hooks/UseCurrentRunLive";
+import {isError} from "../../networking/backendAPI/AccessError";
 
 export function ServerOption(props: {
     server: Server,
@@ -9,18 +10,12 @@ export function ServerOption(props: {
     setEditing: (editing: boolean) => void,
     onClick: () => void
 }): JSX.Element {
-    const [currentRun, setCurrentRun] = useState<CurrentRun | null>(null);
-
-    useEffect(() => {
-        getCurrentRun(props.server.uuid)
-            .then(currentRun => setCurrentRun(currentRun))
-    }, [props.server.uuid])
-
+    const currentRun = useCurrentRunLive(props.server);
 
     const isRunning = useCallback(() => currentRun !== null, [currentRun]);
 
     const properties = useMemo(() => {
-        if (currentRun?.address) { // Server is running
+        if (!isError(currentRun) && currentRun?.address) { // Server is running
             return <ul className="server-option-properties">
                 <li><strong>host: </strong> {currentRun.address.host}</li>
                 <li><strong>port: </strong> {currentRun.address.port}</li>
