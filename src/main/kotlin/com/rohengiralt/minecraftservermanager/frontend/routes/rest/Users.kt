@@ -27,9 +27,13 @@ fun Route.usersRoute() {
         delete {
             call.application.environment.log.info("Deleting user with id: ${call.principal<UserLoginInfo>()?.userId}")
             restApiService.deleteCurrentUser().orThrow()
-            restApiService.deleteCurrentUserPreferences().orThrow()
+            val deleted = restApiService.deleteCurrentUserPreferences().orThrow()
 
-            call.respond(HttpStatusCode.OK)
+            if (deleted != null) {
+                call.respond(HttpStatusCode.OK, deleted)
+            } else {
+                call.respond(HttpStatusCode.NoContent)
+            }
         }
 
         route("/preferences") {
@@ -47,11 +51,11 @@ fun Route.usersRoute() {
                 call.application.environment.log.info("Patching user preferences for user with id ${call.principal<UserLoginInfo>()?.userId}")
                 val userPreferencesAPIModel: UserPreferencesAPIModel = call.receiveSerializable()
 
-                restApiService.updateCurrentUserPreferences(
+                val preferences = restApiService.updateCurrentUserPreferences(
                     sortStrategy = userPreferencesAPIModel.serverSortStrategy,
-                ).orThrow()
+                ).orThrow().let(::UserPreferencesAPIModel)
 
-                call.respond(HttpStatusCode.OK)
+                call.respond(HttpStatusCode.OK, preferences)
             }
         }
     }

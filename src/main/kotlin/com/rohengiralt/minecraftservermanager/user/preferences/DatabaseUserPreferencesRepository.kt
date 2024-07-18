@@ -71,19 +71,16 @@ class DatabaseUserPreferencesRepository : UserPreferencesRepository {
         }
     }
 
-    override suspend fun deleteUserPreferences(userId: UserID): Boolean = mutex.withLock {
+    override suspend fun deleteUserPreferences(userId: UserID): UserPreferences? = mutex.withLock {
         transaction {
-            try {
-                logger.debug("Trying to delete user preferences for user $userId")
+            logger.debug("Trying to delete user preferences for user $userId")
 
-                // Don't check if >=1 rows deleted because we don't care if preferences weren't in the database to begin with
-                UserPreferencesTable.deleteWhere { UserPreferencesTable.userId eq userId.idString }
+            val deletionCandidates = UserPreferencesTable.select { UserPreferencesTable.userId eq userId.idString }
+            val rowsDeleted = UserPreferencesTable.deleteWhere { UserPreferencesTable.userId eq userId.idString }
 
-                true
-            } catch (e: SQLException) {
-                logger.error("Deleting user preferences for user $userId failed with exception:\n$e")
-                false
-            }
+            if (rowsDeleted >= 1)
+                deletionCandidates.single().toUserPreferences()
+            else null
         }
     }
 

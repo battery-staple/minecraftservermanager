@@ -32,8 +32,8 @@ interface RestAPIService {
     suspend fun createServer(uuid: ServerUUID? = null, name: String, version: MinecraftVersion, runnerUUID: RunnerUUID): APIResult<MinecraftServer>
     suspend fun getServer(uuid: ServerUUID): APIResult<MinecraftServer>
     suspend fun setServer(uuid: ServerUUID, name: String, version: MinecraftVersion, runnerUUID: RunnerUUID): APIResult<MinecraftServer>
-    suspend fun updateServer(uuid: ServerUUID, name: String? = null): APIResult<Unit>
-    suspend fun deleteServer(uuid: ServerUUID): APIResult<Unit>
+    suspend fun updateServer(uuid: ServerUUID, name: String? = null): APIResult<MinecraftServer>
+    suspend fun deleteServer(uuid: ServerUUID): APIResult<MinecraftServer>
 
     suspend fun getAllRunners(): APIResult<List<MinecraftServerRunner>>
     suspend fun getRunner(uuid: RunnerUUID): APIResult<MinecraftServerRunner>
@@ -52,8 +52,8 @@ interface RestAPIService {
     context(API) suspend fun deleteCurrentUser(): APIResult<Unit>
 
     context(API) suspend fun getCurrentUserPreferences(): APIResult<UserPreferences>
-    context(API) suspend fun updateCurrentUserPreferences(sortStrategy: UserPreferences.SortStrategy? = null): APIResult<Unit>
-    context(API) suspend fun deleteCurrentUserPreferences(): APIResult<Unit>
+    context(API) suspend fun updateCurrentUserPreferences(sortStrategy: UserPreferences.SortStrategy? = null): APIResult<UserPreferences>
+    context(API) suspend fun deleteCurrentUserPreferences(): APIResult<UserPreferences?>
 
     /**
      * The result of an API action.

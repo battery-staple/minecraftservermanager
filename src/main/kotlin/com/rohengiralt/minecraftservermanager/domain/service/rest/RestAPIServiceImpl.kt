@@ -85,7 +85,7 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
         return Success(newServer)
     }
 
-    override suspend fun updateServer(uuid: ServerUUID, name: String?): APIResult<Unit> {
+    override suspend fun updateServer(uuid: ServerUUID, name: String?): APIResult<MinecraftServer> {
         // TODO: CONCURRENCY CONTROL/TRANSACTION MANAGEMENT
 
         val server = serverRepository.getServer(uuid) ?: return Failure.MainResourceNotFound(uuid)
@@ -93,10 +93,10 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
         name?.let { server.name = it }
 
         serverRepository.saveServer(server)
-        return Success()
+        return Success(server)
     }
 
-    override suspend fun deleteServer(uuid: ServerUUID): APIResult<Unit> { // TODO: Ensure all environments removed
+    override suspend fun deleteServer(uuid: ServerUUID): APIResult<MinecraftServer> { // TODO: Ensure all environments removed
         logger.trace("Getting server with uuid {}", uuid)
         val server = serverRepository.getServer(uuid) ?: return Failure.MainResourceNotFound(uuid)
         logger.trace("Getting runner with uuid {}", uuid)
@@ -116,7 +116,7 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
             return Failure.Unknown()
         }
 
-        return Success()
+        return Success(server)
     }
 
     override suspend fun getAllRunners(): APIResult<List<MinecraftServerRunner>> =
@@ -227,41 +227,47 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
         userPreferencesRepository.getUserPreferencesOrSetDefaultOrNull(userId = userId)
 
     context(PipelineContext<*, ApplicationCall>)
-    override suspend fun updateCurrentUserPreferences(sortStrategy: UserPreferences.SortStrategy?): APIResult<Unit> {
+    override suspend fun updateCurrentUserPreferences(sortStrategy: UserPreferences.SortStrategy?): APIResult<UserPreferences> {
         val loginInfo = getCurrentUserLoginInfo().orElse { return it }
 
-        val updateSuccess = try {
+        val newPreferences = try {
             updateUserPreferences(loginInfo.userId, sortStrategy)
         } catch (e: IllegalArgumentException) {
             return Failure.InvalidValue(sortStrategy)
         }
 
-        return if (updateSuccess) Success() else Failure.Unknown()
+        return newPreferences?.let(::Success) ?: Failure.Unknown()
     }
 
     /**
      * Updates a user's preferences.
      * @param userId the user whose preferences to update
      * @param sortStrategy their new sort strategy, or null if not updating sort strategy
+     * @return the new preferences, or null if the update failed
      * @throws IllegalArgumentException if this update would create an invalid user preferences state
      */
-    private suspend fun updateUserPreferences(userId: UserID, sortStrategy: UserPreferences.SortStrategy?): Boolean {
-        val oldPreferences = userPreferencesRepository.getUserPreferencesOrSetDefaultOrNull(userId = userId) ?: return false
+    private suspend fun updateUserPreferences(userId: UserID, sortStrategy: UserPreferences.SortStrategy?): UserPreferences? {
+        val oldPreferences = userPreferencesRepository.getUserPreferencesOrSetDefaultOrNull(userId = userId) ?: return null
 
         val preferencesModel = UserPreferencesAPIModel(oldPreferences)
         sortStrategy?.let { preferencesModel.serverSortStrategy = it }
         val newPreferences = preferencesModel.toUserPreferences() ?: throw IllegalArgumentException("Invalid preferences state $preferencesModel")
 
-        return userPreferencesRepository.setUserPreferences(userId = userId, preferences = newPreferences)
+        val updateSuccess = userPreferencesRepository.setUserPreferences(userId = userId, preferences = newPreferences)
+        return if (updateSuccess) {
+            newPreferences
+        } else {
+            null
+        }
     }
 
     context(PipelineContext<*, ApplicationCall>)
-    override suspend fun deleteCurrentUserPreferences(): APIResult<Unit> {
+    override suspend fun deleteCurrentUserPreferences(): APIResult<UserPreferences?> {
         val userLoginInfo = getCurrentUserLoginInfoOrNull() ?: return Failure.Unknown()
 
-        val deletionSuccess = userPreferencesRepository.deleteUserPreferences(userLoginInfo.userId)
+        val deletedPreferences = userPreferencesRepository.deleteUserPreferences(userLoginInfo.userId)
 
-        return if (deletionSuccess) Success() else Failure.Unknown()
+        return Success(deletedPreferences)
     }
 
     context(PipelineContext<*, ApplicationCall>)

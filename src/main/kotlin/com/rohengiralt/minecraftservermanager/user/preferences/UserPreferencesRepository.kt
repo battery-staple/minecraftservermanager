@@ -1,6 +1,7 @@
 package com.rohengiralt.minecraftservermanager.user.preferences
 
 import com.rohengiralt.minecraftservermanager.user.UserID
+import io.ktor.utils.io.errors.*
 
 /**
  * A repository storing each user's preferences.
@@ -33,9 +34,10 @@ interface UserPreferencesRepository {
     /**
      * Deletes the given user's preferences.
      * @param userId the id of the user whose preferences to delete
-     * @return true if the user's preferences are no longer stored
+     * @return the deleted preferences, or null if there were no preferences to delete
+     * @throws IOException if deletion fails
      */
-    suspend fun deleteUserPreferences(userId: UserID): Boolean
+    suspend fun deleteUserPreferences(userId: UserID): UserPreferences?
     companion object {
         /**
          * The default preferences (for new users, for instance).

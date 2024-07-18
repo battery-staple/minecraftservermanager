@@ -32,6 +32,7 @@ interface MinecraftServerRepository {
     /**
      * Saves the server [minecraftServer] to the repository.
      * If a server with the same `uuid` is already in the repository, replaces it with [minecraftServer].
+     * @throws IOException if saving fails
      */
     fun saveServer(minecraftServer: MinecraftServer)
 

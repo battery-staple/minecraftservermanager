@@ -68,12 +68,12 @@ fun Route.serversRoute() { // TODO: Better response codes in general
             if (serverAPIModel.version != null) cannotUpdateField("version")
             if (serverAPIModel.runnerUUID != null) cannotUpdateField("runnerUUID")
 
-            restApiService.updateServer(
+            val newServer = restApiService.updateServer(
                 uuid = serverUUID,
                 name = serverAPIModel.name,
             ).orThrow()
 
-            call.respond(HttpStatusCode.OK)
+            call.respond(HttpStatusCode.OK, newServer)
         }
 
         put {
