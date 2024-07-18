@@ -9,7 +9,7 @@ import {getCurrentRun, getCurrentRunWebsocket} from "../networking/backendAPI/Cu
  * @return the current run, or null if the server is not running,
  *         or an AccessError if the running status of the server is currently unknown.
  */
-export function useCurrentRunLive(server: Accessed<Server>): Accessed<CurrentRun | null> {
+export function useCurrentRun(server: Accessed<Server>): Accessed<CurrentRun | null> {
     const [currentRun, setCurrentRun] = useState<Accessed<CurrentRun | null>>(null);
 
     /**

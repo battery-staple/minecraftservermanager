@@ -14,3 +14,10 @@ export type Accessed<T> = T | AccessError
 export function isError<T>(val: Accessed<T>): val is AccessError {
     return val === "loading" || val === "unavailable"
 }
+
+/**
+ * Checks if a value is not an access error or null or undefined
+ */
+export function isPresent<T>(val: Accessed<T>): val is NonNullable<T> {
+    return !isError(val) && val !== null && val !== undefined
+}

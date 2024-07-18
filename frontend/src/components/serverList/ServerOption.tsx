@@ -1,7 +1,7 @@
 import {Server} from "../../APIModels";
 import {JSX, useCallback, useMemo} from "react";
 import {deleteServer} from "../../networking/backendAPI/Servers";
-import {useCurrentRunLive} from "../../hooks/UseCurrentRunLive";
+import {useCurrentRun} from "../../hooks/UseCurrentRun";
 import {isError} from "../../networking/backendAPI/AccessError";
 
 export function ServerOption(props: {
@@ -10,7 +10,7 @@ export function ServerOption(props: {
     setEditing: (editing: boolean) => void,
     onClick: () => void
 }): JSX.Element {
-    const currentRun = useCurrentRunLive(props.server);
+    const currentRun = useCurrentRun(props.server);
 
     const isRunning = useCallback(() => currentRun !== null, [currentRun]);
 

@@ -1,16 +1,18 @@
-import {JSX, useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {JSX, useCallback, useEffect, useMemo, useState} from "react";
 import {DEFAULT_SORT_STRATEGY, Server, SortStrategy} from "../../APIModels";
 import {useAutoAnimate} from "@formkit/auto-animate/react";
 import "./ServerList.css"
-import {getServers, getServersWebsocket} from "../../networking/backendAPI/Servers";
 import {getPreferences, updatePreferences} from "../../networking/backendAPI/Preferences";
 import {OrderDropdownBar} from "./OrderDropdownBar";
 import {HeaderButtons, HeaderButtonsState} from "./HeaderButtons";
 import {NewServerModal} from "./NewServerModal";
 import {ServerOption} from "./ServerOption";
+import {useServers} from "../../hooks/UseServers";
+import {isError} from "../../networking/backendAPI/AccessError";
 
 export function ServerList(props: { setHeader: (headerElement: JSX.Element) => void }): JSX.Element {
-    const [servers, setServers] = useState<Server[] | null | "loading">("loading");
+    const servers = useServers();
+
     const [sortStrategyState, setSortStrategyState] = useState<SortStrategy | null>(null)
     const [editing, setEditing] = useState(false)
     const [creatingNew, setCreatingNew] = useState(false)
@@ -41,34 +43,6 @@ export function ServerList(props: { setHeader: (headerElement: JSX.Element) => v
         }
     }, [creatingNew]);
 
-    /**
-     * The websocket that provides updates whenever any of the servers change (i.e., is created or deleted).
-     */
-    const serversWebsocket = useRef<WebSocket | null>(null);
-
-    const setServersWebsocket = useCallback(async () => {
-        setServers(await getServers()) // Fallback for websocket
-
-        serversWebsocket.current =
-            await getServersWebsocket(
-                (servers) => {
-                    setServers(servers);
-                },
-                function () {
-                    if (this === serversWebsocket.current) serversWebsocket.current = null;
-                }
-            );
-    }, []);
-
-    useEffect(() => {
-        // noinspection JSIgnoredPromiseFromCall
-        setServersWebsocket()
-
-        return () => { // Cleanup
-            serversWebsocket.current?.close()
-        }
-    }, [setServersWebsocket])
-
     useEffect(() => {
         getPreferences()
             .then(preferences => {
@@ -77,7 +51,7 @@ export function ServerList(props: { setHeader: (headerElement: JSX.Element) => v
     }, [])
 
     const serverOptions: JSX.Element[] = useMemo(() => {
-        if (servers === null || servers === "loading") return [];
+        if (servers === null || isError(servers)) return [];
 
         return servers
             .sort(serverCompareFn(sortStrategy))
