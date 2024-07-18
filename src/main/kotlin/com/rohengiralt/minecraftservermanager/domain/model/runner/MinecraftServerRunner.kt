@@ -7,7 +7,7 @@ import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServe
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironment
 import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import com.rohengiralt.minecraftservermanager.util.extensions.uuid.UUIDSerializer
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import java.util.*
 
@@ -109,7 +109,7 @@ interface MinecraftServerRunner {
      * @param server the server whose flow to query
      * @return the update flow
      */
-    suspend fun getAllCurrentRunsFlow(server: MinecraftServer): Flow<List<MinecraftServerCurrentRun>>
+    suspend fun getAllCurrentRunsFlow(server: MinecraftServer): StateFlow<List<MinecraftServerCurrentRun>>
 
 //    fun addEnvironment(serverRun: E)
 //    fun getAllEnvironments(): Sequence<E>

@@ -14,7 +14,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.consumeEach
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -35,20 +35,20 @@ interface WebsocketAPIService {
      * with UUID [serverUUID] changes.
      * If the server is deleted, sends `null`.
      */
-    suspend fun getServerUpdatesFlow(serverUUID: ServerUUID): Flow<MinecraftServer?>
+    suspend fun getServerUpdatesFlow(serverUUID: ServerUUID): StateFlow<MinecraftServer?>
 
     /**
      * Returns a flow that sends a new [List] of [MinecraftServerCurrentRun]s whenever the
      * current runs of the server with UUID [serverUUID] change.
      * @return a flow of current run updates, or `null` if the server or runner could not be retrieved.
      */
-    suspend fun getAllCurrentRunsFlow(serverUUID: ServerUUID): Flow<List<MinecraftServerCurrentRun>>?
+    suspend fun getAllCurrentRunsFlow(serverUUID: ServerUUID): StateFlow<List<MinecraftServerCurrentRun>>?
 
     /**
      * Returns a flow that sends a new [List] of [MinecraftServer]s whenever servers
      * are added or deleted.
      */
-    suspend fun getAllServersUpdatesFlow(): Flow<List<MinecraftServer>>
+    suspend fun getAllServersUpdatesFlow(): StateFlow<List<MinecraftServer>>
 }
 
 class WebsocketAPIServiceImpl : WebsocketAPIService, KoinComponent {
@@ -74,21 +74,27 @@ class WebsocketAPIServiceImpl : WebsocketAPIService, KoinComponent {
             }
         }
 
-        return object : Channel<ServerIO>, SendChannel<ServerIO> by input, ReceiveChannel<ServerIO> by output {}
+        return ServerIOChannel(input, output)
     }
 
+    private class ServerIOChannel(
+        private val input: SendChannel<ServerIO>,
+        private val output: ReceiveChannel<ServerIO>
+    ) : Channel<ServerIO>,
+        SendChannel<ServerIO> by input,
+        ReceiveChannel<ServerIO> by output
 
-    override suspend fun getServerUpdatesFlow(serverUUID: ServerUUID): Flow<MinecraftServer?> = // TODO: Stateflow to remove the need to GET before websocket
+    override suspend fun getServerUpdatesFlow(serverUUID: ServerUUID): StateFlow<MinecraftServer?> =
         serverRepository.getServerUpdates(serverUUID)
 
-    override suspend fun getAllCurrentRunsFlow(serverUUID: ServerUUID): Flow<List<MinecraftServerCurrentRun>>? {
+    override suspend fun getAllCurrentRunsFlow(serverUUID: ServerUUID): StateFlow<List<MinecraftServerCurrentRun>>? {
         val server = runCatching { serverRepository.getServer(serverUUID) }.getOrNull() ?: return null
         val runner = runnerRepository.getRunner(server.runnerUUID) ?: return null
 
         return runner.getAllCurrentRunsFlow(server)
     }
 
-    override suspend fun getAllServersUpdatesFlow(): Flow<List<MinecraftServer>> =
+    override suspend fun getAllServersUpdatesFlow(): StateFlow<List<MinecraftServer>> =
         serverRepository.getAllUpdates()
 
     private val serverRepository: MinecraftServerRepository by inject()

@@ -10,7 +10,7 @@ import com.rohengiralt.minecraftservermanager.util.ifNull
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess.ProcessMessage
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
@@ -313,6 +313,6 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
     override suspend fun getAllCurrentRuns(): List<MinecraftServerCurrentRun> =
         currentRuns.getAllCurrentRuns()
 
-    override suspend fun getAllCurrentRunsFlow(server: MinecraftServer): Flow<List<MinecraftServerCurrentRun>> =
+    override suspend fun getAllCurrentRunsFlow(server: MinecraftServer): StateFlow<List<MinecraftServerCurrentRun>> =
         currentRuns.getCurrentRunsState(server)
 }
