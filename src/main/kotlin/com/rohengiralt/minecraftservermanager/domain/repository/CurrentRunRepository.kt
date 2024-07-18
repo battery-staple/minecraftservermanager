@@ -1,4 +1,4 @@
-package com.rohengiralt.minecraftservermanager.domain.model.runner.local.currentruns
+package com.rohengiralt.minecraftservermanager.domain.repository
 
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
 import com.rohengiralt.minecraftservermanager.domain.model.run.RunUUID

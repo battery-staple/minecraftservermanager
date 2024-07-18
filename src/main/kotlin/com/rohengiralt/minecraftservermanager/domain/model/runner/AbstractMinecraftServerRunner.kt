@@ -2,7 +2,7 @@ package com.rohengiralt.minecraftservermanager.domain.model.runner
 
 import com.rohengiralt.minecraftservermanager.domain.model.run.*
 import com.rohengiralt.minecraftservermanager.domain.model.server.*
-import com.rohengiralt.minecraftservermanager.domain.model.runner.local.currentruns.CurrentRunRepository
+import com.rohengiralt.minecraftservermanager.domain.repository.CurrentRunRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.EnvironmentRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerCurrentRunRecordRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerPastRunRepository
@@ -186,7 +186,7 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
             environmentUUID = environment.uuid,
             runtimeEnvironment = runtimeEnvironment,
             address = MinecraftServerAddress(
-                host = LocalMinecraftServerRunner.domain,
+                host = domain,
                 port = runtimeEnvironment.port.port
             ),
             startTime = startTime,
