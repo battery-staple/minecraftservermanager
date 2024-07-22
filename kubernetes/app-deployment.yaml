@@ -90,3 +90,9 @@ spec:
         - name: whitelist-volume
           secret:
             secretName: whitelist-file
+      serviceAccountName: msm-app
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: msm-app
