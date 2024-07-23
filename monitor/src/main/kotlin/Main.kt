@@ -61,7 +61,7 @@ fun main() {
                 path("/api/monitor/v1/jar")
             }
 
-            bearerAuth("asdf")
+            bearerAuth(token)
         }
 
         logger.info("Status: ${response.status}")
