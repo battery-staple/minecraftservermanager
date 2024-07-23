@@ -5,73 +5,26 @@ import com.rohengiralt.monitor.plugins.configureSockets
 import com.rohengiralt.monitor.routing.processIOSocket
 import com.rohengiralt.monitor.routing.status
 import com.rohengiralt.shared.serverProcess.MinecraftServerDispatcher
-import io.ktor.client.*
-import io.ktor.client.call.*
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
-import io.ktor.http.*
 import io.ktor.server.auth.*
 import io.ktor.server.cio.*
 import io.ktor.server.engine.*
 import io.ktor.server.routing.*
-import io.ktor.util.cio.*
-import io.ktor.utils.io.*
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
-import java.nio.file.Paths
-import java.text.NumberFormat
-import kotlin.io.path.div
-
-private val dataDir = Paths.get("/monitor")
-private val jarPath = dataDir / "minecraftserver.jar"
-private val rundataPath = dataDir / "rundata"
+import kotlin.system.exitProcess
 
 private val logger = LoggerFactory.getLogger("Main")
 
 fun main() {
+    logger.info("Monitor start")
 
-    val client = HttpClient(io.ktor.client.engine.cio.CIO) {
-        followRedirects = false
-        expectSuccess = false
-    }
-
-    runBlocking {
-        logger.info("Ensuring msm-app is running")
-        val response = client.get {
-            url {
-                protocol = URLProtocol.HTTP
-                host = "msm-app.default.svc.cluster.local"
-                port = 8080
-                path("/ping")
-            }
+    if (!isInitialized) {
+        logger.info("Initializing monitor")
+        runBlocking {
+            initialize()
         }
-
-        val body: String = response.body()
-        if (body != "pong") {
-            throw IllegalStateException("Unexpected response body: $body")
-        }
-    }
-
-    runBlocking {
-        val response = client.get {
-            url {
-                protocol = URLProtocol.HTTP
-                host = "msm-app.default.svc.cluster.local"
-                port = 8080
-                path("/api/monitor/v1/jar")
-            }
-
-            bearerAuth(token)
-        }
-
-        logger.info("Status: ${response.status}")
-        val downloadedJarChannel = response.bodyAsChannel()
-        downloadedJarChannel.copyAndClose(jarPath.toFile().writeChannel())
-
-        val fileSizeStr = NumberFormat.getInstance().format(
-            jarPath.toFile().length()
-        )
-        logger.info("Received jar ($fileSizeStr B)")
+        logger.info("Successfully initialized monitor")
+        exitProcess(0)
     }
 
     val serverDispatcher = MinecraftServerDispatcher()
