@@ -1,6 +1,7 @@
 package com.rohengiralt.minecraftservermanager.domain.model.runner.kubernetes
 
 import com.rohengiralt.minecraftservermanager.util.kubernetes.*
+import io.kubernetes.client.custom.IntOrString
 import io.kubernetes.client.custom.Quantity
 import io.kubernetes.client.openapi.models.V1Deployment
 import io.kubernetes.client.openapi.models.V1PersistentVolumeClaim
@@ -71,8 +72,8 @@ fun monitorDeployment(
                             }
 
                             ports {
-                                port { containerPort = httpPort }
-                                port { containerPort = minecraftPort }
+                                port { containerPort = httpPort; name = httpContainerPortName(id) }
+                                port { containerPort = minecraftPort; name = minecraftContainerPortName(id) }
                             }
                         }
                     }
@@ -110,8 +111,18 @@ fun monitorService(
         type = "NodePort"
         selector = appLabel(monitorID)
         ports {
-            port { name = "http"; protocol = "TCP"; port = httpPort }
-            port { name = "minecraft"; protocol = "TCP"; port = minecraftPort }
+            port {
+                name = "http"
+                protocol = "TCP"
+                port = httpPort
+                targetPort = IntOrString(httpContainerPortName(monitorID))
+            }
+            port {
+                name = "minecraft"
+                protocol = "TCP"
+                port = minecraftPort
+                targetPort = IntOrString(minecraftContainerPortName(monitorID))
+            }
         }
     }
 }
@@ -156,3 +167,9 @@ private fun monitorName(monitorID: Int): String =
  */
 private fun appLabel(monitorID: Int): Map<String, String> =
     mapOf("app" to monitorName(monitorID))
+
+private fun httpContainerPortName(monitorID: Int): String =
+    "${monitorName(monitorID)}-http"
+
+private fun minecraftContainerPortName(monitorID: Int): String =
+    "${monitorName(monitorID)}-minecraft"

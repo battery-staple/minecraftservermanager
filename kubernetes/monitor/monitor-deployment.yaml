@@ -8,9 +8,11 @@ spec:
     - name: http
       protocol: TCP
       port: 8080
+      targetPort: "msm-monitor1-http"
     - name: minecraft
       protocol: TCP
       port: 25565
+      targetPort: "msm-monitor1-minecraft"
   selector:
     app: msm-monitor1
 ---
@@ -53,7 +55,9 @@ spec:
                   key: token
           ports:
             - containerPort: 8080
+              name: msm-monitor1-http
             - containerPort: 25565
+              name: msm-monitor1-minecraft
       volumes:
         - name: home
           persistentVolumeClaim:
