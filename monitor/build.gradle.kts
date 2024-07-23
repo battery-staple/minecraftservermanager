@@ -27,6 +27,7 @@ dependencies {
     implementation("io.ktor:ktor-server-cio-jvm")
     implementation("ch.qos.logback:logback-classic:$logback_version")
     implementation(project(":shared"))
+    implementation("io.ktor:ktor-client-cio-jvm:2.3.12")
 
     testImplementation("io.ktor:ktor-server-tests-jvm")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
@@ -40,6 +41,7 @@ graalvmNative {
 
             buildArgs.add("--initialize-at-build-time=ch.qos.logback")
             buildArgs.add("--initialize-at-build-time=io.ktor,kotlin")
+            buildArgs.add("--initialize-at-build-time=kotlinx.coroutines")
             buildArgs.add("--initialize-at-build-time=org.slf4j.LoggerFactory")
 
             buildArgs.add("-H:+InstallExitHandlers")

@@ -3,13 +3,13 @@ package com.rohengiralt.minecraftservermanager
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.MinecraftJarAPI
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.RedundantFallbackAPI
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.contentdirectory.LocalMinecraftServerContentDirectoryFactory
-import com.rohengiralt.minecraftservermanager.domain.model.runner.local.currentruns.CurrentRunRepository
-import com.rohengiralt.minecraftservermanager.domain.model.runner.local.currentruns.InMemoryCurrentRunRepository
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.APIMinecraftServerJarFactory
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.FilesystemMinecraftServerJarResourceManager
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJarFactory
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJarResourceManager
 import com.rohengiralt.minecraftservermanager.domain.repository.*
+import com.rohengiralt.minecraftservermanager.domain.service.MonitorAPIService
+import com.rohengiralt.minecraftservermanager.domain.service.MonitorAPIServiceImpl
 import com.rohengiralt.minecraftservermanager.domain.service.WebsocketAPIService
 import com.rohengiralt.minecraftservermanager.domain.service.WebsocketAPIServiceImpl
 import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService
@@ -92,6 +92,7 @@ fun Application.module() {
 
                 single<RestAPIService> { RestAPIServiceImpl() }
                 single<WebsocketAPIService> { WebsocketAPIServiceImpl() }
+                single<MonitorAPIService> { MonitorAPIServiceImpl() }
             },
         )
     }

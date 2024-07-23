@@ -1,11 +1,13 @@
 package com.rohengiralt.minecraftservermanager.plugins
 
+import com.rohengiralt.minecraftservermanager.domain.service.MonitorAPIService
 import com.rohengiralt.minecraftservermanager.frontend.routes.frontendConfig
 import com.rohengiralt.minecraftservermanager.frontend.routes.rest.runners.runnersRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.rest.serversRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.rest.statusRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.rest.usersRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.websockets
+import com.rohengiralt.minecraftservermanager.security.MonitorPrincipal
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.*
 import io.ktor.serialization.kotlinx.json.*
@@ -21,6 +23,7 @@ import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import kotlinx.serialization.json.Json
 import org.koin.ktor.ext.get
+import org.koin.ktor.ext.inject
 
 fun Application.configureRouting() {
     install(WebSockets) {
@@ -59,6 +62,10 @@ fun Application.configureRouting() {
     }
 
     routing {
+        get("/ping") { // TODO: delete - unsecured
+            call.respondText("pong")
+        }
+
         authenticate(*httpAuthProviders) {
             route("api/v2") {
                 route("/rest") {
@@ -90,6 +97,20 @@ fun Application.configureRouting() {
         authenticate(*websocketAuthProviders) {
             route("api/v2/websockets") {
                 websockets()
+            }
+        }
+
+        authenticate(*monitorAuthProviders) {
+            route("api/monitor/v1") {
+                val monitorService: MonitorAPIService by inject()
+
+                get("jar") {
+                    val principal = call.principal<MonitorPrincipal>() ?: throw AuthorizationException()
+
+                    val jar = monitorService.getJar(principal.monitorUUID)
+
+                    call.respondFile(jar)
+                }
             }
         }
     }
