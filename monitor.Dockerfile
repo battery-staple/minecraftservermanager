@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG JRE_VERSION=8
+ARG JRE_VERSION=21
 ARG JDK_VERSION=21
 ARG GRADLE_VERSION=8.8
 
@@ -25,12 +25,5 @@ FROM eclipse-temurin:$JRE_VERSION-jre
 COPY --from=build_app /app/monitor/build/native/nativeCompile/monitor /bin/runner/monitor
 
 WORKDIR /bin/runner
-
-ENV minSpaceMB=256
-ENV maxSpaceMB=1024
-ENV name=test
-ENV token='test'
-
-VOLUME data /monitor
 
 CMD ["./monitor"]
