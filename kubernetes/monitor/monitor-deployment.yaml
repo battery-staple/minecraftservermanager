@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: msm-monitor1
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+    - name: minecraft
+      protocol: TCP
+      port: 25565
+  selector:
+    app: msm-monitor1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: msm-monitor1-deployment
+  labels:
+    app: msm-monitor1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: msm-monitor1
+  template:
+    metadata:
+      labels:
+        app: msm-monitor1
+    spec:
+      containers:
+        - name: msm-monitor
+          image: stapledbattery/minecraftservermanager-monitor
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: home
+              mountPath: "/monitor"
+          env:
+            - name: minSpaceMB
+              value: "512"
+            - name: maxSpaceMB
+              value: "2048"
+            - name: name
+              value: test
+            - name: port
+              value: "8080"
+            - name: token
+              valueFrom:
+                secretKeyRef:
+                  name: msm-monitor1
+                  key: token
+          ports:
+            - containerPort: 8080
+            - containerPort: 25565
+      volumes:
+        - name: home
+          persistentVolumeClaim:
+            claimName: msm-monitor1-pvc
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: msm-monitor1-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 128Mi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: msm-monitor1
+type: Opaque
+data:
+  token: "YzJWamNtVjBJU0U9"
+---
