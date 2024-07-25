@@ -30,14 +30,12 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
 ) {
     override val domain: String get() = kubeRunnerConfig[KubeRunnerSpec.domain]
 
-    override suspend fun prepareEnvironment(server: MinecraftServer): KubernetesEnvironment {
+    override suspend fun prepareEnvironment(server: MinecraftServer): KubernetesEnvironment { // TODO: delete all resources if creation of any fails
         val monitorID = 1
 
         val deployment = monitorDeployment(
             id = monitorID,
             serverName = server.name,
-            httpPort = 8080,
-            minecraftPort = 25565,
             minSpaceMB = 512,
             maxSpaceMB = 2048
         )
@@ -49,7 +47,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             logger.error("Failed to create deployment ${deployment.metadata.name} for server ${server.name}", e)
         }
 
-        val service = monitorService(monitorID, httpPort = 8080, minecraftPort = 25565)
+        val service = monitorService(monitorID, httpPort = MONITOR_HTTP_PORT, minecraftPort = MONITOR_MINECRAFT_PORT)
         logger.debug("Creating service ${service.metadata.name} for server ${server.name}")
         try {
             val serviceResponse = kubeCore.createNamespacedService("default", service).execute()
@@ -99,6 +97,11 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
     private val kubeApps = AppsV1Api(kubeClient)
 
     private val logger = LoggerFactory.getLogger(this::class.java)
+
+    companion object {
+        private const val MONITOR_HTTP_PORT = 8080
+        private const val MONITOR_MINECRAFT_PORT = 25565
+    }
 }
 
 class KubernetesEnvironment(

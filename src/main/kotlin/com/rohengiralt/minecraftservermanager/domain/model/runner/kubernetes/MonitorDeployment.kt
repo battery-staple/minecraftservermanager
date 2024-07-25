@@ -16,13 +16,13 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 fun monitorDeployment(
     id: Int,
     serverName: String,
-    httpPort: Int,
-    minecraftPort: Int,
     minSpaceMB: Int,
     maxSpaceMB: Int
 ): V1Deployment {
     val monitorName = monitorName(id)
     val appLabel = appLabel(id)
+    val httpPort = 8080
+    val minecraftPort = 8080
 
     return deployment {
         metadata {
@@ -72,8 +72,8 @@ fun monitorDeployment(
                             }
 
                             ports {
-                                port { containerPort = httpPort; name = httpContainerPortName(id) }
-                                port { containerPort = minecraftPort; name = minecraftContainerPortName(id) }
+                                port { containerPort = httpPort; name = httpContainerPortName() }
+                                port { containerPort = minecraftPort; name = minecraftContainerPortName() }
                             }
                         }
                     }
@@ -115,13 +115,13 @@ fun monitorService(
                 name = "http"
                 protocol = "TCP"
                 port = httpPort
-                targetPort = IntOrString(httpContainerPortName(monitorID))
+                targetPort = IntOrString(httpContainerPortName())
             }
             port {
                 name = "minecraft"
                 protocol = "TCP"
                 port = minecraftPort
-                targetPort = IntOrString(minecraftContainerPortName(monitorID))
+                targetPort = IntOrString(minecraftContainerPortName())
             }
         }
     }
@@ -168,8 +168,6 @@ private fun monitorName(monitorID: Int): String =
 private fun appLabel(monitorID: Int): Map<String, String> =
     mapOf("app" to monitorName(monitorID))
 
-private fun httpContainerPortName(monitorID: Int): String =
-    "${monitorName(monitorID)}-http"
+private fun httpContainerPortName(): String = "http"
 
-private fun minecraftContainerPortName(monitorID: Int): String =
-    "${monitorName(monitorID)}-minecraft"
+private fun minecraftContainerPortName(): String = "minecraft"
