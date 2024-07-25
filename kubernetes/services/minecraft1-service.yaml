@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: msm-minecraft-1
+spec:
+  type: ClusterIP
+  ports:
+    - name: minecraft
+      protocol: TCP
+      port: 25565
+  selector:
+    app: msm-app
+#    app: msm-monitor1

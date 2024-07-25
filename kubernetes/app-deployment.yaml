@@ -8,9 +8,6 @@ spec:
     - name: http
       protocol: TCP
       port: 8080
-    - name: minecraft-1
-      protocol: TCP
-      port: 25565
   selector:
     app: msm-app
 ---
