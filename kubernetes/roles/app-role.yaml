@@ -8,5 +8,5 @@ rules:
     resources: ["pods", "services", "persistentvolumeclaims", "secrets"]
     verbs: ["get", "watch", "list", "create"]
   - apiGroups: ["apps"]
-    resources: ["deployments"]
-    verbs: ["get", "watch", "list", "create"]
+    resources: ["deployments", "deployments/scale"]
+    verbs: ["get", "watch", "list", "create", "update"]

@@ -1,4 +1,4 @@
-package com.rohengiralt.minecraftservermanager.domain.model.runner.kubernetes
+package com.rohengiralt.minecraftservermanager.domain.model.runner.kubernetes.resources
 
 import com.rohengiralt.minecraftservermanager.util.kubernetes.*
 import io.kubernetes.client.custom.IntOrString
@@ -20,7 +20,7 @@ fun monitorDeployment(
     maxSpaceMB: Int
 ): V1Deployment {
     val monitorName = monitorName(id)
-    val appLabel = appLabel(id)
+    val appLabel = monitorLabel(id)
     val httpPort = 8080
     val minecraftPort = 8080
 
@@ -72,8 +72,8 @@ fun monitorDeployment(
                             }
 
                             ports {
-                                port { containerPort = httpPort; name = httpContainerPortName() }
-                                port { containerPort = minecraftPort; name = minecraftContainerPortName() }
+                                port { containerPort = httpPort; name = monitorHttpContainerPortName() }
+                                port { containerPort = minecraftPort; name = monitorMinecraftContainerPortName() }
                             }
                         }
                     }
@@ -97,36 +97,29 @@ fun monitorDeployment(
 /**
  * The service used to expose the monitor
  * @param monitorID a unique ID identifying the monitor
+ * @param httpPort the port to expose for http and websocket traffic
  */
 fun monitorService(
     monitorID: Int,
     httpPort: Int,
-    minecraftPort: Int,
 ) = service {
     metadata {
         name = monitorName(monitorID)
     }
 
     spec {
-        type = "NodePort"
-        selector = appLabel(monitorID)
+        type = "ClusterIP"
+        selector = monitorLabel(monitorID)
         ports {
             port {
                 name = "http"
                 protocol = "TCP"
                 port = httpPort
-                targetPort = IntOrString(httpContainerPortName())
-            }
-            port {
-                name = "minecraft"
-                protocol = "TCP"
-                port = minecraftPort
-                targetPort = IntOrString(minecraftContainerPortName())
+                targetPort = IntOrString(monitorHttpContainerPortName())
             }
         }
     }
 }
-
 /**
  * The PVC used by the monitor to store its data
  * @param monitorID a unique ID identifying the monitor
@@ -156,18 +149,18 @@ fun monitorSecret(monitorID: Int, token: String): V1Secret = secret {
 }
 
 /**
+ * A label used for identifying a monitor instance
+ */
+fun monitorLabel(monitorID: Int): Map<String, String> =
+    mapOf("app" to monitorName(monitorID))
+
+fun monitorHttpContainerPortName(): String = "http"
+
+fun monitorMinecraftContainerPortName(): String = "minecraft"
+
+/**
  * The name for a monitor with id [monitorID].
  * Also used as the prefix for various resources regarding the monitor
  */
 private fun monitorName(monitorID: Int): String =
     "msm-monitor$monitorID"
-
-/**
- * A label used for identifying a monitor instance
- */
-private fun appLabel(monitorID: Int): Map<String, String> =
-    mapOf("app" to monitorName(monitorID))
-
-private fun httpContainerPortName(): String = "http"
-
-private fun minecraftContainerPortName(): String = "minecraft"

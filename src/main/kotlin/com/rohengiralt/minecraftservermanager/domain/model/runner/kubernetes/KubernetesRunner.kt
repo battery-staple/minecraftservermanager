@@ -6,10 +6,14 @@ import com.rohengiralt.minecraftservermanager.domain.model.runner.AbstractMinecr
 import com.rohengiralt.minecraftservermanager.domain.model.runner.EnvironmentUUID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerEnvironment
 import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
+import com.rohengiralt.minecraftservermanager.domain.model.runner.kubernetes.resources.*
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
 import com.rohengiralt.minecraftservermanager.domain.model.server.Port
 import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import com.rohengiralt.minecraftservermanager.domain.repository.EnvironmentRepository
+import com.rohengiralt.minecraftservermanager.domain.repository.InMemoryEnvironmentRepository
+import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerRepository
+import com.rohengiralt.minecraftservermanager.util.extensions.httpClient.logger
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import com.uchuhimo.konf.ConfigSpec
 import io.kubernetes.client.openapi.ApiClient
@@ -18,6 +22,8 @@ import io.kubernetes.client.openapi.apis.AppsV1Api
 import io.kubernetes.client.openapi.apis.CoreV1Api
 import io.kubernetes.client.util.Config
 import kotlinx.coroutines.flow.StateFlow
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import org.slf4j.LoggerFactory
 import java.util.*
 
@@ -47,7 +53,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             logger.error("Failed to create deployment ${deployment.metadata.name} for server ${server.name}", e)
         }
 
-        val service = monitorService(monitorID, httpPort = MONITOR_HTTP_PORT, minecraftPort = MONITOR_MINECRAFT_PORT)
+        val service = monitorService(monitorID, httpPort = MONITOR_HTTP_PORT)
         logger.debug("Creating service ${service.metadata.name} for server ${server.name}")
         try {
             val serviceResponse = kubeCore.createNamespacedService("default", service).execute()
@@ -78,6 +84,9 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             uuid = EnvironmentUUID(UUID.randomUUID()),
             serverUUID = server.uuid,
             runnerUUID = this.uuid,
+            monitorID = monitorID,
+            kubeCore = kubeCore,
+            kubeApps = kubeApps
         )
     }
 
@@ -89,8 +98,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
         TODO("Not yet implemented")
     }
 
-    override val environments: EnvironmentRepository<KubernetesEnvironment>
-        get() = TODO("Not yet implemented")
+    override val environments: EnvironmentRepository<KubernetesEnvironment> = InMemoryEnvironmentRepository() // TODO: PERSISTENT!!
 
     private val kubeClient: ApiClient = Config.defaultClient()
     private val kubeCore = CoreV1Api(kubeClient)
@@ -100,7 +108,6 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
 
     companion object {
         private const val MONITOR_HTTP_PORT = 8080
-        private const val MONITOR_MINECRAFT_PORT = 25565
     }
 }
 
@@ -108,13 +115,56 @@ class KubernetesEnvironment(
     override val uuid: EnvironmentUUID,
     override val serverUUID: ServerUUID,
     override val runnerUUID: RunnerUUID,
-) : MinecraftServerEnvironment {
+    private val monitorID: Int,
+    private val kubeCore: CoreV1Api,
+    private val kubeApps: AppsV1Api
+) : MinecraftServerEnvironment, KoinComponent {
     override suspend fun runServer(port: Port, maxHeapSizeMB: UInt, minHeapSizeMB: UInt): MinecraftServerProcess? {
-        TODO("Not yet implemented")
+        if (port.number != 25565u.toUShort()) {
+            logger.error("Attempted to run server on unsupported port {} in environment {}", port.number, uuid) // TODO: Remove this restriction!
+            return null
+        }
+
+        val server = servers.getServer(serverUUID)
+        if (server == null) {
+            logger.error("Attempted to run deleted server {}", serverUUID)
+            return null
+        }
+
+        configureMinecraftService(port, server)
+
+        scaleMonitor(monitorID, replicas = 1)
+
+        logger.trace("Successfully ran server ${server.name}!")
+        return null
+    }
+
+    private fun scaleMonitor(monitorID: Int, replicas: Int) {
+        // PATCH seems to be broken on the API client currently, so GET and PUT instead. TODO: revisit this later
+        val scale = kubeApps.readNamespacedDeploymentScale("msm-monitor$monitorID-deployment", "default").execute()
+        kubeApps.replaceNamespacedDeploymentScale("msm-monitor$monitorID-deployment", "default", scale.apply {
+            spec.replicas = replicas
+        }).execute()
+    }
+
+    private fun configureMinecraftService(
+        port: Port,
+        server: MinecraftServer
+    ) {
+        val service = monitorMinecraftService("msm-minecraft-1", monitorID, minecraftPort = port.number.toInt())
+        logger.debug("Configuring minecraft service ${service.metadata.name} for server ${server.name}")
+        try {
+            val serviceResponse = kubeCore.createNamespacedService("default", service).execute()
+            logger.debug("Configuring minecraft service ${serviceResponse.metadata.name} for server ${server.name}")
+        } catch (e: ApiException) {
+            logger.error("Failed to configure service ${service.metadata.name} for server ${server.name}", e)
+        }
     }
 
     override val currentProcess: StateFlow<MinecraftServerProcess?>
         get() = TODO("Not yet implemented")
+
+    private val servers: MinecraftServerRepository by inject()
 }
 
 private val kubeRunnerConfig = com.uchuhimo.konf.Config { addSpec(KubeRunnerSpec) }
