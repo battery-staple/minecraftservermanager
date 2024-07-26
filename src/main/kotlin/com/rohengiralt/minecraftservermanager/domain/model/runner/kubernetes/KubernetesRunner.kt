@@ -85,6 +85,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             serverUUID = server.uuid,
             runnerUUID = this.uuid,
             monitorID = monitorID,
+            monitorToken = "asdf",
             kubeCore = kubeCore,
             kubeApps = kubeApps
         )
@@ -105,10 +106,6 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
     private val kubeApps = AppsV1Api(kubeClient)
 
     private val logger = LoggerFactory.getLogger(this::class.java)
-
-    companion object {
-        private const val MONITOR_HTTP_PORT = 8080
-    }
 }
 
 class KubernetesEnvironment(
@@ -116,6 +113,7 @@ class KubernetesEnvironment(
     override val serverUUID: ServerUUID,
     override val runnerUUID: RunnerUUID,
     private val monitorID: Int,
+    private val monitorToken: String,
     private val kubeCore: CoreV1Api,
     private val kubeApps: AppsV1Api
 ) : MinecraftServerEnvironment, KoinComponent {
@@ -131,12 +129,18 @@ class KubernetesEnvironment(
             return null
         }
 
+        logger.trace("Configuring service for port {} to point to server {} ({})", port, server.name, server.uuid)
         configureMinecraftService(port, server)
 
+        logger.trace("Scaling up the monitor for server {} ({})", server.name, server.uuid)
         scaleMonitor(monitorID, replicas = 1)
 
-        logger.trace("Successfully ran server ${server.name}!")
-        return null
+        return MinecraftServerPod(
+            serverName = server.name,
+            hostname = monitorName(monitorID),
+            port = MONITOR_HTTP_PORT,
+            token = monitorToken
+        )
     }
 
     private fun scaleMonitor(monitorID: Int, replicas: Int) {
@@ -166,6 +170,8 @@ class KubernetesEnvironment(
 
     private val servers: MinecraftServerRepository by inject()
 }
+
+private const val MONITOR_HTTP_PORT = 8080
 
 private val kubeRunnerConfig = com.uchuhimo.konf.Config { addSpec(KubeRunnerSpec) }
     .from.env()

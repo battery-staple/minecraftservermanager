@@ -27,7 +27,7 @@ class LocalMinecraftServerProcess(serverName: String, private val process: Proce
             }
         }
 
-    override fun trySend(input: String) {
+    override suspend fun trySend(input: String) {
         val outputStream = process.outputStream
         if (outputStream == null) {
             logger.error("Cannot write to process stdin; could not get output stream") // TODO: propagate this error to the user?
@@ -44,8 +44,8 @@ class LocalMinecraftServerProcess(serverName: String, private val process: Proce
             }
     }
 
-    override fun getStdOut() = getOutputForStream(process.inputStream, "stdout")
-    override fun getStdErr() = getOutputForStream(process.errorStream, "stderr")
+    override suspend fun getStdOut() = getOutputForStream(process.inputStream, "stdout")
+    override suspend fun getStdErr() = getOutputForStream(process.errorStream, "stderr")
 
     private fun getOutputForStream(stream: InputStream?, streamName: String): Flow<String>? {
         logger.trace("Piping output for process $streamName")
@@ -60,7 +60,9 @@ class LocalMinecraftServerProcess(serverName: String, private val process: Proce
             .asFlow()
     }
 
-    override fun waitForExit() = process.waitFor()
+    override suspend fun waitForExit() = withContext(Dispatchers.IO) {
+        process.waitFor()
+    }
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 

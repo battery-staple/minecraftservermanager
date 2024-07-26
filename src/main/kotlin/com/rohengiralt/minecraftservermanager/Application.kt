@@ -26,6 +26,7 @@ import com.rohengiralt.shared.util.assertsEnabled
 import io.ktor.client.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.plugins.websocket.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -65,6 +66,8 @@ fun Application.module() {
                         install(ContentNegotiation) {
                             json(Json { ignoreUnknownKeys = true })
                         }
+
+                        install(WebSockets)
                     }
                 }
                 single<UserIDAuthorizer> { WhitelistFileUserIDAuthorizer() }

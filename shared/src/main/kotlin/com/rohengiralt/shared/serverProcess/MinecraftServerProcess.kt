@@ -126,7 +126,7 @@ abstract class PipingMinecraftServerProcess(private val serverName: String) : Mi
     /**
      * Sends a message to the minecraft server, or throws an IOException if not possible.
      */
-    protected abstract fun trySend(input: String)
+    protected abstract suspend fun trySend(input: String)
 
     /**
      * The job that handles piping from the process' standard output
@@ -174,12 +174,12 @@ abstract class PipingMinecraftServerProcess(private val serverName: String) : Mi
     /**
      * Returns a flow that contains each message in the server's standard out as it is sent.
      */
-    protected abstract fun getStdOut(): Flow<String>?
+    protected abstract suspend fun getStdOut(): Flow<String>?
 
     /**
      * Returns a flow that contains each message in the server's standard error as it is sent.
      */
-    protected abstract fun getStdErr(): Flow<String>?
+    protected abstract suspend fun getStdErr(): Flow<String>?
 
     /**
      * The job that handles cleanup when the process ends.
@@ -190,7 +190,7 @@ abstract class PipingMinecraftServerProcess(private val serverName: String) : Mi
             status = withContext(Dispatchers.IO) {
                 waitForExit()
             }
-            logger.info("Minecraft Server ended with exit code $status")
+            logger.info("Minecraft Server ended with exit code ${status ?: "unknown"}")
             cancelAllJobs()
         } catch (e: CancellationException) {
             logger.info("Process end job cancelled")
@@ -205,10 +205,10 @@ abstract class PipingMinecraftServerProcess(private val serverName: String) : Mi
     }
 
     /**
-     * Blocks until the server ends.
-     * @return the server's exit code
+     * Suspends until the server ends.
+     * @return the server's exit code, or null if unknown
      */
-    protected abstract fun waitForExit(): Int
+    protected abstract suspend fun waitForExit(): Int?
 
     /**
      * Helper method to cancel all running jobs to avoid wasting resources after the process ends.

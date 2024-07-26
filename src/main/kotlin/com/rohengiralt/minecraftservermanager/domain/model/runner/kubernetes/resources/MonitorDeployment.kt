@@ -162,5 +162,5 @@ fun monitorMinecraftContainerPortName(): String = "minecraft"
  * The name for a monitor with id [monitorID].
  * Also used as the prefix for various resources regarding the monitor
  */
-private fun monitorName(monitorID: Int): String =
+fun monitorName(monitorID: Int): String =
     "msm-monitor$monitorID"
