@@ -10,7 +10,6 @@ import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.flow.*
 import org.slf4j.LoggerFactory
 import java.io.IOException
-import java.io.InputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration
 
@@ -71,28 +70,10 @@ interface MinecraftServerProcess {
     }
 }
 
-/**
- * Constructs a new [MinecraftServerProcess] instance
- * @param name the name of the server process
- * @param process the underlying Java process to wrap
- */
-fun MinecraftServerProcess(name: String, process: Process): MinecraftServerProcess =
-    MinecraftServerProcessImpl(name, process)
-
-private class MinecraftServerProcessImpl(private val name: String?, private val process: Process) : MinecraftServerProcess {
+abstract class PipingMinecraftServerProcess(private val serverName: String) : MinecraftServerProcess {
     override val output: Flow<ProcessMessage<Output>> get() = _output.asSharedFlow()
     override val input: SendChannel<String> get() = _input
     override val interleavedIO: Flow<ProcessMessage<ServerIO>> get() = _interleavedIO.asSharedFlow()
-
-    override suspend fun stop(softTimeout: Duration, additionalForcibleTimeout: Duration): Int? = withContext(Dispatchers.IO) {
-        withTimeoutOrNull(timeout = softTimeout) {
-            process.destroy()
-            process.waitFor()
-        } ?: withTimeoutOrNull(timeout = additionalForcibleTimeout) {
-            process.destroyForcibly()
-            process.waitFor()
-        }
-    }
 
     /**
      * The [MutableSharedFlow] that underlies [interleavedIO].
@@ -108,73 +89,79 @@ private class MinecraftServerProcessImpl(private val name: String?, private val 
     private val _input: Channel<String> = Channel()
 
     /**
+     * The [MutableSharedFlow] that underlies [output].
+     * This field is necessary to allow sending to the flow from within this class but not from outside.
+     */
+    private val _output: MutableSharedFlow<ProcessMessage<Output>> = MutableSharedFlow(Channel.UNLIMITED)
+    private val scope = CoroutineScope(Dispatchers.IO) // All jobs are likely to block often, so Dispatchers.IO is best
+    private val jobs = mutableListOf<Job>()
+    private val jobsAreInitialized = AtomicBoolean()
+    private val logger = LoggerFactory.getLogger(this::class.java)
+
+    /**
      * The job that handles piping from [input] into the process' standard input and [interleavedIO].
      */
-    private suspend fun Process.inputChannelJob() {
+    private suspend fun inputChannelJob() {
         logger.info("Input channel job started")
         _input
             .consumeAsFlow()
             .flowOn(Dispatchers.IO)
             .collect { input ->
-                logger.debug("Process got new input: $input")
-                (outputStream ?: return@collect logger.error("Cannot write to process stdin; could not get output stream")) // TODO: propagate this error to the user?
-                    .bufferedWriter()
-                    .run {
-                        try {
-                            val cleanedInput = input.trimEnd()
-                            logger.trace("Sending message to interleavedIO")
-                            _interleavedIO.emit(ProcessMessage.IO(InputMessage(cleanedInput)))
-                            logger.trace("Sending message to process")
-                            append(cleanedInput + "\n") // newline is needed for the minecraft server
-                                                        // to consider it a new command
-                            flush() // Ensure it's sent to the server immediately; don't want to wait for more messages
-                        } catch (e: IOException) {
-                            logger.warn("Cannot send input $input to server, got exception $e")
-                        }
-                    }
-                    .also { logger.trace("Sent input to server: $input") }
+                try {
+                    logger.trace("Got new input: $input")
+                    val cleanedInput = input.trimEnd()
+
+                    trySend(cleanedInput)
+
+                    logger.trace("Sending input message to interleavedIO")
+                    _interleavedIO.emit(ProcessMessage.IO(InputMessage(cleanedInput)))
+
+                    logger.debug("Sent input: $input")
+                } catch (e: IOException) {
+                    logger.warn("Cannot send input $input", e)
+                }
             }
     }
 
     /**
-     * The [MutableSharedFlow] that underlies [output].
-     * This field is necessary to allow sending to the flow from within this class but not from outside.
+     * Sends a message to the minecraft server, or throws an IOException if not possible.
      */
-    private val _output: MutableSharedFlow<ProcessMessage<Output>> = MutableSharedFlow(Channel.UNLIMITED)
+    protected abstract fun trySend(input: String)
 
     /**
      * The job that handles piping from the process' standard output
      * and standard error into [output] and [interleavedIO].
      */
-    private suspend fun Process.outputChannelJob() = coroutineScope {
+    private suspend fun outputChannelJob() = coroutineScope {
         logger.info("Output channel job started")
-        launch { pipeOutputJob(stream = inputStream, createMessage = Output::LogMessage, streamName = "stdout") }
-        launch { pipeOutputJob(stream = errorStream, createMessage = Output::ErrorMessage, streamName = "stderr") }
+        launch { pipeOutputJob(getStdOut(), createMessage = Output::LogMessage, streamName = "stdout") }
+        launch { pipeOutputJob(getStdErr(), createMessage = Output::ErrorMessage, streamName = "stderr") }
         logger.debug("Output channel job ended")
     }
 
     /**
      * Helper method to pipe from an output stream into [output] and [interleavedIO].
      */
-    private suspend fun pipeOutputJob(stream: InputStream?, createMessage: (String) -> Output, streamName: String) {
-        logger.trace("Piping output for output stream $streamName")
+    private suspend fun pipeOutputJob(output: Flow<String>?, createMessage: (String) -> Output, streamName: String) {
         try {
-            (stream ?: return logger.error("Cannot read from process $streamName; could not get stream")) // TODO: propagate this error to the user?
-                .bufferedReader()
-                .lineSequence()
-                .forEach {
-                    try {
-                        logger.debug("[SERVER $name]: $it")
+            if (output == null) {
+                logger.error("Cannot read from stream $streamName")
+                return
+            }
 
-                        logger.trace("Sending message to output")
-                        _output.emit(ProcessMessage.IO(createMessage(it)))
+            output.collect {
+                try {
+                    logger.debug("[SERVER $streamName $serverName]: $it")
 
-                        logger.trace("Sending message to interleavedIO")
-                        _interleavedIO.emit(ProcessMessage.IO(createMessage(it)))
-                    } catch (e: IOException) {
-                        logger.warn("Cannot read server output, got exception $e")
-                    }
+                    logger.trace("Sending message to output")
+                    _output.emit(ProcessMessage.IO(createMessage(it)))
+
+                    logger.trace("Sending output message to interleavedIO")
+                    _interleavedIO.emit(ProcessMessage.IO(createMessage(it)))
+                } catch (e: IOException) {
+                    logger.warn("Cannot read server output, got exception $e")
                 }
+            }
         } catch (e: CancellationException) {
             logger.info("Output channel job for $streamName cancelled")
         } catch (e: Throwable) {
@@ -185,15 +172,25 @@ private class MinecraftServerProcessImpl(private val name: String?, private val 
     }
 
     /**
+     * Returns a flow that contains each message in the server's standard out as it is sent.
+     */
+    protected abstract fun getStdOut(): Flow<String>?
+
+    /**
+     * Returns a flow that contains each message in the server's standard error as it is sent.
+     */
+    protected abstract fun getStdErr(): Flow<String>?
+
+    /**
      * The job that handles cleanup when the process ends.
      */
-    private suspend fun Process.endJob() {
+    private suspend fun endJob() {
         var status: Int? = null
         try {
             status = withContext(Dispatchers.IO) {
-                waitFor()
+                waitForExit()
             }
-            logger.info("Minecraft Server ended with exit code ${exitValue()}")
+            logger.info("Minecraft Server ended with exit code $status")
             cancelAllJobs()
         } catch (e: CancellationException) {
             logger.info("Process end job cancelled")
@@ -208,6 +205,12 @@ private class MinecraftServerProcessImpl(private val name: String?, private val 
     }
 
     /**
+     * Blocks until the server ends.
+     * @return the server's exit code
+     */
+    protected abstract fun waitForExit(): Int
+
+    /**
      * Helper method to cancel all running jobs to avoid wasting resources after the process ends.
      */
     private fun cancelAllJobs() {
@@ -216,20 +219,19 @@ private class MinecraftServerProcessImpl(private val name: String?, private val 
         jobs.forEach { job -> job.cancel() }
     }
 
-    private val scope = CoroutineScope(Dispatchers.IO) // All jobs are likely to block often, so Dispatchers.IO is best
-    private val jobs = mutableListOf<Job>()
-    private val jobsAreInitialized = AtomicBoolean()
-    private val logger = LoggerFactory.getLogger(this::class.java)
+    /**
+     * Begins piping to and from [input], [output], and [interleavedIO].
+     * Precondition: this method MUST be called after all properties are initialized;
+     * usually at the end of the constructor.
+     */
+    protected fun initIO() {
+        assertAllPropertiesNotNull() // Ensure all properties are initialized
 
-    init { // This init block MUST be at end so that all properties used in jobs are initialized
-        assertAllPropertiesNotNull() // Ensure all properties *are* initialized
-
-        jobs += scope.launch { process.inputChannelJob() }
-        jobs += scope.launch { process.outputChannelJob() }
-        jobs += scope.launch { process.endJob() }
+        jobs += scope.launch { inputChannelJob() }
+        jobs += scope.launch { outputChannelJob() }
+        jobs += scope.launch { endJob() }
 
         jobsAreInitialized.set(true)
         logger.debug("Launched all jobs")
     }
-
 }
