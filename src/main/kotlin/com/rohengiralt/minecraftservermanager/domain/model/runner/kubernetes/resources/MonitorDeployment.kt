@@ -6,8 +6,6 @@ import io.kubernetes.client.custom.Quantity
 import io.kubernetes.client.openapi.models.V1Deployment
 import io.kubernetes.client.openapi.models.V1PersistentVolumeClaim
 import io.kubernetes.client.openapi.models.V1Secret
-import kotlin.io.encoding.Base64
-import kotlin.io.encoding.ExperimentalEncodingApi
 
 /**
  * A Kubernetes deployment for creating a monitor microservice
@@ -139,13 +137,12 @@ fun monitorPVC(monitorID: Int, storageMiB: Int): V1PersistentVolumeClaim = persi
     }
 }
 
-@OptIn(ExperimentalEncodingApi::class)
 fun monitorSecret(monitorID: Int, token: String): V1Secret = secret {
     metadata {
         name = monitorName(monitorID)
     }
     type = "Opaque"
-    data = mutableMapOf("token" to Base64.encode(token.toByteArray()).toByteArray())
+    data = mutableMapOf("token" to token.toByteArray())
 }
 
 /**

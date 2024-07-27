@@ -9,10 +9,10 @@ spec:
       protocol: TCP
       port: 8080
       targetPort: "http"
-    - name: minecraft
-      protocol: TCP
-      port: 25565
-      targetPort: "minecraft"
+#    - name: minecraft
+#      protocol: TCP
+#      port: 25565
+#      targetPort: "minecraft"
   selector:
     app: msm-monitor1
 ---
@@ -82,5 +82,5 @@ metadata:
   name: msm-monitor1
 type: Opaque
 data:
-  token: "YzJWamNtVjBJU0U9"
+  token: "YXNkZg=="
 ---
