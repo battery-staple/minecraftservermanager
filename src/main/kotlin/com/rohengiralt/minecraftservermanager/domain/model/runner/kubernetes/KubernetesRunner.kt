@@ -15,11 +15,9 @@ import com.rohengiralt.minecraftservermanager.domain.repository.InMemoryEnvironm
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerRepository
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import com.uchuhimo.konf.ConfigSpec
-import io.kubernetes.client.openapi.ApiClient
 import io.kubernetes.client.openapi.ApiException
 import io.kubernetes.client.openapi.apis.AppsV1Api
 import io.kubernetes.client.openapi.apis.CoreV1Api
-import io.kubernetes.client.util.Config
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -94,8 +92,6 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             runnerUUID = this.uuid,
             monitorID = monitorID,
             monitorToken = monitorToken,
-            kubeCore = kubeCore,
-            kubeApps = kubeApps
         )
     }
 
@@ -122,9 +118,8 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
 
     override val environments: EnvironmentRepository<KubernetesEnvironment> = InMemoryEnvironmentRepository() // TODO: PERSISTENT!!
 
-    private val kubeClient: ApiClient = Config.defaultClient()
-    private val kubeCore = CoreV1Api(kubeClient)
-    private val kubeApps = AppsV1Api(kubeClient)
+    private val kubeCore: CoreV1Api by inject()
+    private val kubeApps: AppsV1Api by inject()
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 }
@@ -135,8 +130,6 @@ class KubernetesEnvironment(
     override val runnerUUID: RunnerUUID,
     private val monitorID: String,
     private val monitorToken: String,
-    private val kubeCore: CoreV1Api,
-    private val kubeApps: AppsV1Api
 ) : MinecraftServerEnvironment, KoinComponent {
     override suspend fun runServer(port: Port, maxHeapSizeMB: UInt, minHeapSizeMB: UInt): MinecraftServerProcess? {
         if (port.number != 25565u.toUShort()) {
@@ -207,6 +200,8 @@ class KubernetesEnvironment(
     override val currentProcess: StateFlow<MinecraftServerProcess?> = _currentProcess.asStateFlow()
 
     private val servers: MinecraftServerRepository by inject()
+    private val kubeCore: CoreV1Api by inject()
+    private val kubeApps: AppsV1Api by inject()
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 }

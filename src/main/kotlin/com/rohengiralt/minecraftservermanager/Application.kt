@@ -31,6 +31,10 @@ import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
+import io.kubernetes.client.openapi.ApiClient
+import io.kubernetes.client.openapi.apis.AppsV1Api
+import io.kubernetes.client.openapi.apis.CoreV1Api
+import io.kubernetes.client.util.Config
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.koin.dsl.module
@@ -70,8 +74,12 @@ fun Application.module() {
                         install(WebSockets)
                     }
                 }
-                single<UserIDAuthorizer> { WhitelistFileUserIDAuthorizer() }
                 single<Json> { Json { ignoreUnknownKeys = false } }
+                single<ApiClient> { Config.defaultClient() }
+                single<CoreV1Api> { CoreV1Api(get()) }
+                single<AppsV1Api> { AppsV1Api(get()) }
+
+                single<UserIDAuthorizer> { WhitelistFileUserIDAuthorizer() }
                 single<MinecraftServerRepository> { DatabaseMinecraftServerRepository() }
                 single<MinecraftJarAPI> { RedundantFallbackAPI() }
                 single<MinecraftServerPastRunRepository> { DatabaseMinecraftServerPastRunRepository() }
