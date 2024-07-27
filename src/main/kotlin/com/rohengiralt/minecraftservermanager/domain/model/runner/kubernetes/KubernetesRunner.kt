@@ -20,14 +20,19 @@ import io.kubernetes.client.openapi.ApiException
 import io.kubernetes.client.openapi.apis.AppsV1Api
 import io.kubernetes.client.openapi.apis.CoreV1Api
 import io.kubernetes.client.util.Config
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.slf4j.LoggerFactory
+import java.security.SecureRandom
 import java.util.*
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 
 /**
  * Runs Minecraft Servers by deploying them to their own container in a Kubernetes cluster
@@ -40,7 +45,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
 
     override suspend fun prepareEnvironment(server: MinecraftServer): KubernetesEnvironment { // TODO: delete all resources if creation of any fails
         val monitorID = server.uuid.value.toString()
-        val monitorToken = "asdf" // TODO: REAL TOKEN!!
+        val monitorToken = generateNewMonitorToken()
 
         val service = monitorService(monitorID, httpPort = MONITOR_HTTP_PORT)
         logger.debug("Creating service ${service.metadata.name} for server ${server.name}")
@@ -93,6 +98,19 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             kubeApps = kubeApps
         )
     }
+
+    @OptIn(ExperimentalEncodingApi::class)
+    private suspend fun generateNewMonitorToken() = withContext(Dispatchers.IO) { // nextBytes may block
+        val tokenBytes = ByteArray(128)
+        secureRandom.nextBytes(tokenBytes)
+
+        val token = Base64.encode(tokenBytes)
+
+        assert(!tokenBytes.all { it == 0.toByte() }) // make sure all bytes were filled
+        return@withContext token
+    }
+
+    private val secureRandom = SecureRandom()
 
     override suspend fun cleanupEnvironment(environment: MinecraftServerEnvironment): Boolean {
         TODO("Not yet implemented")
