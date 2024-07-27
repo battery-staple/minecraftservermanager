@@ -31,6 +31,10 @@ dependencies {
 
     testImplementation("io.ktor:ktor-server-tests-jvm")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
+
+    implementation("com.google.guava:guava:33.2.1-jre") {
+        because("needed for hashing")
+    }
 }
 
 graalvmNative {

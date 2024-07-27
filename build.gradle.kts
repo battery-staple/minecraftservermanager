@@ -74,6 +74,7 @@ dependencies {
     implementation("com.uchuhimo:konf:1.1.2") {
         exclude(group = "pull-parser", module = "pull-parser") // https://stackoverflow.com/questions/71910861/failed-to-auto-configure-default-logger-context-joranexception-parser-configu
     }
+    implementation("com.google.guava:guava:33.2.1-jre")
 
     implementation("io.ktor:ktor-server-auth-jvm:$ktor_version")
     implementation("io.ktor:ktor-server-core-jvm:$ktor_version")

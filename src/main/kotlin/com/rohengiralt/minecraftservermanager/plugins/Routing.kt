@@ -105,11 +105,23 @@ fun Application.configureRouting() {
                 val monitorService: MonitorAPIService by inject()
 
                 get("jar") {
+                    call.application.log.debug("Received monitor jar request")
                     val principal = call.principal<MonitorPrincipal>() ?: throw AuthorizationException()
+                    call.application.log.info("Serving jar for {}", principal)
 
                     val jar = monitorService.getJar(principal.monitorUUID)
 
                     call.respondFile(jar)
+                }
+
+                get("sha1") {
+                    call.application.log.debug("Received monitor jar sha1 request")
+                    val principal = call.principal<MonitorPrincipal>() ?: throw AuthorizationException()
+                    call.application.log.info("Serving sha1 for {}", principal)
+
+                    val hash = monitorService.getSHA1(principal.monitorUUID)
+
+                    call.respondBytes(hash)
                 }
             }
         }
