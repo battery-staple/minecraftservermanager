@@ -13,7 +13,7 @@ import io.kubernetes.client.custom.IntOrString
  */
 fun monitorMinecraftService(
     serviceName: String,
-    monitorID: Int,
+    monitorID: String,
     minecraftPort: Int,
 ) = service {
     metadata {

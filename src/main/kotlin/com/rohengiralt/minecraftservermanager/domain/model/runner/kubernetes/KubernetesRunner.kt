@@ -39,7 +39,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
     override val domain: String get() = kubeRunnerConfig[KubeRunnerSpec.domain]
 
     override suspend fun prepareEnvironment(server: MinecraftServer): KubernetesEnvironment { // TODO: delete all resources if creation of any fails
-        val monitorID = 1
+        val monitorID = server.uuid.value.toString()
         val monitorToken = "asdf" // TODO: REAL TOKEN!!
 
         val service = monitorService(monitorID, httpPort = MONITOR_HTTP_PORT)
@@ -115,7 +115,7 @@ class KubernetesEnvironment(
     override val uuid: EnvironmentUUID,
     override val serverUUID: ServerUUID,
     override val runnerUUID: RunnerUUID,
-    private val monitorID: Int,
+    private val monitorID: String,
     private val monitorToken: String,
     private val kubeCore: CoreV1Api,
     private val kubeApps: AppsV1Api
@@ -151,11 +151,11 @@ class KubernetesEnvironment(
         return newPod
     }
 
-    private fun scaleMonitor(monitorID: Int, replicas: Int): Boolean {
+    private fun scaleMonitor(monitorID: String, replicas: Int): Boolean {
         try {
             // PATCH seems to be broken on the API client currently, so GET and PUT instead. TODO: revisit this later
-            val scale = kubeApps.readNamespacedDeploymentScale("msm-monitor$monitorID-deployment", "default").execute()
-            kubeApps.replaceNamespacedDeploymentScale("msm-monitor$monitorID-deployment", "default", scale.apply {
+            val scale = kubeApps.readNamespacedDeploymentScale(monitorName(monitorID), "default").execute()
+            kubeApps.replaceNamespacedDeploymentScale(monitorName(monitorID), "default", scale.apply {
                 spec.replicas = replicas
             }).execute()
             return true

@@ -12,7 +12,7 @@ import io.kubernetes.client.openapi.models.V1Secret
  * @param id a unique ID identifying this monitor.
  */
 fun monitorDeployment(
-    id: Int,
+    id: String,
     serverName: String,
     minSpaceMB: Int,
     maxSpaceMB: Int
@@ -24,7 +24,7 @@ fun monitorDeployment(
 
     return deployment {
         metadata {
-            name = "$monitorName-deployment"
+            name = monitorName
             labels = appLabel
         }
 
@@ -43,7 +43,7 @@ fun monitorDeployment(
                     containers {
                         container {
                             name = "$monitorName-container"
-                            image = "stapledbattery/minecraftservermanager-monitor"
+                            image = "localhost:5000/stapledbattery/minecraftservermanager-monitor"
                             imagePullPolicy = "Always"
 
                             volumeMounts {
@@ -98,7 +98,7 @@ fun monitorDeployment(
  * @param httpPort the port to expose for http and websocket traffic
  */
 fun monitorService(
-    monitorID: Int,
+    monitorID: String,
     httpPort: Int,
 ) = service {
     metadata {
@@ -122,7 +122,7 @@ fun monitorService(
  * The PVC used by the monitor to store its data
  * @param monitorID a unique ID identifying the monitor
  */
-fun monitorPVC(monitorID: Int, storageMiB: Int): V1PersistentVolumeClaim = persistentVolumeClaim {
+fun monitorPVC(monitorID: String, storageMiB: Int): V1PersistentVolumeClaim = persistentVolumeClaim {
     metadata {
         name = "msm-monitor$monitorID-pvc"
     }
@@ -137,7 +137,7 @@ fun monitorPVC(monitorID: Int, storageMiB: Int): V1PersistentVolumeClaim = persi
     }
 }
 
-fun monitorSecret(monitorID: Int, token: String): V1Secret = secret {
+fun monitorSecret(monitorID: String, token: String): V1Secret = secret {
     metadata {
         name = monitorName(monitorID)
     }
@@ -148,7 +148,7 @@ fun monitorSecret(monitorID: Int, token: String): V1Secret = secret {
 /**
  * A label used for identifying a monitor instance
  */
-fun monitorLabel(monitorID: Int): Map<String, String> =
+fun monitorLabel(monitorID: String): Map<String, String> =
     mapOf("app" to monitorName(monitorID))
 
 fun monitorHttpContainerPortName(): String = "http"
@@ -159,5 +159,5 @@ fun monitorMinecraftContainerPortName(): String = "minecraft"
  * The name for a monitor with id [monitorID].
  * Also used as the prefix for various resources regarding the monitor
  */
-fun monitorName(monitorID: Int): String =
-    "msm-monitor$monitorID"
+fun monitorName(monitorID: String): String =
+    "msm-monitor-$monitorID"
