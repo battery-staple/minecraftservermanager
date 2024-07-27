@@ -97,6 +97,7 @@ fun Application.module() {
                     HardcodedMinecraftServerRunnerRepository()
                 }
                 single<LocalEnvironmentRepository> { LocalEnvironmentRepository() }
+                single<DatabaseKubernetesEnvironmentRepository> { DatabaseKubernetesEnvironmentRepository() }
                 single<CurrentRunRepository> { InMemoryCurrentRunRepository() }
                 single<MinecraftServerCurrentRunRecordRepository> { DatabaseMinecraftServerCurrentRunRecordRepository() }
                 single<UserPreferencesRepository> { DatabaseUserPreferencesRepository() }

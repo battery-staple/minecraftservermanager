@@ -10,8 +10,7 @@ import com.rohengiralt.minecraftservermanager.domain.model.runner.kubernetes.res
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
 import com.rohengiralt.minecraftservermanager.domain.model.server.Port
 import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
-import com.rohengiralt.minecraftservermanager.domain.repository.EnvironmentRepository
-import com.rohengiralt.minecraftservermanager.domain.repository.InMemoryEnvironmentRepository
+import com.rohengiralt.minecraftservermanager.domain.repository.DatabaseKubernetesEnvironmentRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerRepository
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import com.uchuhimo.konf.ConfigSpec
@@ -29,8 +28,6 @@ import org.koin.core.component.inject
 import org.slf4j.LoggerFactory
 import java.security.SecureRandom
 import java.util.*
-import kotlin.io.encoding.Base64
-import kotlin.io.encoding.ExperimentalEncodingApi
 
 /**
  * Runs Minecraft Servers by deploying them to their own container in a Kubernetes cluster
@@ -42,7 +39,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
     override val domain: String get() = kubeRunnerConfig[KubeRunnerSpec.domain]
 
     override suspend fun prepareEnvironment(server: MinecraftServer): KubernetesEnvironment { // TODO: delete all resources if creation of any fails
-        val monitorID = server.uuid.value.toString()
+        val monitorID = getMonitorID(server.uuid)
         val monitorToken = generateNewMonitorToken()
 
         val service = monitorService(monitorID, httpPort = MONITOR_HTTP_PORT)
@@ -63,7 +60,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             logger.error("Failed to create PVC ${homePVC.metadata.name} for server ${server.name}", e)
         }
 
-        val secret = monitorSecret(monitorID, monitorToken)
+        val secret = monitorSecret(monitorID, monitorToken.asString())
         logger.debug("Creating secret ${secret.metadata.name} for server ${server.name}")
         try {
             val secretResponse = kubeCore.createNamespacedSecret("default", secret).execute()
@@ -90,20 +87,16 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             uuid = EnvironmentUUID(UUID.randomUUID()),
             serverUUID = server.uuid,
             runnerUUID = this.uuid,
-            monitorID = monitorID,
             monitorToken = monitorToken,
         )
     }
 
-    @OptIn(ExperimentalEncodingApi::class)
     private suspend fun generateNewMonitorToken() = withContext(Dispatchers.IO) { // nextBytes may block
         val tokenBytes = ByteArray(128)
         secureRandom.nextBytes(tokenBytes)
 
-        val token = Base64.encode(tokenBytes)
-
         assert(!tokenBytes.all { it == 0.toByte() }) // make sure all bytes were filled
-        return@withContext token
+        return@withContext MonitorToken(bytes = tokenBytes)
     }
 
     private val secureRandom = SecureRandom()
@@ -116,20 +109,24 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
         TODO("Not yet implemented")
     }
 
-    override val environments: EnvironmentRepository<KubernetesEnvironment> = InMemoryEnvironmentRepository() // TODO: PERSISTENT!!
+    override val environments: DatabaseKubernetesEnvironmentRepository by inject()
 
     private val kubeCore: CoreV1Api by inject()
     private val kubeApps: AppsV1Api by inject()
 
     private val logger = LoggerFactory.getLogger(this::class.java)
+
+    companion object {
+        fun getMonitorID(server: ServerUUID) =
+            server.value.toString()
+    }
 }
 
 class KubernetesEnvironment(
     override val uuid: EnvironmentUUID,
     override val serverUUID: ServerUUID,
     override val runnerUUID: RunnerUUID,
-    private val monitorID: String,
-    private val monitorToken: String,
+    val monitorToken: MonitorToken,
 ) : MinecraftServerEnvironment, KoinComponent {
     override suspend fun runServer(port: Port, maxHeapSizeMB: UInt, minHeapSizeMB: UInt): MinecraftServerProcess? {
         if (port.number != 25565u.toUShort()) {
@@ -198,6 +195,8 @@ class KubernetesEnvironment(
 
     private val _currentProcess: MutableStateFlow<MinecraftServerProcess?> = MutableStateFlow(null)
     override val currentProcess: StateFlow<MinecraftServerProcess?> = _currentProcess.asStateFlow()
+
+    private val monitorID = KubernetesRunner.getMonitorID(serverUUID)
 
     private val servers: MinecraftServerRepository by inject()
     private val kubeCore: CoreV1Api by inject()

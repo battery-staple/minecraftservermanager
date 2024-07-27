@@ -27,7 +27,7 @@ class MinecraftServerPod(
     serverName: String,
     private val hostname: String,
     private val port: Int,
-    private val token: String,
+    private val token: MonitorToken,
 ) : PipingMinecraftServerProcess(serverName), KoinComponent {
     private val client: HttpClient by inject()
     private val coroutineScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -73,7 +73,7 @@ class MinecraftServerPod(
                 path("/io")
             }
 
-            bearerAuth(token)
+            bearerAuth(token.asString())
         }
     }
 
