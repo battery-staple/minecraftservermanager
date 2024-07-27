@@ -12,3 +12,16 @@ export async function getRunner(runnerUUID: string): Promise<Runner> {
     }
     return runner
 }
+
+export async function getAllRunners(): Promise<Runner[]> {
+    const runners = await fetchJsonWithTimeoutOrNull<Runner[]>(`http://${await hostname}/api/v2/rest/runners`, DEFAULT_TIMEOUT_MS, {
+        method: "GET",
+        headers: defaultHeaders
+    });
+
+    if (runners === null) {
+        throw Error(`Got invalid response getting runners`)
+    }
+
+    return runners
+}
