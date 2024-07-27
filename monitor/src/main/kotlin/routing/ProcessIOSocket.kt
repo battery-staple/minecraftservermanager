@@ -18,6 +18,8 @@ import kotlinx.serialization.json.Json
  */
 fun Route.processIOSocket(process: MinecraftServerProcess) {
     webSocket("/io") {
+        call.application.environment.log.info("Received web socket connection request")
+
         coroutineScope {
             launch(Dispatchers.IO) {
                 call.application.environment.log.trace("Starting websocket output job")

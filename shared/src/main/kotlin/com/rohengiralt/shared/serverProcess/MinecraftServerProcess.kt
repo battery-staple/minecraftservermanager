@@ -71,9 +71,19 @@ interface MinecraftServerProcess {
 }
 
 abstract class PipingMinecraftServerProcess(private val serverName: String) : MinecraftServerProcess {
-    override val output: Flow<ProcessMessage<Output>> get() = _output.asSharedFlow()
-    override val input: SendChannel<String> get() = _input
-    override val interleavedIO: Flow<ProcessMessage<ServerIO>> get() = _interleavedIO.asSharedFlow()
+    override val output: Flow<ProcessMessage<Output>> by lazy {
+        assertInv()
+        _output.asSharedFlow()
+    }
+
+    override val input: SendChannel<String> by lazy {
+        assertInv()
+        _input
+    }
+    override val interleavedIO: Flow<ProcessMessage<ServerIO>> by lazy {
+        assertInv()
+        _interleavedIO.asSharedFlow()
+    }
 
     /**
      * The [MutableSharedFlow] that underlies [interleavedIO].
@@ -221,8 +231,10 @@ abstract class PipingMinecraftServerProcess(private val serverName: String) : Mi
 
     /**
      * Begins piping to and from [input], [output], and [interleavedIO].
-     * Precondition: this method MUST be called after all properties are initialized;
-     * usually at the end of the constructor.
+     * Precondition: if this function is called at class construction,
+     * it must be called at the end of the constructor after all properties are initialized.
+     * If this method is not called by a subclass, it will be automatically called
+     * on first access of [input], [output], or [interleavedIO]
      */
     protected fun initIO() {
         assertAllPropertiesNotNull() // Ensure all properties are initialized
@@ -233,5 +245,9 @@ abstract class PipingMinecraftServerProcess(private val serverName: String) : Mi
 
         jobsAreInitialized.set(true)
         logger.debug("Launched all jobs")
+    }
+
+    private fun assertInv() {
+        assert(jobsAreInitialized.get()) { "Jobs not yet all initialized" }
     }
 }
