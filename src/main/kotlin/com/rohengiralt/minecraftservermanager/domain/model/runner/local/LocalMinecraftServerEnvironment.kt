@@ -61,7 +61,7 @@ class LocalMinecraftServerEnvironment(
     }
 
     private val _currentProcess: MutableStateFlow<MinecraftServerProcess?> = MutableStateFlow(null)
-    override val currentProcess: StateFlow<MinecraftServerProcess?> = _currentProcess
+    override val currentProcess: StateFlow<MinecraftServerProcess?> = _currentProcess.asStateFlow()
 
     private suspend fun handleProcessEnd(process: MinecraftServerProcess) {
         logger.trace("Waiting for process end")

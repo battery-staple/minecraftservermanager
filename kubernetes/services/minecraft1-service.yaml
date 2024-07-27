@@ -8,6 +8,7 @@ spec:
     - name: minecraft
       protocol: TCP
       port: 25565
+      targetPort: "minecraft"
   selector:
     app: msm-app
 #    app: msm-monitor1

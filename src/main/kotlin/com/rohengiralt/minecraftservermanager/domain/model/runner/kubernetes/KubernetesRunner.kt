@@ -13,7 +13,6 @@ import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import com.rohengiralt.minecraftservermanager.domain.repository.EnvironmentRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.InMemoryEnvironmentRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerRepository
-import com.rohengiralt.minecraftservermanager.util.extensions.httpClient.logger
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import com.uchuhimo.konf.ConfigSpec
 import io.kubernetes.client.openapi.ApiClient
@@ -21,7 +20,10 @@ import io.kubernetes.client.openapi.ApiException
 import io.kubernetes.client.openapi.apis.AppsV1Api
 import io.kubernetes.client.openapi.apis.CoreV1Api
 import io.kubernetes.client.util.Config
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.slf4j.LoggerFactory
@@ -38,20 +40,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
 
     override suspend fun prepareEnvironment(server: MinecraftServer): KubernetesEnvironment { // TODO: delete all resources if creation of any fails
         val monitorID = 1
-
-        val deployment = monitorDeployment(
-            id = monitorID,
-            serverName = server.name,
-            minSpaceMB = 512,
-            maxSpaceMB = 2048
-        )
-        logger.debug("Creating deployment ${deployment.metadata.name} for server ${server.name}")
-        try {
-            val deploymentResponse = kubeApps.createNamespacedDeployment("default", deployment).execute()
-            logger.debug("Created deployment ${deploymentResponse.metadata.name} for server ${server.name}")
-        } catch (e: ApiException) {
-            logger.error("Failed to create deployment ${deployment.metadata.name} for server ${server.name}", e)
-        }
+        val monitorToken = "asdf" // TODO: REAL TOKEN!!
 
         val service = monitorService(monitorID, httpPort = MONITOR_HTTP_PORT)
         logger.debug("Creating service ${service.metadata.name} for server ${server.name}")
@@ -71,7 +60,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             logger.error("Failed to create PVC ${homePVC.metadata.name} for server ${server.name}", e)
         }
 
-        val secret = monitorSecret(monitorID, "asdf") // TODO: real token!!
+        val secret = monitorSecret(monitorID, monitorToken)
         logger.debug("Creating secret ${secret.metadata.name} for server ${server.name}")
         try {
             val secretResponse = kubeCore.createNamespacedSecret("default", secret).execute()
@@ -80,12 +69,26 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             logger.error("Failed to create secret ${secret.metadata.name} for server ${server.name}", e)
         }
 
+        val deployment = monitorDeployment(
+            id = monitorID,
+            serverName = server.name,
+            minSpaceMB = 512,
+            maxSpaceMB = 2048
+        )
+        logger.debug("Creating deployment ${deployment.metadata.name} for server ${server.name}")
+        try {
+            val deploymentResponse = kubeApps.createNamespacedDeployment("default", deployment).execute()
+            logger.debug("Created deployment ${deploymentResponse.metadata.name} for server ${server.name}")
+        } catch (e: ApiException) {
+            logger.error("Failed to create deployment ${deployment.metadata.name} for server ${server.name}", e)
+        }
+
         return KubernetesEnvironment(
             uuid = EnvironmentUUID(UUID.randomUUID()),
             serverUUID = server.uuid,
             runnerUUID = this.uuid,
             monitorID = monitorID,
-            monitorToken = "asdf",
+            monitorToken = monitorToken,
             kubeCore = kubeCore,
             kubeApps = kubeApps
         )
@@ -130,45 +133,64 @@ class KubernetesEnvironment(
         }
 
         logger.trace("Configuring service for port {} to point to server {} ({})", port, server.name, server.uuid)
-        configureMinecraftService(port, server)
+        val serviceSuccess = configureMinecraftService(port, server)
+        if (!serviceSuccess) return null
 
         logger.trace("Scaling up the monitor for server {} ({})", server.name, server.uuid)
-        scaleMonitor(monitorID, replicas = 1)
+        val monitorSuccess = scaleMonitor(monitorID, replicas = 1)
+        if (!monitorSuccess) return null
 
-        return MinecraftServerPod(
+        val newPod = MinecraftServerPod(
             serverName = server.name,
             hostname = monitorName(monitorID),
             port = MONITOR_HTTP_PORT,
             token = monitorToken
         )
+
+        _currentProcess.update { newPod }
+        return newPod
     }
 
-    private fun scaleMonitor(monitorID: Int, replicas: Int) {
-        // PATCH seems to be broken on the API client currently, so GET and PUT instead. TODO: revisit this later
-        val scale = kubeApps.readNamespacedDeploymentScale("msm-monitor$monitorID-deployment", "default").execute()
-        kubeApps.replaceNamespacedDeploymentScale("msm-monitor$monitorID-deployment", "default", scale.apply {
-            spec.replicas = replicas
-        }).execute()
-    }
-
-    private fun configureMinecraftService(
-        port: Port,
-        server: MinecraftServer
-    ) {
-        val service = monitorMinecraftService("msm-minecraft-1", monitorID, minecraftPort = port.number.toInt())
-        logger.debug("Configuring minecraft service ${service.metadata.name} for server ${server.name}")
+    private fun scaleMonitor(monitorID: Int, replicas: Int): Boolean {
         try {
-            val serviceResponse = kubeCore.createNamespacedService("default", service).execute()
-            logger.debug("Configuring minecraft service ${serviceResponse.metadata.name} for server ${server.name}")
+            // PATCH seems to be broken on the API client currently, so GET and PUT instead. TODO: revisit this later
+            val scale = kubeApps.readNamespacedDeploymentScale("msm-monitor$monitorID-deployment", "default").execute()
+            kubeApps.replaceNamespacedDeploymentScale("msm-monitor$monitorID-deployment", "default", scale.apply {
+                spec.replicas = replicas
+            }).execute()
+            return true
         } catch (e: ApiException) {
-            logger.error("Failed to configure service ${service.metadata.name} for server ${server.name}", e)
+            logger.error("Failed to scale monitor deployment to {} for monitor {}", replicas, monitorID, e)
+            return false
         }
     }
 
-    override val currentProcess: StateFlow<MinecraftServerProcess?>
-        get() = TODO("Not yet implemented")
+    /**
+     * Configures the Minecraft service for port [port] to point to [server]'s pod.
+     * @return true if the service is now correctly set
+     */
+    private fun configureMinecraftService(
+        port: Port,
+        server: MinecraftServer
+    ): Boolean {
+        val service = monitorMinecraftService("msm-minecraft-1", monitorID, minecraftPort = port.number.toInt())
+        logger.debug("Configuring minecraft service ${service.metadata.name} for server ${server.name}")
+        try {
+            val serviceResponse = kubeCore.replaceNamespacedService(service.metadata.name, "default", service).execute()
+            logger.debug("Configuring minecraft service ${serviceResponse.metadata.name} for server ${server.name}")
+            return true
+        } catch (e: ApiException) {
+            logger.error("Failed to configure service ${service.metadata.name} for server ${server.name}", e)
+            return false
+        }
+    }
+
+    private val _currentProcess: MutableStateFlow<MinecraftServerProcess?> = MutableStateFlow(null)
+    override val currentProcess: StateFlow<MinecraftServerProcess?> = _currentProcess.asStateFlow()
 
     private val servers: MinecraftServerRepository by inject()
+
+    private val logger = LoggerFactory.getLogger(this::class.java)
 }
 
 private const val MONITOR_HTTP_PORT = 8080
