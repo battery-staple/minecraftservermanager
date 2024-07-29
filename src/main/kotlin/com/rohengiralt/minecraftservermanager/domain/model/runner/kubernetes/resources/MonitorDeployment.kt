@@ -124,7 +124,7 @@ fun monitorService(
  */
 fun monitorPVC(monitorID: String, storageMiB: Int): V1PersistentVolumeClaim = persistentVolumeClaim {
     metadata {
-        name = "msm-monitor$monitorID-pvc"
+        name = "${monitorName(monitorID)}-pvc"
     }
     spec {
         accessModes = listOf("ReadWriteOnce")
