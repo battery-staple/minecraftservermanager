@@ -2,13 +2,13 @@ package com.rohengiralt.minecraftservermanager.domain.repository
 
 import com.rohengiralt.minecraftservermanager.domain.model.runner.EnvironmentUUID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerEnvironment
+import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.LocalMinecraftServerEnvironment
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJarResourceManager
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
 import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.insertSuccess
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.jsonb
-import com.rohengiralt.minecraftservermanager.util.extensions.httpClient.logger
 import com.rohengiralt.minecraftservermanager.util.sql.suspendIOExnTransaction
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -107,6 +107,8 @@ class LocalEnvironmentRepository : EnvironmentRepository<LocalMinecraftServerEnv
             return true
         }
     }
+
+    private val logger = LoggerFactory.getLogger(this::class.java)
 }
 
 /**
@@ -177,6 +179,8 @@ private class DatabaseLocalEnvironmentRepository : EnvironmentRepository<LocalMi
             return null
         }
 
+        val runnerUUID = RunnerUUID(this[LocalEnvironmentTable.runnerUUID])
+
         val contentDirectoryStr = this[LocalEnvironmentTable.contentDirectory]
         val contentDirectory = try {
             Path(contentDirectoryStr)
@@ -196,6 +200,7 @@ private class DatabaseLocalEnvironmentRepository : EnvironmentRepository<LocalMi
         return LocalMinecraftServerEnvironment(
             uuid = uuid,
             serverUUID = serverUUID,
+            runnerUUID = runnerUUID,
             serverName = server.name,
             contentDirectory = contentDirectory,
             jar = jar
@@ -211,6 +216,7 @@ private class DatabaseLocalEnvironmentRepository : EnvironmentRepository<LocalMi
 private object LocalEnvironmentTable : Table() {
     val uuid = uuid("uuid")
     val serverUUID = uuid("server_uuid")
+    val runnerUUID = uuid("runner_uuid")
     val contentDirectory = text("path")
     val jarVersion = jsonb("version", MinecraftVersion.serializer())
 

@@ -23,11 +23,11 @@ import kotlin.io.path.exists
 class LocalMinecraftServerEnvironment(
     override val uuid: EnvironmentUUID,
     override val serverUUID: ServerUUID,
+    override val runnerUUID: RunnerUUID,
     val serverName: String,
     val contentDirectory: Path,
     val jar: MinecraftServerJar
 ) : MinecraftServerEnvironment, KoinComponent {
-    override val runnerUUID: RunnerUUID = LocalMinecraftServerRunner.uuid
 
     override suspend fun runServer(
         port: Port,

@@ -9,8 +9,9 @@ import java.util.*
 // TODO: Allow mutation; storage of changes
 class HardcodedMinecraftServerRunnerRepository : MinecraftServerRunnerRepository {
     private val runners: List<MinecraftServerRunner> = listOf(
-        LocalMinecraftServerRunner,
-        KubernetesRunner(RunnerUUID(UUID.fromString("16e477ad-4cf4-4413-9d17-f246d372211e")) /* Randomly generated, but constant */),
+        // UUIDs randomly generated, but constant
+        LocalMinecraftServerRunner(RunnerUUID(UUID.fromString("d72add0d-4746-4b46-9ecc-2dcd868062f9"))),
+        KubernetesRunner(RunnerUUID(UUID.fromString("16e477ad-4cf4-4413-9d17-f246d372211e"))),
     )
 
     override fun getRunner(uuid: RunnerUUID): MinecraftServerRunner? =

@@ -29,10 +29,17 @@ import kotlin.time.Duration.Companion.seconds
  * Handles creating [MinecraftServerCurrentRun]s and [MinecraftServerPastRun]s when processes are created or end.
  * Also handles graceful recovery from abrupt application exits.
  * @param E the type of environment used by this runner
+ * @param uuid the UUID of this runner
+ * @param name the name of this runner
+ * @param environments where to store the environments created by this runner
  */
 abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
     final override val uuid: RunnerUUID,
     final override var name: String,
+    /**
+     * Stores the environments created by this runner
+     */
+    val environments: EnvironmentRepository<E>
 ) : MinecraftServerRunner, KoinComponent {
 
     /**
@@ -53,11 +60,6 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
      * @return the log for a particular run, or null if retrieval fails
      */
     protected abstract suspend fun getLog(runRecord: MinecraftServerCurrentRunRecord): List<LogEntry>? // TODO: Include as part of MSProcess/Instance
-
-    /**
-     * Stores the environments created by this runner
-     */
-    protected abstract val environments: EnvironmentRepository<E>
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -94,7 +96,7 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
             logger.info("Archived ${runsToArchive.size} left over current run(s)")
             currentRunRecordRepository.removeAllRecords()
         } catch (e: Throwable) {
-            logger.error("Failed to archive left over current run(s), got error: {}", e.message)
+            logger.error("Failed to archive left over current run(s)", e)
         }
     }
 

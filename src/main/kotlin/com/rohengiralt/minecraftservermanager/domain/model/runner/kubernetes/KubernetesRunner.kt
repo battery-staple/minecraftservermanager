@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import org.koin.java.KoinJavaComponent.getKoin
 import org.slf4j.LoggerFactory
 import java.util.*
 
@@ -32,8 +33,10 @@ import java.util.*
  */
 class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<KubernetesEnvironment>(
     uuid = uuid,
-    name = "Kubernetes"
-) {
+    name = "Kubernetes",
+    environments = getKoin().get<DatabaseKubernetesEnvironmentRepository>()
+), KoinComponent {
+
     override val domain: String get() = kubeRunnerConfig[KubeRunnerSpec.domain]
 
     override suspend fun prepareEnvironment(server: MinecraftServer): KubernetesEnvironment { // TODO: delete all resources if creation of any fails
@@ -97,7 +100,6 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
         TODO("Not yet implemented")
     }
 
-    override val environments: DatabaseKubernetesEnvironmentRepository by inject()
     private val tokens: MonitorTokenRepository by inject()
 
     private val kubeCore: CoreV1Api by inject()
@@ -174,7 +176,7 @@ class KubernetesEnvironment(
         logger.debug("Configuring minecraft service ${service.metadata.name} for server ${server.name}")
         try {
             val serviceResponse = kubeCore.replaceNamespacedService(service.metadata.name, "default", service).execute()
-            logger.debug("Configuring minecraft service ${serviceResponse.metadata.name} for server ${server.name}")
+            logger.debug("Configured minecraft service ${serviceResponse.metadata.name} for server ${server.name}")
             return true
         } catch (e: ApiException) {
             logger.error("Failed to configure service ${service.metadata.name} for server ${server.name}", e)
