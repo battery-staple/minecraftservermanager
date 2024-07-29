@@ -38,24 +38,23 @@ class MinecraftServerPod(
         session.sendSerialized(ConsoleMessageAPIModel.Input(input))
     }
 
-    override suspend fun getStdOut(): Flow<String> {
-        val incoming = incomingMessages.await()
-        return incoming
-            .filterIsInstance<ConsoleMessageAPIModel.Output.Log>()
-            .map { message -> message.text }
-    }
+    /**
+     * Backing field for [getStdOut]
+     */
+    private val stdout = MutableSharedFlow<String>()
+    override suspend fun getStdOut(): Flow<String> = stdout.asSharedFlow()
 
-    override suspend fun getStdErr(): Flow<String> {
-        val incoming = incomingMessages.await()
-        return incoming
-            .filterIsInstance<ConsoleMessageAPIModel.Output.ProcessError>()
-            .map { message -> message.text }
-    }
+    /**
+     * Backing field for [getStdErr]
+     */
+    private val stderr = MutableSharedFlow<String>()
+    override suspend fun getStdErr(): Flow<String> = stderr.asSharedFlow()
 
-    override suspend fun waitForExit(): Int? {
-        incomingMessages.await().collect()
-        return null
-    }
+    /**
+     * The code with which the pod's process exited
+     */
+    private val exitCode = CompletableDeferred<Int?>()
+    override suspend fun waitForExit(): Int? = exitCode.await()
 
     override suspend fun stop(softTimeout: Duration, additionalForcibleTimeout: Duration): Int? {
         TODO()
@@ -77,27 +76,52 @@ class MinecraftServerPod(
         }
     }
 
-    /**
-     * The parsed messages sent from the pod.
-     */
-    private val incomingMessages: Deferred<Flow<ConsoleMessageAPIModel.Output>> = coroutineScope.async {
-        val session = session.await()
+    private val json: Json by inject()
+    private val logger = LoggerFactory.getLogger(MinecraftServerPod::class.java)
 
-        val messages = session.incoming
+    /**
+     * Handles the incoming frames from the websocket
+     */
+    private suspend fun DefaultClientWebSocketSession.handleIncoming() {
+        val messages = incoming
             .receiveAsFlow()
-            .onEach { if (it !is Frame.Text) logger.warn("Received non-text frame {}", it) }
+            .onEach { if (it !is Frame.Text) logger.warn("Received non-text frame {}", it) else logger.trace("Incoming message {} from server {}", it.readText(), serverName) }
             .filterIsInstance<Frame.Text>()
             .map { it.readText() }
             .map { json.decodeFromString<ConsoleMessageAPIModel.Output>(it)}
             .onCompletion { logger.debug("Incoming messages from pod for server {} ended", serverName) }
 
-        messages
+        messages.collect { message ->
+            val outputFlow = when (message) {
+                is ConsoleMessageAPIModel.Output.Log -> stdout
+                is ConsoleMessageAPIModel.Output.ProcessError -> stderr
+            }
+
+            outputFlow.emit(message.text)
+        }
     }
 
-    private val json: Json by inject()
-    private val logger = LoggerFactory.getLogger(MinecraftServerPod::class.java)
+    /**
+     * Handles the closing of the websocket
+     */
+    private suspend fun DefaultClientWebSocketSession.handleEnd() {
+        closeReason.await()
+        // if we've reached here, collection has ended which means the websocket has closed. TODO: better way to detect ending
+        exitCode.complete(null) // TODO: actual exit code
+    }
 
     init {
         initIO()
+
+        coroutineScope.launch {
+            val session = session.await()
+            launch {
+                session.handleIncoming()
+            }
+
+            launch {
+                session.handleEnd()
+            }
+        }
     }
 }

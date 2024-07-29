@@ -70,7 +70,7 @@ interface MinecraftServerProcess {
     }
 }
 
-abstract class PipingMinecraftServerProcess(private val serverName: String) : MinecraftServerProcess {
+abstract class PipingMinecraftServerProcess(protected val serverName: String) : MinecraftServerProcess {
     override val output: Flow<ProcessMessage<Output>> by lazy {
         assertInv()
         _output.asSharedFlow()

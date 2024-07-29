@@ -27,6 +27,7 @@ import io.ktor.client.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.websocket.*
+import io.ktor.serialization.kotlinx.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -71,7 +72,9 @@ fun Application.module() {
                             json(Json { ignoreUnknownKeys = true })
                         }
 
-                        install(WebSockets)
+                        install(WebSockets) {
+                            contentConverter = KotlinxWebsocketSerializationConverter(Json { ignoreUnknownKeys = false })
+                        }
                     }
                 }
                 single<Json> { Json { ignoreUnknownKeys = false } }
