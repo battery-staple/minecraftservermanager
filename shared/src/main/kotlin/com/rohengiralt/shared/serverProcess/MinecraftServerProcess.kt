@@ -144,8 +144,8 @@ abstract class PipingMinecraftServerProcess(protected val serverName: String) : 
      */
     private suspend fun outputChannelJob() = coroutineScope {
         logger.info("Output channel job started")
-        launch { pipeOutputJob(getStdOut(), createMessage = Output::LogMessage, streamName = "stdout") }
-        launch { pipeOutputJob(getStdErr(), createMessage = Output::ErrorMessage, streamName = "stderr") }
+        launch { pipeOutputJob(stdOut, createMessage = Output::LogMessage, streamName = "stdout") }
+        launch { pipeOutputJob(stdError, createMessage = Output::ErrorMessage, streamName = "stderr") }
         logger.debug("Output channel job ended")
     }
 
@@ -182,14 +182,14 @@ abstract class PipingMinecraftServerProcess(protected val serverName: String) : 
     }
 
     /**
-     * Returns a flow that contains each message in the server's standard out as it is sent.
+     * A flow that contains each message in the server's standard out as it is sent.
      */
-    protected abstract suspend fun getStdOut(): Flow<String>?
+    protected abstract val stdOut: Flow<String>?
 
     /**
-     * Returns a flow that contains each message in the server's standard error as it is sent.
+     * A flow that contains each message in the server's standard error as it is sent.
      */
-    protected abstract suspend fun getStdErr(): Flow<String>?
+    protected abstract val stdError: Flow<String>?
 
     /**
      * The job that handles cleanup when the process ends.

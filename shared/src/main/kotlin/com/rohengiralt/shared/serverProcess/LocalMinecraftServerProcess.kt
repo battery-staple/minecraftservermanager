@@ -44,8 +44,10 @@ class LocalMinecraftServerProcess(serverName: String, private val process: Proce
             }
     }
 
-    override suspend fun getStdOut() = getOutputForStream(process.inputStream, "stdout")
-    override suspend fun getStdErr() = getOutputForStream(process.errorStream, "stderr")
+    override val stdOut: Flow<String>?
+        get() = getOutputForStream(process.inputStream, "stdout")
+    override val stdError: Flow<String>?
+        get() = getOutputForStream(process.errorStream, "stderr")
 
     private fun getOutputForStream(stream: InputStream?, streamName: String): Flow<String>? {
         logger.trace("Piping output for process $streamName")

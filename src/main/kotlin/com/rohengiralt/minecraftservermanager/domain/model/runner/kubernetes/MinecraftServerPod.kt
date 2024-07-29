@@ -31,6 +31,8 @@ class MinecraftServerPod(
 ) : PipingMinecraftServerProcess(serverName), KoinComponent {
     private val client: HttpClient by inject()
     private val coroutineScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val json: Json by inject()
+    private val logger = LoggerFactory.getLogger(MinecraftServerPod::class.java)
 
     override suspend fun trySend(input: String) {
         val session = session.await()
@@ -38,17 +40,10 @@ class MinecraftServerPod(
         session.sendSerialized(ConsoleMessageAPIModel.Input(input))
     }
 
-    /**
-     * Backing field for [getStdOut]
-     */
-    private val stdout = MutableSharedFlow<String>()
-    override suspend fun getStdOut(): Flow<String> = stdout.asSharedFlow()
-
-    /**
-     * Backing field for [getStdErr]
-     */
-    private val stderr = MutableSharedFlow<String>()
-    override suspend fun getStdErr(): Flow<String> = stderr.asSharedFlow()
+    private val _stdOut: MutableSharedFlow<String> = MutableSharedFlow()
+    override val stdOut: Flow<String> = _stdOut.asSharedFlow()
+    private val _stdError: MutableSharedFlow<String> = MutableSharedFlow()
+    override val stdError: Flow<String> = _stdError.asSharedFlow()
 
     /**
      * The code with which the pod's process exited
@@ -76,9 +71,6 @@ class MinecraftServerPod(
         }
     }
 
-    private val json: Json by inject()
-    private val logger = LoggerFactory.getLogger(MinecraftServerPod::class.java)
-
     /**
      * Handles the incoming frames from the websocket
      */
@@ -93,8 +85,8 @@ class MinecraftServerPod(
 
         messages.collect { message ->
             val outputFlow = when (message) {
-                is ConsoleMessageAPIModel.Output.Log -> stdout
-                is ConsoleMessageAPIModel.Output.ProcessError -> stderr
+                is ConsoleMessageAPIModel.Output.Log -> _stdOut
+                is ConsoleMessageAPIModel.Output.ProcessError -> _stdError
             }
 
             outputFlow.emit(message.text)
