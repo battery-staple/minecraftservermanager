@@ -101,6 +101,7 @@ fun Application.module() {
                 single<CurrentRunRepository> { InMemoryCurrentRunRepository() }
                 single<MinecraftServerCurrentRunRecordRepository> { DatabaseMinecraftServerCurrentRunRecordRepository() }
                 single<UserPreferencesRepository> { DatabaseUserPreferencesRepository() }
+                single<MonitorTokenRepository> { DatabaseMonitorTokenRepository() }
 
                 single<RestAPIService> { RestAPIServiceImpl() }
                 single<WebsocketAPIService> { WebsocketAPIServiceImpl() }

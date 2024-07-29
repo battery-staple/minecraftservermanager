@@ -1,6 +1,8 @@
 package com.rohengiralt.minecraftservermanager.util.sql
 
 import io.ktor.utils.io.errors.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.jetbrains.exposed.sql.Transaction
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -22,7 +24,9 @@ fun <T> ioExnTransaction(statement: Transaction.() -> T): T =
  */
 suspend fun <T> suspendIOExnTransaction(statement: suspend Transaction.() -> T): T =
     try {
-        newSuspendedTransaction(context = null, db = null, transactionIsolation = null, statement)
+        withContext(Dispatchers.IO) {
+            newSuspendedTransaction(context = null, db = null, transactionIsolation = null, statement)
+        }
     } catch (e: SQLException) {
         throw IOException(e)
     }

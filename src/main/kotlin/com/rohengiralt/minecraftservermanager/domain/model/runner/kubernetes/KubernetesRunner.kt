@@ -12,21 +12,19 @@ import com.rohengiralt.minecraftservermanager.domain.model.server.Port
 import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import com.rohengiralt.minecraftservermanager.domain.repository.DatabaseKubernetesEnvironmentRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerRepository
+import com.rohengiralt.minecraftservermanager.domain.repository.MonitorTokenRepository
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import com.uchuhimo.konf.ConfigSpec
 import io.kubernetes.client.openapi.ApiException
 import io.kubernetes.client.openapi.apis.AppsV1Api
 import io.kubernetes.client.openapi.apis.CoreV1Api
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.slf4j.LoggerFactory
-import java.security.SecureRandom
 import java.util.*
 
 /**
@@ -40,7 +38,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
 
     override suspend fun prepareEnvironment(server: MinecraftServer): KubernetesEnvironment { // TODO: delete all resources if creation of any fails
         val monitorID = getMonitorID(server.uuid)
-        val monitorToken = generateNewMonitorToken()
+        val monitorToken = tokens.generateTokenForServer(server.uuid)
 
         val service = monitorService(monitorID, httpPort = MONITOR_HTTP_PORT)
         logger.debug("Creating service ${service.metadata.name} for server ${server.name}")
@@ -55,7 +53,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
         logger.debug("Creating PVC ${homePVC.metadata.name} for server ${server.name}")
         try {
             val homePVCResponse = kubeCore.createNamespacedPersistentVolumeClaim("default", homePVC).execute()
-            logger.debug("Created PersistentVolumeClaim ${homePVCResponse.metadata.name} for server ${server.name}")
+            logger.debug("Created PVC ${homePVCResponse.metadata.name} for server ${server.name}")
         } catch (e: ApiException) {
             logger.error("Failed to create PVC ${homePVC.metadata.name} for server ${server.name}", e)
         }
@@ -91,16 +89,6 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
         )
     }
 
-    private suspend fun generateNewMonitorToken() = withContext(Dispatchers.IO) { // nextBytes may block
-        val tokenBytes = ByteArray(128)
-        secureRandom.nextBytes(tokenBytes)
-
-        assert(!tokenBytes.all { it == 0.toByte() }) // make sure all bytes were filled
-        return@withContext MonitorToken(bytes = tokenBytes)
-    }
-
-    private val secureRandom = SecureRandom()
-
     override suspend fun cleanupEnvironment(environment: MinecraftServerEnvironment): Boolean {
         TODO("Not yet implemented")
     }
@@ -110,6 +98,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
     }
 
     override val environments: DatabaseKubernetesEnvironmentRepository by inject()
+    private val tokens: MonitorTokenRepository by inject()
 
     private val kubeCore: CoreV1Api by inject()
     private val kubeApps: AppsV1Api by inject()

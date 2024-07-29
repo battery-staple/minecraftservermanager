@@ -109,7 +109,7 @@ fun Application.configureRouting() {
                     val principal = call.principal<MonitorPrincipal>() ?: throw AuthorizationException()
                     call.application.log.info("Serving jar for {}", principal)
 
-                    val jar = monitorService.getJar(principal.monitorUUID)
+                    val jar = monitorService.getJar(principal.serverUUID)
 
                     call.respondFile(jar)
                 }
@@ -119,7 +119,7 @@ fun Application.configureRouting() {
                     val principal = call.principal<MonitorPrincipal>() ?: throw AuthorizationException()
                     call.application.log.info("Serving sha1 for {}", principal)
 
-                    val hash = monitorService.getSHA1(principal.monitorUUID)
+                    val hash = monitorService.getSHA1(principal.serverUUID)
 
                     call.respondBytes(hash)
                 }
