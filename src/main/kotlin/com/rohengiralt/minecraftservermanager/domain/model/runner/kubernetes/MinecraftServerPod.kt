@@ -125,39 +125,67 @@ class MinecraftServerPod(
         }
     }
 
-    init {
+    /**
+     * Establishes a WebSocket connection to the monitor.
+     * May make multiple connection requests before finally succeeding.
+     * If so, it will employ a backoff to prevent overloading the monitor with connection requests.
+     * @return the new WebSocket session
+     */
+    context(CoroutineScope)
+    private suspend fun MinecraftServerPod.connectWithBackoff(): DefaultClientWebSocketSession {
+        var backoff = INITIAL_RECONNECT_DELAY // TODO: extract into ExponentialBackoff
+        var attempts = 0
 
-        // Maintain a constant websocket connection, recreating when the last ends
+        while (true) {
+            ensureActive()
+            val attempt = ++attempts
+
+            logger.debug(
+                "Creating new connection (attempt {}) to monitor at {}:{} after waiting for {}",
+                attempt, hostname, port, backoff
+            )
+            delay(backoff)
+
+            try {
+                return tryConnectToMonitor()
+            } catch (e: IOException) {
+                logger.warn("Failed to initialize connection (attempt {})", attempt, e)
+                backoff *= 2
+            }
+        }
+    }
+
+    /**
+     * Opens a WebSocket connection to the monitor instance.
+     * @throws IOException if connection fails
+     * @return the new WebSocket session
+     */
+    private suspend fun tryConnectToMonitor(): DefaultClientWebSocketSession = client.webSocketSession {
+        url {
+            protocol = URLProtocol.WS
+            host = this@MinecraftServerPod.hostname
+            port = this@MinecraftServerPod.port
+            path("/io")
+        }
+
+        bearerAuth(token.asString())
+    }
+
+    init {
+        // Maintain a constant websocket connection, recreating when the last ends or when the pod is replaced
         coroutineScope.launch {
             var nextConnectionNumber = 1 // not atomic because no concurrent access
-            val defaultBackoff = 250.milliseconds // TODO: extract into ExponentialBackoff
-            var backoff = defaultBackoff
             while (isActive) {
                 val connectionNumber = nextConnectionNumber++
-                logger.debug("Creating new connection (#{}) to monitor at {}:{} after waiting for {}", connectionNumber, hostname, port, backoff)
-                delay(backoff)
-                val newSession = try {
-                    client.webSocketSession {
-                        url {
-                            protocol = URLProtocol.WS
-                            host = this@MinecraftServerPod.hostname
-                            port = this@MinecraftServerPod.port
-                            path("/io")
-                        }
-
-                        bearerAuth(token.asString())
-                    }
-                } catch (e: IOException) {
-                    logger.warn("Failed to initialize connection (#{})", connectionNumber, e)
-                    backoff *= 2
-                    continue
-                }
+                logger.debug("Creating new connection (#{}) to monitor at {}:{}", connectionNumber, hostname, port)
+                val newSession = connectWithBackoff()
+                logger.debug("Created new connection (#{}) to monitor at {}:{}", connectionNumber, hostname, port)
 
                 session.value = newSession
+
                 newSession.waitForSessionEnd()
                 logger.debug("Ending connection (#{}) to monitor at {}:{}", connectionNumber, hostname, port)
                 session.value = null
-                backoff = defaultBackoff
             }
         }.logEnd("session")
 
@@ -174,5 +202,9 @@ class MinecraftServerPod(
         }.logEnd("pipe")
 
         initIO()
+    }
+
+    companion object {
+        private val INITIAL_RECONNECT_DELAY = 250.milliseconds
     }
 }
