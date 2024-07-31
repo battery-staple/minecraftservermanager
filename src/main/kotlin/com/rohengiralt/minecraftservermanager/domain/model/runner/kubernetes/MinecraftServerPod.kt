@@ -14,7 +14,9 @@ import kotlinx.serialization.json.Json
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.slf4j.LoggerFactory
+import java.io.IOException
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * A [MinecraftServerProcess] representing a server being run in a Kubernetes pod.
@@ -91,34 +93,73 @@ class MinecraftServerPod(
      * Handles the closing of the websocket
      */
     private suspend fun DefaultClientWebSocketSession.handleEnd() {
-        closeReason.await()
+        waitForSessionEnd()
         // if we've reached here, collection has ended which means the websocket has closed. TODO: better way to detect ending
         exitCode.complete(null) // TODO: actual exit code
     }
 
+    /**
+     * Suspends until the receiver ends.
+     * This is distinct from [waitForExit], which waits for the exit code to exposed to [exitCode].
+     * If the exit code is sent over the websocket prior to session closing, for instance, this could occur after.
+     */
+    private suspend fun DefaultClientWebSocketSession.waitForSessionEnd() {
+        try {
+            closeReason.await()
+        } catch (e: IOException) {
+            logger.warn("Failed to receive close reason for session {}", this, e)
+        }
+    }
+
+    /**
+     * Logs when this job ends, along with information about the cause.
+     * @param name the name of job, to be included in the log message
+     */
+    private fun Job.logEnd(name: String) {
+        invokeOnCompletion { cause ->
+            when (cause) {
+                null -> logger.trace("Ended $name job normally")
+                is CancellationException -> logger.trace("Ended $name job due to cancellation")
+                else -> logger.trace("Ended $name job exceptionally", cause)
+            }
+        }
+    }
+
     init {
-        initIO()
 
         // Maintain a constant websocket connection, recreating when the last ends
         coroutineScope.launch {
+            var nextConnectionNumber = 1 // not atomic because no concurrent access
+            val defaultBackoff = 250.milliseconds // TODO: extract into ExponentialBackoff
+            var backoff = defaultBackoff
             while (isActive) {
-                val newSession = client.webSocketSession {
-                    url {
-                        protocol = URLProtocol.WS
-                        host = this@MinecraftServerPod.hostname
-                        port = this@MinecraftServerPod.port
-                        path("/io")
-                    }
+                val connectionNumber = nextConnectionNumber++
+                logger.debug("Creating new connection (#{}) to monitor at {}:{} after waiting for {}", connectionNumber, hostname, port, backoff)
+                delay(backoff)
+                val newSession = try {
+                    client.webSocketSession {
+                        url {
+                            protocol = URLProtocol.WS
+                            host = this@MinecraftServerPod.hostname
+                            port = this@MinecraftServerPod.port
+                            path("/io")
+                        }
 
-                    bearerAuth(token.asString())
+                        bearerAuth(token.asString())
+                    }
+                } catch (e: IOException) {
+                    logger.warn("Failed to initialize connection (#{})", connectionNumber, e)
+                    backoff *= 2
+                    continue
                 }
 
                 session.value = newSession
-
-                newSession.closeReason.await() // wait for end
+                newSession.waitForSessionEnd()
+                logger.debug("Ending connection (#{}) to monitor at {}:{}", connectionNumber, hostname, port)
                 session.value = null
+                backoff = defaultBackoff
             }
-        }
+        }.logEnd("session")
 
         // handle output of session
         coroutineScope.launch {
@@ -130,6 +171,8 @@ class MinecraftServerPod(
             launch {
                 session.handleEnd()
             }
-        }
+        }.logEnd("pipe")
+
+        initIO()
     }
 }
