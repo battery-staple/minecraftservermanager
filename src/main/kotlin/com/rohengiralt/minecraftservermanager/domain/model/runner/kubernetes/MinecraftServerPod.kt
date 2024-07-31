@@ -73,7 +73,7 @@ class MinecraftServerPod(
     private suspend fun DefaultClientWebSocketSession.handleIncoming() {
         val messages = incoming
             .receiveAsFlow()
-            .onEach { if (it !is Frame.Text) logger.warn("Received non-text frame {}", it) else logger.trace("Incoming message {} from server {}", it.readText(), serverName) }
+            .onEach { if (it !is Frame.Text) logger.warn("Received non-text frame {}", it) }
             .filterIsInstance<Frame.Text>()
             .map { it.readText() }
             .map { json.decodeFromString<ConsoleMessageAPIModel.Output>(it)}

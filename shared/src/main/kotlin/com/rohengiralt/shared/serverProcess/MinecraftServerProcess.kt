@@ -106,7 +106,7 @@ abstract class PipingMinecraftServerProcess(protected val serverName: String) : 
     private val scope = CoroutineScope(Dispatchers.IO) // All jobs are likely to block often, so Dispatchers.IO is best
     private val jobs = mutableListOf<Job>()
     private val jobsAreInitialized = AtomicBoolean()
-    private val logger = LoggerFactory.getLogger(this::class.java)
+    private val logger = LoggerFactory.getLogger(PipingMinecraftServerProcess::class.java) // not this; we want to disambiguate between sub- and superclass operations
 
     /**
      * The job that handles piping from [input] into the process' standard input and [interleavedIO].
@@ -161,12 +161,10 @@ abstract class PipingMinecraftServerProcess(protected val serverName: String) : 
 
             output.collect {
                 try {
-                    logger.debug("[SERVER $streamName $serverName]: $it")
+                    logger.trace("[SERVER $serverName $streamName]: $it")
 
-                    logger.trace("Sending message to output")
                     _output.emit(ProcessMessage.IO(createMessage(it)))
 
-                    logger.trace("Sending output message to interleavedIO")
                     _interleavedIO.emit(ProcessMessage.IO(createMessage(it)))
                 } catch (e: IOException) {
                     logger.warn("Cannot read server output, got exception $e")
