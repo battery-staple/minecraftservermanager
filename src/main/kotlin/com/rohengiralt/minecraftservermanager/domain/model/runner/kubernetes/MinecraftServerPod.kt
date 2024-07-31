@@ -35,7 +35,7 @@ class MinecraftServerPod(
     private val logger = LoggerFactory.getLogger(MinecraftServerPod::class.java)
 
     override suspend fun trySend(input: String) {
-        val session = session.await()
+        val session = awaitSession()
         logger.debug("Sending '{}' to monitor at {} over websocket", input, hostname)
         session.sendSerialized(ConsoleMessageAPIModel.Input(input))
     }
@@ -58,18 +58,12 @@ class MinecraftServerPod(
     /**
      * The websocket session with the pod, used for sending and receiving messages.
      */
-    private val session: Deferred<DefaultClientWebSocketSession> = coroutineScope.async {
-        client.webSocketSession {
-            url {
-                protocol = URLProtocol.WS
-                host = this@MinecraftServerPod.hostname
-                port = this@MinecraftServerPod.port
-                path("/io")
-            }
+    private val session: MutableStateFlow<DefaultClientWebSocketSession?> = MutableStateFlow(null)
 
-            bearerAuth(token.asString())
-        }
-    }
+    /**
+     * Suspends until a session is available, then returns that session
+     */
+    private suspend fun awaitSession() = this.session.filterNotNull().first()
 
     /**
      * Handles the incoming frames from the websocket
@@ -105,8 +99,30 @@ class MinecraftServerPod(
     init {
         initIO()
 
+        // Maintain a constant websocket connection, recreating when the last ends
         coroutineScope.launch {
-            val session = session.await()
+            while (isActive) {
+                val newSession = client.webSocketSession {
+                    url {
+                        protocol = URLProtocol.WS
+                        host = this@MinecraftServerPod.hostname
+                        port = this@MinecraftServerPod.port
+                        path("/io")
+                    }
+
+                    bearerAuth(token.asString())
+                }
+
+                session.value = newSession
+
+                newSession.closeReason.await() // wait for end
+                session.value = null
+            }
+        }
+
+        // handle output of session
+        coroutineScope.launch {
+            val session = awaitSession()
             launch {
                 session.handleIncoming()
             }
