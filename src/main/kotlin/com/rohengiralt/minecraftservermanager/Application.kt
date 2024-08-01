@@ -51,7 +51,7 @@ fun main() {
 
     runBlocking {
         logger.info("Initializing database")
-        initDatabase(10)
+        initDatabase(maxTries = 10)
     }
 
     logger.info("Initializing server")

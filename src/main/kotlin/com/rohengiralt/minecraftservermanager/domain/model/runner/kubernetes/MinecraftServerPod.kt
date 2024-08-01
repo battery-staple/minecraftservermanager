@@ -1,5 +1,6 @@
 package com.rohengiralt.minecraftservermanager.domain.model.runner.kubernetes
 
+import com.rohengiralt.minecraftservermanager.util.tryWithBackoff
 import com.rohengiralt.shared.apiModel.ConsoleMessageAPIModel
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import com.rohengiralt.shared.serverProcess.PipingMinecraftServerProcess
@@ -133,26 +134,23 @@ class MinecraftServerPod(
      */
     context(CoroutineScope)
     private suspend fun MinecraftServerPod.connectWithBackoff(): DefaultClientWebSocketSession {
-        var backoff = INITIAL_RECONNECT_DELAY // TODO: extract into ExponentialBackoff
-        var attempts = 0
-
-        while (true) {
-            ensureActive()
-            val attempt = ++attempts
-
+        tryWithBackoff(INITIAL_RECONNECT_DELAY, onRestart = ::logConnectFailure) { attempt ->
             logger.debug(
-                "Creating new connection (attempt {}) to monitor at {}:{} after waiting for {}",
-                attempt, hostname, port, backoff
+                "Creating new connection (attempt {}) to monitor at {}:{}",
+                attempt, hostname, port
             )
-            delay(backoff)
 
-            try {
-                return tryConnectToMonitor()
-            } catch (e: IOException) {
-                logger.warn("Failed to initialize connection (attempt {})", attempt, e)
-                backoff *= 2
-            }
+            return tryConnectToMonitor()
         }
+    }
+
+    /**
+     * Logs that a connection attempt to a monitor failed
+     * @param ex the exception that caused the failure
+     * @param attempt the attempt on which the monitor failed
+     */
+    private fun logConnectFailure(ex: Exception, attempt: Int) {
+        logger.warn("Failed to initialize connection (attempt {})", attempt, ex)
     }
 
     /**
