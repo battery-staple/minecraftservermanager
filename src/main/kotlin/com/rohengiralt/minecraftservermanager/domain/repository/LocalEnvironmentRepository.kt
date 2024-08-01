@@ -155,6 +155,7 @@ private class DatabaseLocalEnvironmentRepository : EnvironmentRepository<LocalMi
             .insertSuccess {
                 it[uuid] = environment.uuid.value
                 it[serverUUID] = environment.serverUUID.value
+                it[runnerUUID] = environment.runnerUUID.value
                 it[contentDirectory] = environment.contentDirectory.toAbsolutePath().toString()
                 it[jarVersion] = environment.jar.version
             }
