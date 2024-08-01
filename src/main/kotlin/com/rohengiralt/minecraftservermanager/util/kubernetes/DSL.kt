@@ -140,8 +140,8 @@ fun V1PersistentVolumeClaim.spec(block: (@KubernetesDSLMarker V1PersistentVolume
     spec = V1PersistentVolumeClaimSpec().apply(block)
 }
 
-fun V1PersistentVolumeClaimSpec.resources(block: (@KubernetesDSLMarker V1ResourceRequirements).() -> Unit) {
-    resources = V1ResourceRequirements().apply(block)
+fun V1PersistentVolumeClaimSpec.resources(block: (@KubernetesDSLMarker V1VolumeResourceRequirements).() -> Unit) {
+    resources = V1VolumeResourceRequirements().apply(block)
 }
 
 fun secret(block: (@KubernetesDSLMarker V1Secret).() -> Unit): V1Secret =

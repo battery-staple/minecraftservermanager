@@ -1,5 +1,8 @@
 package com.rohengiralt.minecraftservermanager.domain.model.runner.kubernetes
 
+import com.rohengiralt.minecraftservermanager.util.extensions.map.contains
+import com.rohengiralt.minecraftservermanager.util.kubernetes.asRequest
+import com.rohengiralt.minecraftservermanager.util.kubernetes.watch
 import com.rohengiralt.minecraftservermanager.util.tryWithBackoff
 import com.rohengiralt.shared.apiModel.ConsoleMessageAPIModel
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
@@ -9,6 +12,10 @@ import io.ktor.client.plugins.websocket.*
 import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.websocket.*
+import io.kubernetes.client.openapi.ApiClient
+import io.kubernetes.client.openapi.apis.CoreV1Api
+import io.kubernetes.client.openapi.models.V1Pod
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.Json
@@ -26,16 +33,22 @@ import kotlin.time.Duration.Companion.milliseconds
  * @param port the port of the pod's HTTP/WebSocket interface
  * @param token the token that can be used to authenticate against the pod
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class MinecraftServerPod(
     serverName: String,
     private val hostname: String,
     private val port: Int,
+    private val podLabel: Pair<String, String>,
     private val token: MonitorToken,
 ) : PipingMinecraftServerProcess(serverName), KoinComponent {
     private val client: HttpClient by inject()
     private val coroutineScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val json: Json by inject()
+    private val kubeCore: CoreV1Api by inject()
+    private val kubeClient: ApiClient by inject()
     private val logger = LoggerFactory.getLogger(MinecraftServerPod::class.java)
+
+    private val state = MutableStateFlow<State>(State.Unknown)
 
     override suspend fun trySend(input: String) {
         val session = awaitSession()
@@ -77,7 +90,7 @@ class MinecraftServerPod(
             .onEach { if (it !is Frame.Text) logger.warn("Received non-text frame {}", it) }
             .filterIsInstance<Frame.Text>()
             .map { it.readText() }
-            .map { json.decodeFromString<ConsoleMessageAPIModel.Output>(it)}
+            .map { json.decodeFromString<ConsoleMessageAPIModel.Output>(it) }
             .onCompletion { logger.debug("Incoming messages from pod for server {} ended", serverName) }
 
         messages.collect { message ->
@@ -86,17 +99,9 @@ class MinecraftServerPod(
                 is ConsoleMessageAPIModel.Output.ProcessError -> _stdError
             }
 
+            ensureActive()
             outputFlow.emit(message.text)
         }
-    }
-
-    /**
-     * Handles the closing of the websocket
-     */
-    private suspend fun DefaultClientWebSocketSession.handleEnd() {
-        waitForSessionEnd()
-        // if we've reached here, collection has ended which means the websocket has closed. TODO: better way to detect ending
-        exitCode.complete(null) // TODO: actual exit code
     }
 
     /**
@@ -127,6 +132,27 @@ class MinecraftServerPod(
     }
 
     /**
+     * Updates [session] with a new WebSocket connection to the monitor
+     * and resets [session] to null when the connection is closed.
+     */
+    context(CoroutineScope)
+    private suspend fun MinecraftServerPod.newManagedSession() {
+        val sessionNumber = nextSessionNumber.getAndIncrement()
+
+        logger.debug("Creating new connection (#{}) to monitor at {}:{}", sessionNumber, hostname, port)
+        val newSession = connectWithBackoff()
+        logger.debug("Created new connection (#{}) to monitor at {}:{}", sessionNumber, hostname, port)
+
+        session.value = newSession
+
+        newSession.waitForSessionEnd()
+        logger.debug("Ending connection (#{}) to monitor at {}:{}", sessionNumber, hostname, port)
+        session.compareAndSet(newSession, null)
+    }
+
+    private val nextSessionNumber = atomic(1)
+
+    /**
      * Establishes a WebSocket connection to the monitor.
      * May make multiple connection requests before finally succeeding.
      * If so, it will employ a backoff to prevent overloading the monitor with connection requests.
@@ -135,11 +161,7 @@ class MinecraftServerPod(
     context(CoroutineScope)
     private suspend fun MinecraftServerPod.connectWithBackoff(): DefaultClientWebSocketSession {
         tryWithBackoff(INITIAL_RECONNECT_DELAY, onRestart = ::logConnectFailure) { attempt ->
-            logger.debug(
-                "Creating new connection (attempt {}) to monitor at {}:{}",
-                attempt, hostname, port
-            )
-
+            logger.debug("Creating new connection (attempt {}) to monitor at {}:{}", attempt, hostname, port)
             return tryConnectToMonitor()
         }
     }
@@ -170,32 +192,52 @@ class MinecraftServerPod(
     }
 
     init {
+        // Update the state when the pod changes
+        coroutineScope.launch {
+            val currentPod =
+                kubeClient
+                    .watch { kubeCore.listNamespacedPod("default").asRequest() }
+                    .map { pods ->
+                        pods.firstOrNull { pod -> podLabel in pod.metadata.labels }
+                    }
+                    .distinctUntilChangedBy { pod -> pod?.metadata?.name }
+
+            val currentState =
+                currentPod
+                    .map { if (it == null) State.Stopped else State.Running(it) }
+                    .onEach { newState -> logger.trace("State changed to {}", newState) }
+
+            // Update instance variable with the current state
+            currentState.collect(state)
+        }.logEnd("state")
+
         // Maintain a constant websocket connection, recreating when the last ends or when the pod is replaced
         coroutineScope.launch {
-            var nextConnectionNumber = 1 // not atomic because no concurrent access
-            while (isActive) {
-                val connectionNumber = nextConnectionNumber++
-                logger.debug("Creating new connection (#{}) to monitor at {}:{}", connectionNumber, hostname, port)
-                val newSession = connectWithBackoff()
-                logger.debug("Created new connection (#{}) to monitor at {}:{}", connectionNumber, hostname, port)
+            state.collectLatest { state ->
+                when (state) {
+                    is State.Running -> withContext(Dispatchers.IO.limitedParallelism(1)) {
+                        while (isActive) {
+                            newManagedSession()
+                        }
+                    }
 
-                session.value = newSession
+                    State.Stopped -> {
+                        exitCode.complete(null) // TODO: get the actual exit code somehow
+                        session.value?.close(CloseReason(
+                            CloseReason.Codes.NORMAL, "Connection closed"
+                        ))
+                        session.value = null
+                    }
 
-                newSession.waitForSessionEnd()
-                logger.debug("Ending connection (#{}) to monitor at {}:{}", connectionNumber, hostname, port)
-                session.value = null
+                    State.Unknown -> { /* Wait until the state is something recognizable */ }
+                }
             }
         }.logEnd("session")
 
-        // handle output of session
+        // Handle output of session
         coroutineScope.launch {
-            val session = awaitSession()
-            launch {
+            session.filterNotNull().collectLatest { session ->
                 session.handleIncoming()
-            }
-
-            launch {
-                session.handleEnd()
             }
         }.logEnd("pipe")
 
@@ -204,5 +246,13 @@ class MinecraftServerPod(
 
     companion object {
         private val INITIAL_RECONNECT_DELAY = 250.milliseconds
+    }
+
+    private sealed class State {
+        data class Running(val pod: V1Pod) : State() {
+            override fun toString() = "Running(pod=${pod.metadata.name})"
+        }
+        data object Stopped : State()
+        data object Unknown : State()
     }
 }

@@ -66,7 +66,7 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-java-time:0.34.1")
 
     implementation("com.google.api-client:google-api-client:2.6.0")
-    implementation("io.kubernetes:client-java:20.0.0")
+    implementation("io.kubernetes:client-java:21.0.0")
 
     implementation("org.postgresql:postgresql:42.7.3")
     implementation("io.insert-koin:koin-ktor:3.3.1")

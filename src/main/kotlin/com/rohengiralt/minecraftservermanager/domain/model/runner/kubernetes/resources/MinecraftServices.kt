@@ -22,7 +22,7 @@ fun monitorMinecraftService(
 
     spec {
         type = "ClusterIP"
-        selector = monitorLabel(monitorID)
+        selector = mapOf(monitorLabel(monitorID))
         ports {
             port {
                 name = "minecraft"

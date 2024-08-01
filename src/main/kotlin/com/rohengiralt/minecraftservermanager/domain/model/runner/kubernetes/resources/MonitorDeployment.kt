@@ -18,25 +18,25 @@ fun monitorDeployment(
     maxSpaceMB: Int
 ): V1Deployment {
     val monitorName = monitorName(id)
-    val appLabel = monitorLabel(id)
+    val labels = mapOf(monitorLabel(id))
     val httpPort = 8080
     val minecraftPort = 8080
 
     return deployment {
         metadata {
             name = monitorName
-            labels = appLabel
+            this.labels = labels
         }
 
         spec {
             replicas = 1
             selector {
-                matchLabels(appLabel)
+                matchLabels(labels)
             }
 
             template {
                 metadata {
-                    labels = appLabel
+                    this.labels = labels
                 }
 
                 spec {
@@ -107,7 +107,7 @@ fun monitorService(
 
     spec {
         type = "ClusterIP"
-        selector = monitorLabel(monitorID)
+        selector = mapOf(monitorLabel(monitorID))
         ports {
             port {
                 name = "http"
@@ -148,8 +148,8 @@ fun monitorSecret(monitorID: String, token: String): V1Secret = secret {
 /**
  * A label used for identifying a monitor instance
  */
-fun monitorLabel(monitorID: String): Map<String, String> =
-    mapOf("app" to monitorName(monitorID))
+fun monitorLabel(monitorID: String): Pair<String, String> =
+    "app" to monitorName(monitorID)
 
 fun monitorHttpContainerPortName(): String = "http"
 

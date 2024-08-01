@@ -142,6 +142,7 @@ class KubernetesEnvironment(
         val newPod = MinecraftServerPod(
             serverName = server.name,
             hostname = monitorName(monitorID),
+            podLabel = monitorLabel(monitorID),
             port = MONITOR_HTTP_PORT,
             token = monitorToken
         )
