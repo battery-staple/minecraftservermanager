@@ -46,7 +46,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
 
     override val domain: String get() = kubeRunnerConfig[KubeRunnerSpec.domain]
 
-    override suspend fun prepareEnvironment(server: MinecraftServer): KubernetesEnvironment { // TODO: delete all resources if creation of any fails
+    override suspend fun prepareEnvironment(server: MinecraftServer): KubernetesEnvironment? { // TODO: delete all resources if creation of any fails
         val monitorID = getMonitorID(server.uuid)
         val monitorToken = tokens.generateTokenForServer(server.uuid)
 
@@ -57,6 +57,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             logger.debug("Created service ${serviceResponse.metadata.name} for server ${server.name}")
         } catch (e: ApiException) {
             logger.error("Failed to create service ${service.metadata.name} for server ${server.name}", e)
+            return null
         }
 
         val homePVC = monitorPVC(monitorID, 128)
@@ -66,6 +67,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             logger.debug("Created PVC ${homePVCResponse.metadata.name} for server ${server.name}")
         } catch (e: ApiException) {
             logger.error("Failed to create PVC ${homePVC.metadata.name} for server ${server.name}", e)
+            return null
         }
 
         val secret = monitorSecret(monitorID, monitorToken.asString())
@@ -75,6 +77,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             logger.debug("Created secret ${secretResponse.metadata.name}")
         } catch (e: ApiException) {
             logger.error("Failed to create secret ${secret.metadata.name} for server ${server.name}", e)
+            return null
         }
 
         val deployment = monitorDeployment(
@@ -89,6 +92,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             logger.debug("Created deployment ${deploymentResponse.metadata.name} for server ${server.name}")
         } catch (e: ApiException) {
             logger.error("Failed to create deployment ${deployment.metadata.name} for server ${server.name}", e)
+            return null
         }
 
         return KubernetesEnvironment(
