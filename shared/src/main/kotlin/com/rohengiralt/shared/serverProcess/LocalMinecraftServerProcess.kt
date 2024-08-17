@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.slf4j.LoggerFactory
+import java.io.IOException
 import java.io.InputStream
 import kotlin.time.Duration
 
@@ -16,7 +17,7 @@ import kotlin.time.Duration
  */
 class LocalMinecraftServerProcess(serverName: String, private val process: Process) : PipingMinecraftServerProcess(serverName) {
 
-    override suspend fun stop(softTimeout: Duration, additionalForcibleTimeout: Duration): Int? =
+    override suspend fun stop(softTimeout: Duration, additionalForcibleTimeout: Duration): Int =
         withContext(Dispatchers.IO) {
             withTimeoutOrNull(timeout = softTimeout) {
                 process.destroy()
@@ -24,15 +25,12 @@ class LocalMinecraftServerProcess(serverName: String, private val process: Proce
             } ?: withTimeoutOrNull(timeout = additionalForcibleTimeout) {
                 process.destroyForcibly()
                 process.waitFor()
-            }
+            } ?: throw MinecraftServerProcess.StopFailed
         }
 
     override suspend fun trySend(input: String) {
         val outputStream = process.outputStream
-        if (outputStream == null) {
-            logger.error("Cannot write to process stdin; could not get output stream") // TODO: propagate this error to the user?
-            return
-        }
+            ?: throw IOException("Cannot write to process stdin; could not get output stream")
 
         outputStream
             .bufferedWriter()

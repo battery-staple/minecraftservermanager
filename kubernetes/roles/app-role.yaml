@@ -9,4 +9,4 @@ rules:
     verbs: ["get", "watch", "list", "create", "update"]
   - apiGroups: ["apps"]
     resources: ["deployments", "deployments/scale"]
-    verbs: ["get", "watch", "list", "create", "update"]
+    verbs: ["get", "watch", "list", "patch", "create", "update"]

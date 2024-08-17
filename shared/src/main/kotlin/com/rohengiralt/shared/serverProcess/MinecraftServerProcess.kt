@@ -46,9 +46,13 @@ interface MinecraftServerProcess {
      * @param additionalForcibleTimeout the amount of additional time to wait (after waiting for  [softTimeout]) for the
      *                                  process to return after attempting to destroy it forcibly.
      *                                  If this time expires without the process returning, this method will return null.
-     * @return the process' exit code, or null if both timeouts expire without the process returning
+     * @return the process' exit code, or null if the process ends but its exit code is unknown
+     * @throws StopFailed if both timeouts expire without the process returning
      */
     suspend fun stop(softTimeout: Duration, additionalForcibleTimeout: Duration): Int?
+
+    @Suppress("JavaIoSerializableObjectMustHaveReadResolve")
+    data object StopFailed : Exception()
 
     /**
      * A message from or to the process; either IO or a special marker representing the end of the process.

@@ -28,6 +28,8 @@ inline fun <reified T : KubernetesObject> createWatch(client: ApiClient, request
 context(CoroutineScope)
 inline fun <reified T : KubernetesObject> ApiClient.watch(crossinline createRequest: () -> KubernetesRequest<T, *, *>): StateFlow<Set<T>> {
     val client = this
+
+    logger.trace("Fetching initial items for watch")
     val initialResponse = createRequest().execute()
     @Suppress("UNCHECKED_CAST")
     val initialItems = initialResponse.items as List<T>
@@ -37,14 +39,18 @@ inline fun <reified T : KubernetesObject> ApiClient.watch(crossinline createRequ
     launch(Dispatchers.IO) {
         while (isActive) {
             try {
+                logger.trace("Relisting watch items")
                 val list = createRequest().execute()
                 val currentVersion = list.metadata.resourceVersion
                 @Suppress("UNCHECKED_CAST")
-                state.update { (list.items as List<T>).toSet() }
+                val items = (list.items as List<T>).toSet()
+
+                state.update { items }
 
                 val watch = createWatch(client, createRequest(), currentVersion)
                 logger.trace("Successfully created watch. Updating state.")
-                watch.updateInto(state)
+
+                watch.updateInto(state, items)
             } catch (e: ApiException) {
                 logger.warn("Received error HTTP response code from watch; aborting and recreating connection.", e)
             }
@@ -59,8 +65,8 @@ inline fun <reified T : KubernetesObject> ApiClient.watch(crossinline createRequ
  */
 context(CoroutineScope)
 @PublishedApi
-internal suspend fun <T : KubernetesObject> Watch<T>.updateInto(out: MutableSharedFlow<Set<T>>) {
-    val itemsByQualifiedName = mutableMapOf<QualifiedName, T>()
+internal suspend fun <T : KubernetesObject> Watch<T>.updateInto(out: MutableSharedFlow<Set<T>>, initialItems: Set<T>) {
+    val itemsByQualifiedName = initialItems.associateBy { QualifiedName(it.metadata.namespace, it.metadata.name) }.toMutableMap()
 
     for (response in this) {
         val success = handleResponse<T>(response, itemsByQualifiedName)
@@ -84,23 +90,23 @@ private fun <T : KubernetesObject> handleResponse(
     itemsByQualifiedName: MutableMap<QualifiedName, T>
 ): Boolean {
     val name = QualifiedName(
-        name = response.`object`.metadata.namespace,
+        name = response.`object`.metadata.name,
         namespace = response.`object`.metadata.namespace
     )
 
     when (response.knownType) {
         ADDED -> {
-            assert(itemsByQualifiedName[name] == null)
+            if (itemsByQualifiedName[name] != null) logger.warn("Adding object $name that already existed")
             itemsByQualifiedName[name] = response.`object`
         }
 
         MODIFIED -> {
-            assert(itemsByQualifiedName[name] != null)
+            if (itemsByQualifiedName[name] == null) logger.warn("Modifying object $name that does not exist")
             itemsByQualifiedName[name] = response.`object`
         }
 
         DELETED -> {
-            assert(itemsByQualifiedName[name] != null)
+            if (itemsByQualifiedName[name] == null) logger.warn("Deleting object $name that does not exist")
             itemsByQualifiedName.remove(name)
         }
 

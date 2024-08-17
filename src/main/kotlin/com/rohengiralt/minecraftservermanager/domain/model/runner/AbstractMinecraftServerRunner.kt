@@ -6,7 +6,6 @@ import com.rohengiralt.minecraftservermanager.domain.repository.CurrentRunReposi
 import com.rohengiralt.minecraftservermanager.domain.repository.EnvironmentRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerCurrentRunRecordRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerPastRunRepository
-import com.rohengiralt.minecraftservermanager.util.ifNull
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess.ProcessMessage
 import kotlinx.coroutines.*
@@ -253,7 +252,9 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
     )
 
     private suspend fun MinecraftServerProcess.stop(): Boolean {
-        stop(softTimeout = 5.seconds, additionalForcibleTimeout = 5.seconds).ifNull { //TODO: No magic number timeout
+        try {
+            stop(softTimeout = 5.seconds, additionalForcibleTimeout = 5.seconds) //TODO: No magic number timeout
+        } catch (e: MinecraftServerProcess.StopFailed) {
             logger.error("Timed out while trying to stop run $uuid") // TODO: this uuid is wrong
             return false
         }
@@ -278,8 +279,8 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
         val process = environment.currentProcess.value
 
         if (process == null) { // Run just ended
-            logger.trace("Cannot stop run {}, run not found", uuid)
-            throw IllegalArgumentException("Run $uuid not found")
+            logger.trace("Cannot stop run {}, process not found", uuid)
+            throw IllegalArgumentException("Process for run $uuid not found")
         }
 
         return process.stop()
@@ -318,3 +319,4 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
     override suspend fun getAllCurrentRunsFlow(server: MinecraftServer): StateFlow<List<MinecraftServerCurrentRun>> =
         currentRuns.getCurrentRunsState(server)
 }
+

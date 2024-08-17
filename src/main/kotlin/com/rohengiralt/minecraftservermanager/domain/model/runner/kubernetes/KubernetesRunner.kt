@@ -13,15 +13,22 @@ import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import com.rohengiralt.minecraftservermanager.domain.repository.DatabaseKubernetesEnvironmentRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MonitorTokenRepository
+import com.rohengiralt.minecraftservermanager.util.kubernetes.scaleDeployment
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import com.uchuhimo.konf.ConfigSpec
 import io.kubernetes.client.openapi.ApiException
 import io.kubernetes.client.openapi.apis.AppsV1Api
 import io.kubernetes.client.openapi.apis.CoreV1Api
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.koin.java.KoinJavaComponent.getKoin
@@ -119,7 +126,7 @@ class KubernetesEnvironment(
     override val runnerUUID: RunnerUUID,
     val monitorToken: MonitorToken,
 ) : MinecraftServerEnvironment, KoinComponent {
-    override suspend fun runServer(port: Port, maxHeapSizeMB: UInt, minHeapSizeMB: UInt): MinecraftServerProcess? {
+    override suspend fun runServer(port: Port, maxHeapSizeMB: UInt, minHeapSizeMB: UInt): MinecraftServerProcess? = mutex.withLock {
         if (port.number != 25565u.toUShort()) {
             logger.error("Attempted to run server on unsupported port {} in environment {}", port.number, uuid) // TODO: Remove this restriction!
             return null
@@ -136,33 +143,27 @@ class KubernetesEnvironment(
         if (!serviceSuccess) return null
 
         logger.trace("Scaling up the monitor for server {} ({})", server.name, server.uuid)
-        val monitorSuccess = scaleMonitor(monitorID, replicas = 1)
+        val monitorSuccess = kubeApps.scaleDeployment(monitorName(monitorID), "default", replicas = 1)
         if (!monitorSuccess) return null
 
-        val newPod = MinecraftServerPod(
-            serverName = server.name,
+
+        logger.trace("Creating pod process")
+        val newConnection = MinecraftServerPod(
+            server = server,
             hostname = monitorName(monitorID),
-            podLabel = monitorLabel(monitorID),
             port = MONITOR_HTTP_PORT,
             token = monitorToken
         )
 
-        _currentProcess.update { newPod }
-        return newPod
-    }
+        _currentProcess.update { newConnection }
 
-    private fun scaleMonitor(monitorID: String, replicas: Int): Boolean {
-        try {
-            // PATCH seems to be broken on the API client currently, so GET and PUT instead. TODO: revisit this later
-            val scale = kubeApps.readNamespacedDeploymentScale(monitorName(monitorID), "default").execute()
-            kubeApps.replaceNamespacedDeploymentScale(monitorName(monitorID), "default", scale.apply {
-                spec.replicas = replicas
-            }).execute()
-            return true
-        } catch (e: ApiException) {
-            logger.error("Failed to scale monitor deployment to {} for monitor {}", replicas, monitorID, e)
-            return false
+        coroutineScope.launch {
+            // Wait for pod to end (and/or be replaced)
+            newConnection.waitForExit()
+            _currentProcess.compareAndSet(newConnection, null)
         }
+
+        return newConnection
     }
 
     /**
@@ -189,6 +190,8 @@ class KubernetesEnvironment(
     override val currentProcess: StateFlow<MinecraftServerProcess?> = _currentProcess.asStateFlow()
 
     private val monitorID = KubernetesRunner.getMonitorID(serverUUID)
+    private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val mutex = Mutex()
 
     private val servers: MinecraftServerRepository by inject()
     private val kubeCore: CoreV1Api by inject()

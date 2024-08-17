@@ -76,6 +76,11 @@ spec:
                 secretKeyRef:
                   name: local-runner
                   key: local-runner-domain
+            - name: KUBERUNNER_DOMAIN
+              valueFrom:
+                secretKeyRef:
+                  name: kube-runner
+                  key: kube-runner-domain
             - name: HOST_HOSTNAME
               value: "localhost"
           ports:
