@@ -148,7 +148,7 @@ class KubernetesEnvironment(
 
 
         logger.trace("Creating pod process")
-        val newConnection = MinecraftServerPod(
+        val newConnection = DeploymentProcess(
             server = server,
             hostname = monitorName(monitorID),
             port = MONITOR_HTTP_PORT,

@@ -43,7 +43,7 @@ import kotlin.time.Duration.Companion.minutes
  * @param port the port of the pod's HTTP/WebSocket interface
  * @param token the token that can be used to authenticate against the pod
  */
-class MinecraftServerPod(
+class DeploymentProcess(
     private val server: MinecraftServer,
     private val hostname: String,
     private val port: Int,
@@ -90,7 +90,7 @@ class MinecraftServerPod(
 
     private val coroutineScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private val logger = LoggerFactory.getLogger(MinecraftServerPod::class.java)
+    private val logger = LoggerFactory.getLogger(DeploymentProcess::class.java)
 
     init {
         assertAllPropertiesNotNull()
@@ -139,8 +139,8 @@ class MinecraftServerPod(
         return PersistentWebsocket(_stdOut, _stdError, onConnectionTimeout) {
             url {
                 protocol = URLProtocol.WS
-                host = this@MinecraftServerPod.hostname
-                port = this@MinecraftServerPod.port
+                host = this@DeploymentProcess.hostname
+                port = this@DeploymentProcess.port
                 path("/io")
             }
 
@@ -183,12 +183,12 @@ class MinecraftServerPod(
             hostname: String,
             port: Int,
             token: MonitorToken,
-        ): MinecraftServerPod {
+        ): DeploymentProcess {
             val monitorID = KubernetesRunner.getMonitorID(server.uuid)
             val podLabel = monitorLabel(monitorID)
             val currentPod = watchPod(podLabel)
 
-            return MinecraftServerPod(
+            return DeploymentProcess(
                 server = server,
                 hostname = hostname,
                 port = port,
