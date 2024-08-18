@@ -49,10 +49,9 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
 
     /**
      * Deletes or marks for later deletion all resources belonging to [environment].
-     * @throws IllegalArgumentException if [environment] was created by a different runner
      * @return true if the environment was successfully cleaned up; false if cleanup failed.
      */
-    protected abstract suspend fun cleanupEnvironment(environment: MinecraftServerEnvironment): Boolean
+    protected abstract suspend fun cleanupEnvironment(environment: E): Boolean
 
     /**
      * Attempts to get the log stored by a particular run.
@@ -319,4 +318,3 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
     override suspend fun getAllCurrentRunsFlow(server: MinecraftServer): StateFlow<List<MinecraftServerCurrentRun>> =
         currentRuns.getCurrentRunsState(server)
 }
-

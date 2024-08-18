@@ -4,7 +4,6 @@ import com.rohengiralt.minecraftservermanager.domain.model.run.LogEntry
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRunRecord
 import com.rohengiralt.minecraftservermanager.domain.model.runner.AbstractMinecraftServerRunner
 import com.rohengiralt.minecraftservermanager.domain.model.runner.EnvironmentUUID
-import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerEnvironment
 import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.contentdirectory.LocalMinecraftServerContentDirectoryFactory
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJarResourceManager
@@ -67,9 +66,7 @@ class LocalMinecraftServerRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunn
         return newEnvironment
     }
 
-    override suspend fun cleanupEnvironment(environment: MinecraftServerEnvironment): Boolean {
-        require(environment is LocalMinecraftServerEnvironment)
-
+    override suspend fun cleanupEnvironment(environment: LocalMinecraftServerEnvironment): Boolean {
         logger.trace("Cleaning up environment {} from local runner", environment.uuid)
 
         @OptIn(ExperimentalPathApi::class)

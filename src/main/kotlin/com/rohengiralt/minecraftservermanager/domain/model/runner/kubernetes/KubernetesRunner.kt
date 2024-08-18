@@ -74,7 +74,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
         logger.debug("Creating secret ${secret.metadata.name} for server ${server.name}")
         try {
             val secretResponse = kubeCore.createNamespacedSecret("default", secret).execute()
-            logger.debug("Created secret ${secretResponse.metadata.name}")
+            logger.debug("Created secret ${secretResponse.metadata.name} for server ${server.name}")
         } catch (e: ApiException) {
             logger.error("Failed to create secret ${secret.metadata.name} for server ${server.name}", e)
             return null
@@ -103,8 +103,53 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
         )
     }
 
-    override suspend fun cleanupEnvironment(environment: MinecraftServerEnvironment): Boolean {
-        TODO("Not yet implemented")
+    override suspend fun cleanupEnvironment(environment: KubernetesEnvironment): Boolean {
+        val server = servers.getServer(environment.serverUUID)
+        val serverName = server?.name ?: environment.serverUUID // Fail safely if server cannot be retrieved for whatever reason
+        val monitorID = getMonitorID(environment.serverUUID)
+        val monitorToken = tokens.generateTokenForServer(environment.serverUUID)
+
+        val deploymentName = monitorName(monitorID)
+        logger.debug("Deleting deployment {} for server {}", deploymentName, serverName)
+        try {
+            /*val deploymentResponse = */kubeApps.deleteNamespacedDeployment(deploymentName, "default").execute()
+            logger.debug("Deleted deployment {} for server {}", deploymentName, serverName)
+        } catch (e: ApiException) {
+            logger.error("Failed to create deployment {} for server {}", deploymentName, serverName, e)
+            return false
+        }
+
+        val service = monitorService(monitorID, httpPort = MONITOR_HTTP_PORT)
+        logger.debug("Removing service {} for server {}", service.metadata.name, serverName)
+        try {
+            val serviceResponse = kubeCore.deleteNamespacedService(service.metadata.name, "default").execute()
+            logger.debug("Deleted service {} for server {}", serviceResponse.metadata.name, serverName)
+        } catch (e: ApiException) {
+            logger.error("Failed to delete service ${service.metadata.name} for server $serverName", e)
+            return false
+        }
+
+        val homePVC = monitorPVC(monitorID, 128)
+        logger.debug("Deleting PVC {} for server {}", homePVC.metadata.name, serverName)
+        try {
+            val homePVCResponse = kubeCore.deleteNamespacedPersistentVolumeClaim(homePVC.metadata.name, "default").execute()
+            logger.debug("Deleted PVC {} for server {}", homePVCResponse.metadata.name, serverName)
+        } catch (e: ApiException) {
+            logger.error("Failed to delete PVC ${homePVC.metadata.name} for server $serverName", e)
+            return false
+        }
+
+        val secret = monitorSecret(monitorID, monitorToken.asString())
+        logger.debug("Deleting secret {} for server {}", secret.metadata.name, serverName)
+        try {
+            /*val secretResponse = */kubeCore.deleteNamespacedSecret(secret.metadata.name, "default").execute()
+            logger.debug("Deleted secret {}", secret.metadata.name)
+        } catch (e: ApiException) {
+            logger.error("Failed to create secret {} for server {}",secret.metadata.name, serverName, e)
+            return false
+        }
+
+        return true
     }
 
     override suspend fun getLog(runRecord: MinecraftServerCurrentRunRecord): List<LogEntry>? {
@@ -115,6 +160,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
 
     private val kubeCore: CoreV1Api by inject()
     private val kubeApps: AppsV1Api by inject()
+    private val servers: MinecraftServerRepository by inject()
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -149,7 +195,6 @@ class KubernetesEnvironment(
         logger.trace("Scaling up the monitor for server {} ({})", server.name, server.uuid)
         val monitorSuccess = kubeApps.scaleDeployment(monitorName(monitorID), "default", replicas = 1)
         if (!monitorSuccess) return null
-
 
         logger.trace("Creating pod process")
         val newConnection = DeploymentProcess(
