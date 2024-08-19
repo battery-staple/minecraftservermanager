@@ -13,6 +13,7 @@ import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import com.rohengiralt.minecraftservermanager.domain.repository.DatabaseKubernetesEnvironmentRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MonitorTokenRepository
+import com.rohengiralt.minecraftservermanager.util.extensions.map.contains
 import com.rohengiralt.minecraftservermanager.util.kubernetes.scaleDeployment
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import com.uchuhimo.konf.ConfigSpec
@@ -145,7 +146,7 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             /*val secretResponse = */kubeCore.deleteNamespacedSecret(secret.metadata.name, "default").execute()
             logger.debug("Deleted secret {}", secret.metadata.name)
         } catch (e: ApiException) {
-            logger.error("Failed to create secret {} for server {}",secret.metadata.name, serverName, e)
+            logger.error("Failed to create secret {} for server {}", secret.metadata.name, serverName, e)
             return false
         }
 
@@ -170,11 +171,13 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
     }
 }
 
-class KubernetesEnvironment(
+class KubernetesEnvironment private constructor(
     override val uuid: EnvironmentUUID,
     override val serverUUID: ServerUUID,
     override val runnerUUID: RunnerUUID,
-    val monitorToken: MonitorToken,
+    internal val monitorToken: MonitorToken, // Not private because used in repository
+    private val monitorID: String,
+    initialProcess: MinecraftServerProcess?
 ) : MinecraftServerEnvironment, KoinComponent {
     override suspend fun runServer(port: Port, maxHeapSizeMB: UInt, minHeapSizeMB: UInt): MinecraftServerProcess? = mutex.withLock {
         if (port.number != 25565u.toUShort()) {
@@ -203,6 +206,7 @@ class KubernetesEnvironment(
             port = MONITOR_HTTP_PORT,
             token = monitorToken
         )
+        newConnection.connect(restartOnFailure = true)
 
         _currentProcess.update { newConnection }
 
@@ -235,18 +239,72 @@ class KubernetesEnvironment(
         }
     }
 
-    private val _currentProcess: MutableStateFlow<MinecraftServerProcess?> = MutableStateFlow(null)
+    private val _currentProcess: MutableStateFlow<MinecraftServerProcess?> = MutableStateFlow(initialProcess)
     override val currentProcess: StateFlow<MinecraftServerProcess?> = _currentProcess.asStateFlow()
 
-    private val monitorID = KubernetesRunner.getMonitorID(serverUUID)
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val mutex = Mutex()
 
-    private val servers: MinecraftServerRepository by inject()
-    private val kubeCore: CoreV1Api by inject()
     private val kubeApps: AppsV1Api by inject()
 
     private val logger = LoggerFactory.getLogger(this::class.java)
+
+    companion object : KoinComponent {
+        suspend operator fun invoke(
+            uuid: EnvironmentUUID,
+            serverUUID: ServerUUID,
+            runnerUUID: RunnerUUID,
+            monitorToken: MonitorToken,
+        ): KubernetesEnvironment {
+            val monitorID = KubernetesRunner.getMonitorID(serverUUID)
+            val server = servers.getServer(serverUUID)
+                ?: throw IllegalArgumentException("Server $serverUUID not found") // TODO: Document!!
+
+            return KubernetesEnvironment(
+                uuid = uuid,
+                serverUUID = serverUUID,
+                runnerUUID = runnerUUID,
+                monitorToken = monitorToken,
+                monitorID = monitorID,
+                initialProcess = initialProcess(monitorID, server, monitorToken)
+            )
+        }
+
+        private suspend fun initialProcess(
+            monitorID: String,
+            server: MinecraftServer,
+            monitorToken: MonitorToken
+        ): MinecraftServerProcess? {
+            val monitorLabel = monitorLabel(monitorID)
+
+            val isDeploymentRunning = try {
+                val pod = kubeCore.listNamespacedPod("default").execute()
+                pod.items.any { monitorLabel in it.metadata.labels }
+            } catch (e: ApiException) { false }
+
+            if (!isDeploymentRunning) {
+                return null
+            }
+
+            val initialProcess = DeploymentProcess(
+                server = server,
+                hostname = monitorName(monitorID),
+                port = MONITOR_HTTP_PORT,
+                token = monitorToken
+            )
+
+            try {
+                initialProcess.connect(restartOnFailure = false)
+            } catch (e: DeploymentProcess.ConnectionTimeoutException) {
+                return null
+            }
+
+            return initialProcess
+        }
+
+        private val servers: MinecraftServerRepository by inject()
+        private val kubeCore: CoreV1Api by inject()
+    }
 }
 
 private const val MONITOR_HTTP_PORT = 8080

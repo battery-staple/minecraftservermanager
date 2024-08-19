@@ -1,7 +1,9 @@
 package com.rohengiralt.minecraftservermanager.domain.model.run
 
+import com.rohengiralt.minecraftservermanager.domain.model.runner.EnvironmentUUID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
 import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
+import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import kotlinx.datetime.Instant
 
 /**
@@ -12,7 +14,9 @@ data class MinecraftServerCurrentRunRecord(
     val runUUID: RunUUID,
     val serverUUID: ServerUUID,
     val runnerUUID: RunnerUUID,
-    val startTime: Instant
+    val environmentUUID: EnvironmentUUID,
+    val startTime: Instant,
+    val process: MinecraftServerProcess.Record,
 ) {
     companion object {
         fun fromCurrentRun(currentRun: MinecraftServerCurrentRun): MinecraftServerCurrentRunRecord =
@@ -20,7 +24,9 @@ data class MinecraftServerCurrentRunRecord(
                 runUUID = currentRun.uuid,
                 serverUUID = currentRun.serverUUID,
                 runnerUUID = currentRun.runnerUUID,
-                startTime = currentRun.startTime
+                environmentUUID = currentRun.environmentUUID,
+                startTime = currentRun.startTime,
+                process = currentRun.process.toRecord(),
             )
     }
 }

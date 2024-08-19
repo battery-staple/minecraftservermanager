@@ -1,4 +1,4 @@
-package com.rohengiralt.minecraftservermanager.util.extensions.uuid
+package com.rohengiralt.shared.util.uuid
 
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind

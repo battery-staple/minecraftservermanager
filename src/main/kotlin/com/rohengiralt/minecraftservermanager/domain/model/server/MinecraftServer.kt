@@ -2,7 +2,7 @@ package com.rohengiralt.minecraftservermanager.domain.model.server
 
 import com.rohengiralt.minecraftservermanager.domain.ResourceUUID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
-import com.rohengiralt.minecraftservermanager.util.extensions.uuid.UUIDSerializer
+import com.rohengiralt.shared.util.uuid.UUIDSerializer
 import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 import java.util.*

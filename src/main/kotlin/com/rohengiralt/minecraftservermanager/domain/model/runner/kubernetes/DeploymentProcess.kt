@@ -26,7 +26,11 @@ import io.kubernetes.client.openapi.apis.CoreV1Api
 import io.kubernetes.client.openapi.models.V1Pod
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.polymorphic
+import kotlinx.serialization.modules.subclass
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.slf4j.LoggerFactory
@@ -34,7 +38,7 @@ import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * A [MinecraftServerProcess] representing a server being run in a Kubernetes deployment.
@@ -48,6 +52,7 @@ class DeploymentProcess(
     private val hostname: String,
     private val port: Int,
     private val currentPod: StateFlow<V1Pod?>,
+    private val podLabel: Pair<String, String>,
     private val monitorID: String,
     private val token: MonitorToken,
 ) : PipingMinecraftServerProcess(server.name), KoinComponent {
@@ -88,55 +93,81 @@ class DeploymentProcess(
         return null
     }
 
-    private val coroutineScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    /**
+     * Connects to the deployment.
+     * @param restartOnFailure when set, if the deployment does not respond within [CONNECT_POD_TIMEOUT], restarts the pod and tries again.
+     *                         When not set, requires that the deployment is already running.
+     *                         If not set, a failure to connect after [CONNECT_POD_TIMEOUT] will throw a [ConnectionTimeoutException].
+     */
+    suspend fun connect(restartOnFailure: Boolean) {
+        if (state.value != State.Connecting) throw IOException("Server ${server.uuid} is done connecting.")
 
-    private val logger = LoggerFactory.getLogger(DeploymentProcess::class.java)
+        logger.trace("Opening new websocket")
+        val socket = newConnection(restart=restartOnFailure)
 
-    init {
-        assertAllPropertiesNotNull()
+        logger.trace("Awaiting websocket to connect")
 
-        // Connect to the pod while it's running
+        socket.await()
+
+        logger.trace("Websocket connected, updating state")
+        assert(state.value == State.Connecting) // TODO: prevent this assertion failing due to TOCTOU
+        state.value = State.Running(socket)
+
+        // Close connection on end
         coroutineScope.launch {
-            logger.trace("Opening new websocket")
-            val socket = newConnection()
+            val initialPod = currentPod.value
 
-            logger.trace("Awaiting websocket to connect")
-            socket.await()
+            // Wait for pod to end (and/or be replaced); skip if it already ended (initialPod == null)
+            if (initialPod != null) {
+                currentPod
+                    .first { it?.metadata?.name != initialPod.metadata?.name }
+            }
 
-            logger.trace("Websocket connected, updating state")
-            state.value = State.Running(socket)
-
-            // Close connection on end
-            coroutineScope.launch {
-                val initialPod = currentPod.value
-
-                // Wait for pod to end (and/or be replaced); skip if it already ended (initialPod == null)
-                if (initialPod != null) {
-                    currentPod
-                        .first { it?.metadata?.name != initialPod.metadata?.name }
-                }
-
-                logger.trace("Closing connection to server {}", server.uuid)
-                state.value = State.Stopped(null)
-                socket.close()
-            }.also { logger.logOnEnd(it, "close connection") }
-        }.also { logger.logOnEnd(it, "create connection") }
-
-        initIO()
+            logger.trace("Closing connection to server {}", server.uuid)
+            state.value = State.Stopped(null)
+            socket.close()
+        }.also { logger.logOnEnd(it, "close connection") }
     }
 
     /**
+     * Thrown when a connection to a deployment takes too long.
+     */
+    class ConnectionTimeoutException : IOException()
+
+    /**
      * Connects to the deployment.
-     * If the deployment does not respond within [RESTART_POD_TIMEOUT], restarts the pod and tries again.
+     * @param restart when set, if the deployment does not respond within [CONNECT_POD_TIMEOUT], restarts the pod and tries again.
+     *                If not set, a failure to connect after [CONNECT_POD_TIMEOUT] will throw a [ConnectionTimeoutException].
      * @return the new websocket connection
      */
-    private fun newConnection(): PersistentWebsocket {
-        val onConnectionTimeout = PersistentWebsocket.TimeoutHandler(timeout = RESTART_POD_TIMEOUT) { attempt ->
-            logger.debug("Connection (#{}) took too long, restarting monitor {}", attempt, monitorID)
-            kubeApps.restartDeployment(monitorName(monitorID), "default")
-        }
+    private fun newConnection(restart: Boolean): PersistentWebsocket {
+        val onConnectionTimeout = if (restart) restartOnTimeout else throwOnTimeout
 
-        return PersistentWebsocket(_stdOut, _stdError, onConnectionTimeout) {
+        return newConnectionWithTimeout(onConnectionTimeout)
+    }
+
+    /**
+     * Restarts the deployment when [CONNECT_POD_TIMEOUT] expires.
+     */
+    private val restartOnTimeout = PersistentWebsocket.TimeoutHandler(timeout = CONNECT_POD_TIMEOUT) { attempt ->
+        logger.debug("Connection (#{}) took too long, restarting monitor {}", attempt, monitorID)
+        kubeApps.restartDeployment(monitorName(monitorID), "default")
+    }
+
+    /**
+     * Throws [ConnectionTimeoutException] when [CONNECT_POD_TIMEOUT] expires.
+     */
+    private val throwOnTimeout = PersistentWebsocket.TimeoutHandler(timeout = CONNECT_POD_TIMEOUT) { attempt ->
+        logger.debug("Connection (#{}) to {} took too long, throwing.", attempt, monitorID)
+        throw ConnectionTimeoutException()
+    }
+
+    /**
+     * Connects to the deployment with a specified [PersistentWebsocket.TimeoutHandler].
+     * @param onConnectionTimeout a timeout for if connecting takes too long
+     */
+    private fun newConnectionWithTimeout(onConnectionTimeout: PersistentWebsocket.TimeoutHandler?): PersistentWebsocket =
+        PersistentWebsocket(_stdOut, _stdError, onConnectionTimeout) {
             url {
                 protocol = URLProtocol.WS
                 host = this@DeploymentProcess.hostname
@@ -146,6 +177,16 @@ class DeploymentProcess(
 
             bearerAuth(token.asString())
         }
+
+    override fun toRecord(): MinecraftServerProcess.Record = Record(podLabel)
+
+    private val coroutineScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private val logger = LoggerFactory.getLogger(DeploymentProcess::class.java)
+
+    init {
+        assertAllPropertiesNotNull()
+        initIO()
     }
 
     /**
@@ -193,6 +234,7 @@ class DeploymentProcess(
                 hostname = hostname,
                 port = port,
                 currentPod = currentPod,
+                podLabel = podLabel,
                 monitorID = monitorID,
                 token = token
             )
@@ -222,8 +264,22 @@ class DeploymentProcess(
         /**
          * If connecting to the pod takes longer than this, the pod will be restarted.
          */
-        private val RESTART_POD_TIMEOUT: Duration = 3.minutes
+        private val CONNECT_POD_TIMEOUT: Duration = 20.seconds // TODO: SET BACK TO HIGHER VALUE!!!
+
+        /**
+         * A [SerializersModule] that knows how to serialize [Record].
+         */
+        val recordSerializer = SerializersModule {
+            polymorphic(MinecraftServerProcess.Record::class) {
+                subclass(Record::class)
+            }
+        }
     }
+
+    // Deployments are uniquely identified by the label on the pod
+    @JvmInline // Not actually inlined in usage
+    @Serializable
+    private value class Record(val podLabel: Pair<String, String>) : MinecraftServerProcess.Record
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -242,8 +298,22 @@ private class PersistentWebsocket(
      * Waits for the connection to be established.
      */
     suspend fun await() {
-        awaitSession()
+        val currentState = state
+            .filterNot { it is State.Connecting }
+            .first()
+
+        when (currentState) {
+            is State.Connected -> { return /* Success */ }
+            State.Closed -> throw ConnectionClosedException()
+            is State.Failed -> throw currentState.exception
+            State.Connecting -> error("Impossible")
+        }
     }
+
+    /**
+     * Thrown when trying to await an already closed exception
+     */
+    class ConnectionClosedException : IOException()
 
     suspend fun send(input: String) {
         logger.trace("Preparing to send message, awaiting session")
@@ -253,24 +323,25 @@ private class PersistentWebsocket(
     }
 
     private suspend fun awaitSession(): DefaultClientWebSocketSession =
-        currentSession.filterNotNull().first()
+        state.filterIsInstance<State.Connected>().first().session
 
     override fun close() {
         coroutineScope.launch {
-            currentSession.value?.close(
+            val currentSession = (state.value as? State.Connected)?.session
+            currentSession?.close(
                 CloseReason(
                     CloseReason.Codes.NORMAL, "Connection closed"
                 )
             )
         }
         coroutineScope.cancel()
-        currentSession.value = null
+        state.value = State.Closed
     }
 
     /**
      * The websocket session with the pod, used for sending and receiving messages.
      */
-    private val currentSession: MutableStateFlow<DefaultClientWebSocketSession?> = MutableStateFlow(null)
+    private val state: MutableStateFlow<State> = MutableStateFlow(State.Connecting)
 
     /**
      * The number of the current session.
@@ -289,17 +360,24 @@ private class PersistentWebsocket(
         // Maintain a constant websocket connection, recreating when the last ends
         coroutineScope.launch {
             withContext(Dispatchers.IO.limitedParallelism(1)) {
-                while (isActive) {
-                    val (session, sessionNum) = newSession()
-                    session.waitForSessionEnd()
-                    session.handleEnd(sessionNum)
+                try {
+                    while (isActive) {
+                        val (session, sessionNum) = newSession()
+                        state.value = State.Connected(session)
+                        session.waitForSessionEnd()
+                        session.handleEnd(sessionNum)
+                    }
+                } catch (e: Throwable) {
+                    ensureActive()
+                    logger.warn("Websocket connection failed with error", e)
+                    state.value = State.Failed(e)
                 }
             }
         }.also { logger.logOnEnd(it, "session") }
 
         // Handle output of session
         coroutineScope.launch {
-            currentSession.filterNotNull().collectLatest { session ->
+            state.filterIsInstance<State.Connected>().map { it.session }.collectLatest { session ->
                 session.handleIncoming()
             }
         }.also { logger.logOnEnd(it, "pipe") }
@@ -317,8 +395,6 @@ private class PersistentWebsocket(
         val newSession = establishConnection()
         logger.debug("Created new connection (#{}) to {}", sessionNumber, logURL)
 
-        currentSession.value = newSession
-
         return newSession to sessionNumber
     }
 
@@ -327,7 +403,7 @@ private class PersistentWebsocket(
      */
     private fun DefaultClientWebSocketSession.handleEnd(sessionNumber: Int) {
         logger.debug("Ending connection (#{}) to {}", sessionNumber, logURL)
-        currentSession.compareAndSet(this, null)
+        state.compareAndSet(State.Connected(this), State.Connecting) // Automatically reconnect after session end
     }
 
     /**
@@ -398,6 +474,13 @@ private class PersistentWebsocket(
     }
 
     override fun toString(): String = "PersistentWebsocket(url=$logURL, sessionNumber=${currentSessionNumber.get()})"
+
+    private sealed interface State {
+        data object Connecting : State
+        data class Connected(val session: DefaultClientWebSocketSession) : State
+        data object Closed : State
+        data class Failed(val exception: Throwable) : State
+    }
 
     /**
      * Specifies a timeout, after which [onTimeout] should be called.

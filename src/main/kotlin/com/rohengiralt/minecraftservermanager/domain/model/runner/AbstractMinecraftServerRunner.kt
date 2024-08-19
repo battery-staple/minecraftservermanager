@@ -6,13 +6,11 @@ import com.rohengiralt.minecraftservermanager.domain.repository.CurrentRunReposi
 import com.rohengiralt.minecraftservermanager.domain.repository.EnvironmentRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerCurrentRunRecordRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerPastRunRepository
+import com.rohengiralt.minecraftservermanager.util.ifTrue.ifFalseAlso
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess.ProcessMessage
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.Clock
@@ -76,8 +74,14 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
     init {
         try {
             logger.info("Archiving left over current runs")
-            val runsToArchive = runBlocking {
+
+            val runsToArchive = runBlocking { // TODO: suspend fake constructor instead of blocking
                 currentRunRecordRepository.getAllRecords()
+                    .asFlow()
+                    .filter {
+                        (!it.isStillRunning()) // TODO: should also create CurrentRun objects for ones that are still running
+                            .ifFalseAlso { logger.trace("Skipping archiving record {} because it is still running", it.runUUID) }
+                    }
                     .map { record ->
                         MinecraftServerPastRun(
                             uuid = record.runUUID,
@@ -88,6 +92,10 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
                             log = getLog(record) ?: emptyList()
                         )
                     }
+                    .onEach {  run ->
+                        logger.trace("Archiving left over run {}", run.uuid)
+                    }
+                    .toList()
             }
 
             pastRunRepository.savePastRuns(runsToArchive)
@@ -96,6 +104,20 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
         } catch (e: Throwable) {
             logger.error("Failed to archive left over current run(s)", e)
         }
+    }
+
+    /**
+     * Checks if the receiver represents a current run that's still going on
+     */
+    private suspend fun MinecraftServerCurrentRunRecord.isStillRunning(): Boolean {
+        val record = this@isStillRunning
+        val env = environments.getEnvironment(record.environmentUUID)
+        if (env == null) {
+            logger.warn("Environment {} for record {} not found. Not archiving", record.environmentUUID, record)
+            return false
+        }
+
+        return env.currentProcess.value?.toRecord() != record.process
     }
 
     override suspend fun initializeServer(server: MinecraftServer): Boolean = environmentsMutex.withLock {
@@ -190,10 +212,7 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
                 port = runtimeEnvironment.port.port
             ),
             startTime = startTime,
-            input = process.input,
-            interleavedIO = process.interleavedIO
-                .filterIsInstance<ProcessMessage.IO<*>>()
-                .map { it.content }
+            process = process
         )
 
         logger.trace("Recording new current run {} for server {} in environment {}", newCurrentRun.uuid, server.name, uuid)
@@ -233,7 +252,7 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
         }
     }
 
-    private suspend fun MinecraftServerProcess.waitForEnd() {
+    private suspend fun MinecraftServerProcess.waitForEnd() { // TODO: delete; shadows member
         output
             .filterIsInstance<ProcessMessage.ProcessEnd>()
             .firstOrNull()

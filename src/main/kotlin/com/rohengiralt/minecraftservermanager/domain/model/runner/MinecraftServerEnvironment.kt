@@ -3,7 +3,7 @@ package com.rohengiralt.minecraftservermanager.domain.model.runner
 import com.rohengiralt.minecraftservermanager.domain.ResourceUUID
 import com.rohengiralt.minecraftservermanager.domain.model.server.Port
 import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
-import com.rohengiralt.minecraftservermanager.util.extensions.uuid.UUIDSerializer
+import com.rohengiralt.shared.util.uuid.UUIDSerializer
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable

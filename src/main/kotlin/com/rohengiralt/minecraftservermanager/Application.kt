@@ -2,6 +2,7 @@ package com.rohengiralt.minecraftservermanager
 
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.MinecraftJarAPI
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.RedundantFallbackAPI
+import com.rohengiralt.minecraftservermanager.domain.model.runner.kubernetes.DeploymentProcess
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.contentdirectory.LocalMinecraftServerContentDirectoryFactory
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.APIMinecraftServerJarFactory
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.FilesystemMinecraftServerJarResourceManager
@@ -21,6 +22,7 @@ import com.rohengiralt.minecraftservermanager.user.auth.google.UserIDAuthorizer
 import com.rohengiralt.minecraftservermanager.user.auth.google.WhitelistFileUserIDAuthorizer
 import com.rohengiralt.minecraftservermanager.user.preferences.DatabaseUserPreferencesRepository
 import com.rohengiralt.minecraftservermanager.user.preferences.UserPreferencesRepository
+import com.rohengiralt.shared.serverProcess.LocalMinecraftServerProcess
 import com.rohengiralt.shared.serverProcess.MinecraftServerDispatcher
 import com.rohengiralt.shared.util.assertsEnabled
 import io.ktor.client.*
@@ -38,6 +40,9 @@ import io.kubernetes.client.openapi.apis.CoreV1Api
 import io.kubernetes.client.util.Config
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.plus
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
 import org.koin.logger.SLF4JLogger
@@ -78,6 +83,15 @@ fun Application.module() {
                     }
                 }
                 single<Json> { Json { ignoreUnknownKeys = false } }
+                single<Json>(named("db")) {
+                    Json {
+                        ignoreUnknownKeys = false
+                        serializersModule = listOf(
+                            DeploymentProcess.recordSerializer,
+                            LocalMinecraftServerProcess.recordSerializer
+                        ).reduce(SerializersModule::plus)
+                    }
+                }
                 single<ApiClient> { Config.defaultClient() }
                 single<CoreV1Api> { CoreV1Api(get()) }
                 single<AppsV1Api> { AppsV1Api(get()) }

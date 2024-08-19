@@ -6,7 +6,7 @@ import com.rohengiralt.minecraftservermanager.domain.model.run.RunUUID
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironment
 import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
-import com.rohengiralt.minecraftservermanager.util.extensions.uuid.UUIDSerializer
+import com.rohengiralt.shared.util.uuid.UUIDSerializer
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import java.util.*

@@ -19,7 +19,7 @@ abstract class PipingMinecraftServerProcess(protected val serverName: String) : 
         assertInv()
         _input
     }
-    override val interleavedIO: Flow<MinecraftServerProcess.ProcessMessage<ServerIO>> by lazy {
+    override val interleavedIO: Flow<MinecraftServerProcess.ProcessMessage.IO<ServerIO>> by lazy {
         assertInv()
         _interleavedIO.asSharedFlow()
     }
@@ -28,7 +28,7 @@ abstract class PipingMinecraftServerProcess(protected val serverName: String) : 
      * The [MutableSharedFlow] that underlies [interleavedIO].
      * This field is necessary to allow sending to the flow from within this class but not from outside.
      */
-    private val _interleavedIO: MutableSharedFlow<MinecraftServerProcess.ProcessMessage<ServerIO>> =
+    private val _interleavedIO: MutableSharedFlow<MinecraftServerProcess.ProcessMessage.IO<ServerIO>> =
         MutableSharedFlow(Channel.UNLIMITED)
 
     /**

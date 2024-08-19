@@ -28,7 +28,7 @@ interface MinecraftServerProcess {
      * Note that the order is not guaranteed to be strictly chronological, nor to match the exact order of `output`
      * or `input`; however, it should be reasonably close.
      */
-    val interleavedIO: Flow<ProcessMessage<ServerIO>>
+    val interleavedIO: Flow<ProcessMessage.IO<ServerIO>>
 
     /**
      * Attempts to stop the process running.
@@ -47,6 +47,11 @@ interface MinecraftServerProcess {
     data object StopFailed : Exception()
 
     /**
+     * Returns a record of this process that can be durably persisted.
+     */
+    fun toRecord(): Record
+
+    /**
      * A message from or to the process; either IO or a special marker representing the end of the process.
      */
     sealed interface ProcessMessage<out T : ServerIO> {
@@ -63,6 +68,23 @@ interface MinecraftServerProcess {
          * @param code the exit code of the process, or null if not known
          */
         data class ProcessEnd(val code: Int?) : ProcessMessage<Nothing>
+    }
+
+    /**
+     * A record of this process that captures enough information to uniquely identify an instance.
+     * All implementations be [Serializable].
+     */
+    interface Record {
+        /**
+         * Compares this and another object for equality.
+         * Guarantees that `p1.getRecord() == p2.getRecord()` iff `p1 == p2`.
+         */
+        override fun equals(other: Any?): Boolean
+
+        /**
+         * @see equals
+         */
+        override fun hashCode(): Int
     }
 }
 

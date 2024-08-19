@@ -7,6 +7,7 @@ import com.rohengiralt.minecraftservermanager.domain.model.runner.kubernetes.Mon
 import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.insertSuccess
 import com.rohengiralt.minecraftservermanager.util.sql.ioExnTransaction
+import com.rohengiralt.minecraftservermanager.util.sql.suspendIOExnTransaction
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.*
@@ -21,27 +22,27 @@ class DatabaseKubernetesEnvironmentRepository : EnvironmentRepository<Kubernetes
         }
     }
 
-    override suspend fun getEnvironment(uuid: EnvironmentUUID): KubernetesEnvironment? = ioExnTransaction {
+    override suspend fun getEnvironment(uuid: EnvironmentUUID): KubernetesEnvironment? = suspendIOExnTransaction {
         KubernetesEnvironmentTable
             .select { KubernetesEnvironmentTable.uuid eq uuid.value }
             .singleOrNull()
             ?.toEnvironment()
     }
 
-    override suspend fun getEnvironmentByServer(serverUUID: ServerUUID): KubernetesEnvironment? = ioExnTransaction {
+    override suspend fun getEnvironmentByServer(serverUUID: ServerUUID): KubernetesEnvironment? = suspendIOExnTransaction {
         KubernetesEnvironmentTable
             .select { KubernetesEnvironmentTable.serverUUID eq serverUUID.value }
             .singleOrNull()
             ?.toEnvironment()
     }
 
-    override suspend fun getAllEnvironments(): List<KubernetesEnvironment> = ioExnTransaction {
+    override suspend fun getAllEnvironments(): List<KubernetesEnvironment> = suspendIOExnTransaction {
         KubernetesEnvironmentTable
             .selectAll()
             .map { it.toEnvironment() }
     }
 
-    override suspend fun addEnvironment(environment: KubernetesEnvironment): Boolean = ioExnTransaction {
+    override suspend fun addEnvironment(environment: KubernetesEnvironment): Boolean = suspendIOExnTransaction {
         KubernetesEnvironmentTable
             .insertSuccess {
                 it[uuid] = environment.uuid.value
@@ -58,7 +59,7 @@ class DatabaseKubernetesEnvironmentRepository : EnvironmentRepository<Kubernetes
         rowsRemoved > 0
     }
 
-    private fun ResultRow.toEnvironment(): KubernetesEnvironment = KubernetesEnvironment(
+    private suspend fun ResultRow.toEnvironment(): KubernetesEnvironment = KubernetesEnvironment(
         uuid = EnvironmentUUID(this[KubernetesEnvironmentTable.uuid]),
         serverUUID = ServerUUID(this[KubernetesEnvironmentTable.serverUUID]),
         runnerUUID = RunnerUUID(this[KubernetesEnvironmentTable.runnerUUID]),

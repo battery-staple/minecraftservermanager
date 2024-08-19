@@ -1,13 +1,19 @@
 package com.rohengiralt.shared.serverProcess
 
+import com.rohengiralt.shared.util.uuid.UUIDSerializer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.polymorphic
+import kotlinx.serialization.modules.subclass
 import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.io.InputStream
+import java.util.*
 import kotlin.time.Duration
 
 /**
@@ -27,6 +33,13 @@ class LocalMinecraftServerProcess(serverName: String, private val process: Proce
                 process.waitFor()
             } ?: throw MinecraftServerProcess.StopFailed
         }
+
+    /**
+     * Uniquely identifies this process; used only in [toRecord].
+     */
+    private val uuid: UUID = UUID.randomUUID()
+
+    override fun toRecord(): MinecraftServerProcess.Record = Record(uuid)
 
     override suspend fun trySend(input: String) {
         val outputStream = process.outputStream
@@ -68,5 +81,20 @@ class LocalMinecraftServerProcess(serverName: String, private val process: Proce
 
     init { // This init block MUST be at end so that all properties used in jobs are initialized
         initIO()
+    }
+
+    @JvmInline // Not actually inlined in usage
+    @Serializable
+    private value class Record(@Serializable(with = UUIDSerializer::class) private val processUUID: UUID) : MinecraftServerProcess.Record
+
+    companion object {
+        /**
+         * A [SerializersModule] that knows how to serialize [Record].
+         */
+        val recordSerializer = SerializersModule {
+            polymorphic(MinecraftServerProcess.Record::class) {
+                subclass(Record::class)
+            }
+        }
     }
 }
