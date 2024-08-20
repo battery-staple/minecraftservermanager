@@ -2,6 +2,7 @@ package com.rohengiralt.minecraftservermanager
 
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.MinecraftJarAPI
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.RedundantFallbackAPI
+import com.rohengiralt.minecraftservermanager.domain.model.runner.AbstractMinecraftServerRunner
 import com.rohengiralt.minecraftservermanager.domain.model.runner.kubernetes.DeploymentProcess
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.contentdirectory.LocalMinecraftServerContentDirectoryFactory
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.APIMinecraftServerJarFactory
@@ -125,6 +126,14 @@ fun Application.module() {
                 single<MonitorAPIService> { MonitorAPIServiceImpl() }
             },
         )
+    }
+
+    logger.info("Recovering current runs")
+    val recoveryJob = AbstractMinecraftServerRunner.recoverCurrentRuns()
+
+    logger.debug("Awaiting recovery job")
+    runBlocking { // Intentionally block application startup until current runs are recovered
+        recoveryJob.join()
     }
 
     logger.info("Configuring security")

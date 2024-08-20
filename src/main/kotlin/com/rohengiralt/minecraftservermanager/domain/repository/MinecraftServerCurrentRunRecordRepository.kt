@@ -4,6 +4,9 @@ import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCu
 import com.rohengiralt.minecraftservermanager.domain.model.run.RunUUID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.EnvironmentUUID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
+import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerAddress
+import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironment
+import com.rohengiralt.minecraftservermanager.domain.model.server.Port
 import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.jsonb
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
@@ -53,6 +56,10 @@ class DatabaseMinecraftServerCurrentRunRecordRepository : MinecraftServerCurrent
                 it[serverUUID] = record.serverUUID.value
                 it[runnerUUID] = record.runnerUUID.value
                 it[environmentUUID] = record.environmentUUID.value
+                it[port] = record.runtimeEnvironment.port?.port?.number
+                it[maxHeapSize] = record.runtimeEnvironment.maxHeapSize?.memoryMB
+                it[minHeapSize] = record.runtimeEnvironment.minHeapSize?.memoryMB
+                it[address] = record.address
                 it[startTimeUtc] = record.startTime.toLocalDateTime(TimeZone.UTC).toJavaLocalDateTime()
                 it[process] = record.process
             }
@@ -90,19 +97,30 @@ class DatabaseMinecraftServerCurrentRunRecordRepository : MinecraftServerCurrent
             serverUUID = ServerUUID(row[serverUUID]),
             runnerUUID = RunnerUUID(row[runnerUUID]),
             environmentUUID = EnvironmentUUID(row[environmentUUID]),
+            runtimeEnvironment = MinecraftServerRuntimeEnvironment(
+                port = row[port]?.let { portNum -> MinecraftServerRuntimeEnvironment.Port(Port(portNum)) },
+                maxHeapSize = row[maxHeapSize]?.let { size -> MinecraftServerRuntimeEnvironment.MaxHeapSize(size) },
+                minHeapSize = row[minHeapSize]?.let { size -> MinecraftServerRuntimeEnvironment.MinHeapSize(size) },
+            ),
+            address = row[address],
             startTime = row[startTimeUtc].toInstant(ZoneOffset.UTC).toKotlinInstant(),
-            process = row[process]
+            process = row[process],
         )
     }
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 }
 
+@OptIn(ExperimentalUnsignedTypes::class)
 private object CurrentRunRecordTable : Table() {
     val runUUID = uuid("run_uuid")
     val serverUUID = uuid("server_uuid")
     val runnerUUID = uuid("runner_uuid")
     val environmentUUID = uuid("environment_uuid")
+    val port = ushort("port").nullable()
+    val maxHeapSize = uinteger("max_heap_size").nullable()
+    val minHeapSize = uinteger("min_heap_size").nullable()
+    val address = jsonb("address", MinecraftServerAddress.serializer())
     val startTimeUtc = datetime("start_time_utc")
     val process = jsonb("process", serializer<MinecraftServerProcess.Record>())
 

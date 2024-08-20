@@ -6,11 +6,15 @@ import com.rohengiralt.minecraftservermanager.domain.repository.CurrentRunReposi
 import com.rohengiralt.minecraftservermanager.domain.repository.EnvironmentRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerCurrentRunRecordRepository
 import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerPastRunRepository
-import com.rohengiralt.minecraftservermanager.util.ifTrue.ifFalseAlso
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess.ProcessMessage
+import kotlinx.atomicfu.AtomicRef
+import kotlinx.atomicfu.atomic
+import kotlinx.atomicfu.getAndUpdate
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.Clock
@@ -72,52 +76,7 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
      */
 
     init {
-        try {
-            logger.info("Archiving left over current runs")
-
-            val runsToArchive = runBlocking { // TODO: suspend fake constructor instead of blocking
-                currentRunRecordRepository.getAllRecords()
-                    .asFlow()
-                    .filter {
-                        (!it.isStillRunning()) // TODO: should also create CurrentRun objects for ones that are still running
-                            .ifFalseAlso { logger.trace("Skipping archiving record {} because it is still running", it.runUUID) }
-                    }
-                    .map { record ->
-                        MinecraftServerPastRun(
-                            uuid = record.runUUID,
-                            serverUUID = record.serverUUID,
-                            runnerUUID = record.runnerUUID,
-                            startTime = record.startTime,
-                            stopTime = null,
-                            log = getLog(record) ?: emptyList()
-                        )
-                    }
-                    .onEach {  run ->
-                        logger.trace("Archiving left over run {}", run.uuid)
-                    }
-                    .toList()
-            }
-
-            pastRunRepository.savePastRuns(runsToArchive)
-            logger.info("Archived ${runsToArchive.size} left over current run(s)")
-            currentRunRecordRepository.removeAllRecords()
-        } catch (e: Throwable) {
-            logger.error("Failed to archive left over current run(s)", e)
-        }
-    }
-
-    /**
-     * Checks if the receiver represents a current run that's still going on
-     */
-    private suspend fun MinecraftServerCurrentRunRecord.isStillRunning(): Boolean {
-        val record = this@isStillRunning
-        val env = environments.getEnvironment(record.environmentUUID)
-        if (env == null) {
-            logger.warn("Environment {} for record {} not found. Not archiving", record.environmentUUID, record)
-            return false
-        }
-
-        return env.currentProcess.value?.toRecord() != record.process
+        registerInstance(this)
     }
 
     override suspend fun initializeServer(server: MinecraftServer): Boolean = environmentsMutex.withLock {
@@ -336,4 +295,118 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
 
     override suspend fun getAllCurrentRunsFlow(server: MinecraftServer): StateFlow<List<MinecraftServerCurrentRun>> =
         currentRuns.getCurrentRunsState(server)
+
+    companion object {
+        /**
+         * Restores all the current runs belonging to any subclass that
+         * were not handled when the application last shut down.
+         */
+        fun recoverCurrentRuns() = coroutineScope.launch {
+            val jobs = recoverCurrentRunsJobs.value
+
+            jobs.forEach { job ->
+                val success = job.start()
+                if (success) {
+                    logger.trace("Successfully started recover current runs job {}", job)
+                } else {
+                    logger.trace("Failed to start recover current runs job {}", job)
+                }
+            }
+
+            jobs.joinAll()
+        }
+
+        /**
+         * Registers a subclass for current run handling.
+         * Should be called exclusively in the initializer of [AbstractMinecraftServerRunner].
+         */
+        private fun registerInstance(instance: AbstractMinecraftServerRunner<*>) {
+            recoverCurrentRunsJobs.getAndUpdate { jobs ->
+                jobs + recoverCurrentRunsJob(instance)
+            }
+        }
+
+        /**
+         * Handles recovery of left over current runs for an instance of [AbstractMinecraftServerRunner]
+         */
+        private fun recoverCurrentRunsJob(instance: AbstractMinecraftServerRunner<*>): Job = coroutineScope.launch(start = CoroutineStart.LAZY) {
+            try {
+                instance.logger.info("Archiving left over current runs")
+                val stoppedRuns = mutableListOf<MinecraftServerPastRun>()
+                val continuingRuns = mutableListOf<MinecraftServerCurrentRun>()
+
+                val records = instance.currentRunRecordRepository.getAllRecords()
+                instance.logger.trace("Found ${records.size} record(s) to recover")
+
+                for (record in records) {
+                    val env = instance.environments.getEnvironment(record.environmentUUID)
+                    if (env == null) {
+                        instance.logger.trace(
+                            "Environment {} not found. Not archiving record for run {}.",
+                            record.environmentUUID,
+                            record.runUUID
+                        )
+                        continue
+                    }
+
+                    val currentProcess = env.currentProcess.value
+                    val isStillRunning = currentProcess?.toRecord() == record.process
+                    if (isStillRunning) {
+                        instance.logger.trace("Restoring current run for record {}", record.runUUID)
+                        continuingRuns.add(record.toCurrentRun(currentProcess))
+                    } else {
+                        instance.logger.trace("Archiving left over record {}", record.runUUID)
+                        stoppedRuns.add(record.toPastRun(instance))
+                    }
+                }
+
+                instance.logger.info("Adding ${continuingRuns.size} continuing run(s)")
+                instance.currentRuns.addCurrentRuns(continuingRuns)
+                instance.logger.info("Added ${continuingRuns.size} continuing run(s)")
+
+                instance.logger.info("Archiving ${continuingRuns.size} left over current run(s)")
+                instance.pastRunRepository.savePastRuns(stoppedRuns)
+                stoppedRuns.forEach { instance.currentRunRecordRepository.removeRecord(it.uuid) }
+                instance.logger.info("Archived ${stoppedRuns.size} left over current run(s)")
+            } catch (e: Throwable) {
+                instance.logger.error("Failed to archive/restore left over current run(s)", e)
+            }
+        }
+
+        /**
+         * Creates a [MinecraftServerPastRun] from a [MinecraftServerCurrentRunRecord]
+         */
+        private suspend fun MinecraftServerCurrentRunRecord.toPastRun(instance: AbstractMinecraftServerRunner<*>): MinecraftServerPastRun =
+            MinecraftServerPastRun(
+                uuid = runUUID,
+                serverUUID = serverUUID,
+                runnerUUID = runnerUUID,
+                startTime = startTime,
+                stopTime = null,
+                log = instance.getLog(this) ?: emptyList()
+            )
+
+        /**
+         * Creates a [MinecraftServerCurrentRun] from a [MinecraftServerCurrentRunRecord]
+         */
+        private fun MinecraftServerCurrentRunRecord.toCurrentRun(process: MinecraftServerProcess): MinecraftServerCurrentRun =
+            MinecraftServerCurrentRun(
+                uuid = runUUID,
+                serverUUID = serverUUID,
+                runnerUUID = runnerUUID,
+                environmentUUID = environmentUUID,
+                runtimeEnvironment = runtimeEnvironment,
+                address = address,
+                startTime = startTime,
+                process = process
+            )
+
+        /**
+         * A list of all the current run recovery jobs, one from each instance.
+         */
+        private val recoverCurrentRunsJobs: AtomicRef<List<Job>> = atomic(emptyList())
+
+        private val coroutineScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        private val logger = LoggerFactory.getLogger(Companion::class.java)
+    }
 }

@@ -72,7 +72,7 @@ interface MinecraftServerProcess {
 
     /**
      * A record of this process that captures enough information to uniquely identify an instance.
-     * All implementations be [Serializable].
+     * All implementations must be [Serializable].
      */
     interface Record {
         /**
