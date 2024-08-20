@@ -3,6 +3,7 @@ package com.rohengiralt.monitor
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsChannel
@@ -31,14 +32,7 @@ private val client = HttpClient(CIO) {
  * If it is, completes normally; if not, throws an exception.
  */
 suspend fun ensureAppRunning() {
-    val pingResponse = client.get {
-        url {
-            protocol = URLProtocol.HTTP
-            host = "msm-app.default.svc.cluster.local"
-            port = 8080
-            path("/ping")
-        }
-    }
+    val pingResponse = client.get(appApiRequest("ping", auth = false))
 
     if (!pingResponse.status.isSuccess()) {
         throw IOException("Ping failed, got response $pingResponse")
@@ -56,16 +50,7 @@ suspend fun ensureAppRunning() {
  * @throws IOException if this fails
  */
 suspend fun downloadJar(target: Path): File {
-    val jarResponse = client.get {
-        url {
-            protocol = URLProtocol.HTTP
-            host = "msm-app.default.svc.cluster.local"
-            port = 8080
-            path("/api/monitor/v1/jar")
-        }
-
-        bearerAuth(token)
-    }
+    val jarResponse = client.get(appApiRequest("jar"))
 
     logger.debug("Jar status: {}", jarResponse.status)
     val downloadedJarChannel = jarResponse.bodyAsChannel()
@@ -83,22 +68,26 @@ suspend fun downloadJar(target: Path): File {
  * Returns the intended SHA-1 hash of the server jar.
  */
 suspend fun serverSha1(): ByteArray {
-    val sha1Response = client.get {
-        url {
-            protocol = URLProtocol.HTTP
-            host = "msm-app.default.svc.cluster.local"
-            port = 8080
-            path("/api/monitor/v1/sha1")
-        }
-
-        bearerAuth(token)
-    }
+    val sha1Response = client.get(appApiRequest("sha1"))
     logger.debug("SHA-1 status: {}", sha1Response.status)
 
     if (!sha1Response.status.isSuccess())
         throw IOException("SHA-1 request failed, got status ${sha1Response.status}")
 
     return sha1Response.readBytes()
+}
+
+private fun appApiRequest(path: String, auth: Boolean = true): HttpRequestBuilder.() -> Unit = {
+    url {
+        protocol = URLProtocol.HTTP
+        host = "msm-app.default.svc.cluster.local"
+        port = 8080
+        path("/api/monitor/v1/$path")
+    }
+
+    if (auth) {
+        bearerAuth(token)
+    }
 }
 
 private val logger = LoggerFactory.getLogger("AppAPI")
