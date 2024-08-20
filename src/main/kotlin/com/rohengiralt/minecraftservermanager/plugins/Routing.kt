@@ -1,13 +1,12 @@
 package com.rohengiralt.minecraftservermanager.plugins
 
-import com.rohengiralt.minecraftservermanager.domain.service.MonitorAPIService
 import com.rohengiralt.minecraftservermanager.frontend.routes.frontendConfig
+import com.rohengiralt.minecraftservermanager.frontend.routes.monitor.monitorRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.rest.runners.runnersRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.rest.serversRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.rest.statusRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.rest.usersRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.websockets
-import com.rohengiralt.minecraftservermanager.security.MonitorPrincipal
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.*
 import io.ktor.serialization.kotlinx.json.*
@@ -23,7 +22,6 @@ import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import kotlinx.serialization.json.Json
 import org.koin.ktor.ext.get
-import org.koin.ktor.ext.inject
 
 fun Application.configureRouting() {
     install(WebSockets) {
@@ -102,27 +100,7 @@ fun Application.configureRouting() {
 
         authenticate(*monitorAuthProviders) {
             route("api/monitor/v1") {
-                val monitorService: MonitorAPIService by inject()
-
-                get("jar") {
-                    call.application.log.debug("Received monitor jar request")
-                    val principal = call.principal<MonitorPrincipal>() ?: throw AuthorizationException()
-                    call.application.log.info("Serving jar for {}", principal)
-
-                    val jar = monitorService.getJar(principal.serverUUID)
-
-                    call.respondFile(jar)
-                }
-
-                get("sha1") {
-                    call.application.log.debug("Received monitor jar sha1 request")
-                    val principal = call.principal<MonitorPrincipal>() ?: throw AuthorizationException()
-                    call.application.log.info("Serving sha1 for {}", principal)
-
-                    val hash = monitorService.getSHA1(principal.serverUUID)
-
-                    call.respondBytes(hash)
-                }
+                monitorRoute()
             }
         }
     }
