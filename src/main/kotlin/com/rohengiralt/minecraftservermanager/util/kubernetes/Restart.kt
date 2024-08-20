@@ -7,6 +7,7 @@ import io.kubernetes.client.openapi.models.V1Deployment
 import io.kubernetes.client.util.PatchUtils
 import kotlinx.datetime.Clock
 import okhttp3.Call
+import org.slf4j.LoggerFactory
 import java.security.SecureRandom
 import java.util.*
 
@@ -72,3 +73,5 @@ private fun newRestartPatchBody(): String {
 }
 
 private val random: Random = SecureRandom() // SecureRandom to prevent multiple runs of the app generating the same number
+
+private val logger = LoggerFactory.getLogger("Restart")

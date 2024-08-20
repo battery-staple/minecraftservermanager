@@ -29,7 +29,7 @@ context(CoroutineScope)
 inline fun <reified T : KubernetesObject> ApiClient.watch(crossinline createRequest: () -> KubernetesRequest<T, *, *>): StateFlow<Set<T>> {
     val client = this
 
-    logger.trace("Fetching initial items for watch")
+    watchLogger.trace("Fetching initial items for watch")
     val initialResponse = createRequest().execute()
     @Suppress("UNCHECKED_CAST")
     val initialItems = initialResponse.items as List<T>
@@ -39,7 +39,7 @@ inline fun <reified T : KubernetesObject> ApiClient.watch(crossinline createRequ
     launch(Dispatchers.IO) {
         while (isActive) {
             try {
-                logger.trace("Relisting watch items")
+                watchLogger.trace("Relisting watch items")
                 val list = createRequest().execute()
                 val currentVersion = list.metadata.resourceVersion
                 @Suppress("UNCHECKED_CAST")
@@ -48,11 +48,11 @@ inline fun <reified T : KubernetesObject> ApiClient.watch(crossinline createRequ
                 state.update { items }
 
                 val watch = createWatch(client, createRequest(), currentVersion)
-                logger.trace("Successfully created watch. Updating state.")
+                watchLogger.trace("Successfully created watch. Updating state.")
 
                 watch.updateInto(state, items)
             } catch (e: ApiException) {
-                logger.warn("Received error HTTP response code from watch; aborting and recreating connection.", e)
+                watchLogger.warn("Received error HTTP response code from watch; aborting and recreating connection.", e)
             }
         }
     }
@@ -71,12 +71,13 @@ internal suspend fun <T : KubernetesObject> Watch<T>.updateInto(out: MutableShar
     for (response in this) {
         val success = handleResponse<T>(response, itemsByQualifiedName)
         if (!success) {
-            logger.debug("Failed to handle response from watch. Resetting connection.")
+            watchLogger.debug("Failed to handle response from watch. Resetting connection.")
             break // Reset connection
         }
 
-        logger.trace("Emitting new items update")
-        out.emit(itemsByQualifiedName.values.toSet()) // TODO: might need to improve efficiency here; does an O(n) copy on every update
+        val newValues = itemsByQualifiedName.values.toSet()
+        watchLogger.trace("Emitting new items update (now {})", newValues.map { it.metadata.name })
+        out.emit(newValues) // TODO: might need to improve efficiency here; does an O(n) copy on every update
 
         ensureActive() // Allow coroutine cancellation
     }
@@ -96,22 +97,25 @@ private fun <T : KubernetesObject> handleResponse(
 
     when (response.knownType) {
         ADDED -> {
-            if (itemsByQualifiedName[name] != null) logger.warn("Adding object $name that already existed")
+            if (itemsByQualifiedName[name] != null) watchLogger.warn("Adding object $name that already existed")
+            watchLogger.trace("Adding object {}", name)
             itemsByQualifiedName[name] = response.`object`
         }
 
         MODIFIED -> {
-            if (itemsByQualifiedName[name] == null) logger.warn("Modifying object $name that does not exist")
+            if (itemsByQualifiedName[name] == null) watchLogger.warn("Modifying object $name that does not exist")
+            watchLogger.trace("Modifying object {}", name)
             itemsByQualifiedName[name] = response.`object`
         }
 
         DELETED -> {
-            if (itemsByQualifiedName[name] == null) logger.warn("Deleting object $name that does not exist")
+            if (itemsByQualifiedName[name] == null) watchLogger.warn("Deleting object $name that does not exist")
+            watchLogger.trace("Deleting object {}", name)
             itemsByQualifiedName.remove(name)
         }
 
         ERROR -> {
-            logger.warn(
+            watchLogger.warn(
                 """
                     |Received ERROR response from watch; aborting and recreating connection. Response:
                     |Status: ${response.status}
@@ -122,7 +126,7 @@ private fun <T : KubernetesObject> handleResponse(
         }
 
         null -> {
-            logger.warn(
+            watchLogger.warn(
                 """
                     |Received unknown response type from watch; aborting and recreating connection. Response:
                     |Type: ${response.type}
@@ -162,4 +166,4 @@ enum class KnownWatchType(val value: String) {
 }
 
 @PublishedApi
-internal val logger = LoggerFactory.getLogger("Watch")
+internal val watchLogger = LoggerFactory.getLogger("Watch")

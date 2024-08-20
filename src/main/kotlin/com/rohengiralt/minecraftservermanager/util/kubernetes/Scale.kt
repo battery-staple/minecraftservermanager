@@ -2,6 +2,7 @@ package com.rohengiralt.minecraftservermanager.util.kubernetes
 
 import io.kubernetes.client.openapi.ApiException
 import io.kubernetes.client.openapi.apis.AppsV1Api
+import org.slf4j.LoggerFactory
 
 /**
  * Sets the scale of a deployment.
@@ -23,3 +24,5 @@ fun AppsV1Api.scaleDeployment(name: String, namespace: String, replicas: Int): B
         return false
     }
 }
+
+private val logger = LoggerFactory.getLogger("Scale")
