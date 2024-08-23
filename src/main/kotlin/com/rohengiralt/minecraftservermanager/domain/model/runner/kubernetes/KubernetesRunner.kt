@@ -116,8 +116,12 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             /*val deploymentResponse = */kubeApps.deleteNamespacedDeployment(deploymentName, "default").execute()
             logger.debug("Deleted deployment {} for server {}", deploymentName, serverName)
         } catch (e: ApiException) {
-            logger.error("Failed to create deployment {} for server {}", deploymentName, serverName, e)
-            return false
+            if (e.code == 404) {
+                logger.error("Deployment {} for server {} was already deleted. Skipping deletion.", deploymentName, serverName)
+            } else {
+                logger.error("Failed to create deployment {} for server {}", deploymentName, serverName, e)
+                return false
+            }
         }
 
         val service = monitorService(monitorID, httpPort = MONITOR_HTTP_PORT)
@@ -126,8 +130,12 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             val serviceResponse = kubeCore.deleteNamespacedService(service.metadata.name, "default").execute()
             logger.debug("Deleted service {} for server {}", serviceResponse.metadata.name, serverName)
         } catch (e: ApiException) {
-            logger.error("Failed to delete service ${service.metadata.name} for server $serverName", e)
-            return false
+            if (e.code == 404) {
+                logger.error("Service {} for server {} was already deleted. Skipping deletion.", service.metadata.name, serverName)
+            } else {
+                logger.error("Failed to delete service ${service.metadata.name} for server $serverName", e)
+                return false
+            }
         }
 
         val homePVC = monitorPVC(monitorID, 128)
@@ -136,8 +144,12 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             val homePVCResponse = kubeCore.deleteNamespacedPersistentVolumeClaim(homePVC.metadata.name, "default").execute()
             logger.debug("Deleted PVC {} for server {}", homePVCResponse.metadata.name, serverName)
         } catch (e: ApiException) {
-            logger.error("Failed to delete PVC ${homePVC.metadata.name} for server $serverName", e)
-            return false
+            if (e.code == 404) {
+                logger.error("PVC {} for server {} was already deleted. Skipping deletion.", homePVC.metadata.name, serverName)
+            } else {
+                logger.error("Failed to delete PVC ${homePVC.metadata.name} for server $serverName", e)
+                return false
+            }
         }
 
         val secret = monitorSecret(monitorID, monitorToken.asString())
@@ -146,8 +158,12 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             /*val secretResponse = */kubeCore.deleteNamespacedSecret(secret.metadata.name, "default").execute()
             logger.debug("Deleted secret {}", secret.metadata.name)
         } catch (e: ApiException) {
-            logger.error("Failed to create secret {} for server {}", secret.metadata.name, serverName, e)
-            return false
+            if (e.code == 404) {
+                logger.error("Secret {} for server {} was already deleted. Skipping deletion.", secret.metadata.name, serverName)
+            } else {
+                logger.error("Failed to create secret {} for server {}", secret.metadata.name, serverName, e)
+                return false
+            }
         }
 
         return true
