@@ -85,7 +85,8 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
             id = monitorID,
             serverName = server.name,
             minSpaceMB = 512,
-            maxSpaceMB = 2048
+            maxSpaceMB = 2048,
+            initialReplicas = 0,
         )
         logger.debug("Creating deployment ${deployment.metadata.name} for server ${server.name}")
         try {

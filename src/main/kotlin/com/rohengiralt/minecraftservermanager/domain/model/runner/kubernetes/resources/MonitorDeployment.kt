@@ -15,7 +15,8 @@ fun monitorDeployment(
     id: String,
     serverName: String,
     minSpaceMB: Int,
-    maxSpaceMB: Int
+    maxSpaceMB: Int,
+    initialReplicas: Int,
 ): V1Deployment {
     val monitorName = monitorName(id)
     val labels = mapOf(monitorLabel(id))
@@ -29,7 +30,7 @@ fun monitorDeployment(
         }
 
         spec {
-            replicas = 1
+            replicas = initialReplicas
             selector {
                 matchLabels(labels)
             }
