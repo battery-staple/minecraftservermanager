@@ -98,8 +98,8 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
 
         return KubernetesEnvironment(
             uuid = EnvironmentUUID(UUID.randomUUID()),
-            serverUUID = server.uuid,
             runnerUUID = this.uuid,
+            server = server,
             monitorToken = monitorToken,
         )
     }
@@ -268,17 +268,15 @@ class KubernetesEnvironment private constructor(
     companion object : KoinComponent {
         suspend operator fun invoke(
             uuid: EnvironmentUUID,
-            serverUUID: ServerUUID,
             runnerUUID: RunnerUUID,
+            server: MinecraftServer,
             monitorToken: MonitorToken,
         ): KubernetesEnvironment {
-            val monitorID = KubernetesRunner.getMonitorID(serverUUID)
-            val server = servers.getServer(serverUUID)
-                ?: throw IllegalArgumentException("Server $serverUUID not found") // TODO: Document!!
+            val monitorID = KubernetesRunner.getMonitorID(server.uuid)
 
             return KubernetesEnvironment(
                 uuid = uuid,
-                serverUUID = serverUUID,
+                serverUUID = server.uuid,
                 runnerUUID = runnerUUID,
                 monitorToken = monitorToken,
                 monitorID = monitorID,

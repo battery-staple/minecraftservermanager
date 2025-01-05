@@ -10,12 +10,15 @@ import com.rohengiralt.minecraftservermanager.util.sql.ioExnTransaction
 import com.rohengiralt.minecraftservermanager.util.sql.suspendIOExnTransaction
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
+import org.slf4j.LoggerFactory
 import java.util.*
 
 /**
  * Stores [KubernetesEnvironment]s in the database.
  */
-class DatabaseKubernetesEnvironmentRepository : EnvironmentRepository<KubernetesEnvironment> {
+class DatabaseKubernetesEnvironmentRepository : EnvironmentRepository<KubernetesEnvironment>, KoinComponent {
     init {
         transaction {
             SchemaUtils.create(KubernetesEnvironmentTable)
@@ -39,7 +42,7 @@ class DatabaseKubernetesEnvironmentRepository : EnvironmentRepository<Kubernetes
     override suspend fun getAllEnvironments(): List<KubernetesEnvironment> = suspendIOExnTransaction {
         KubernetesEnvironmentTable
             .selectAll()
-            .map { it.toEnvironment() }
+            .mapNotNull { it.toEnvironment() }
     }
 
     override suspend fun addEnvironment(environment: KubernetesEnvironment): Boolean = suspendIOExnTransaction {
@@ -59,12 +62,24 @@ class DatabaseKubernetesEnvironmentRepository : EnvironmentRepository<Kubernetes
         rowsRemoved > 0
     }
 
-    private suspend fun ResultRow.toEnvironment(): KubernetesEnvironment = KubernetesEnvironment(
-        uuid = EnvironmentUUID(this[KubernetesEnvironmentTable.uuid]),
-        serverUUID = ServerUUID(this[KubernetesEnvironmentTable.serverUUID]),
-        runnerUUID = RunnerUUID(this[KubernetesEnvironmentTable.runnerUUID]),
-        monitorToken = MonitorToken(this[KubernetesEnvironmentTable.token])
-    )
+    private suspend fun ResultRow.toEnvironment(): KubernetesEnvironment? {
+        val serverUUID = ServerUUID(this[KubernetesEnvironmentTable.serverUUID])
+        val server = serverRepository.getServer(serverUUID) // TODO: lookup directly through DB
+        if (server == null) {
+            logger.trace("Cannot deserialize server {}; not found", serverUUID)
+            return null
+        }
+
+        return KubernetesEnvironment(
+            uuid = EnvironmentUUID(this[KubernetesEnvironmentTable.uuid]),
+            server = server,
+            runnerUUID = RunnerUUID(this[KubernetesEnvironmentTable.runnerUUID]),
+            monitorToken = MonitorToken(this[KubernetesEnvironmentTable.token])
+        )
+    }
+
+    private val serverRepository by inject<MinecraftServerRepository>()
+    private val logger = LoggerFactory.getLogger(this::class.java)
 }
 
 private object KubernetesEnvironmentTable : Table() {
