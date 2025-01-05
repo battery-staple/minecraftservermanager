@@ -37,30 +37,41 @@ class RestAPIServiceImpl : RestAPIService, KoinComponent {
     override suspend fun getAllServers(): APIResult<List<MinecraftServer>> =
         Success(serverRepository.getAllServers())
 
-    override suspend fun createServer(uuid: ServerUUID?, name: String, version: MinecraftVersion, runnerUUID: RunnerUUID): APIResult<MinecraftServer> {
+    override suspend fun createServer(overrideUUID: ServerUUID?, name: String, version: MinecraftVersion, runnerUUID: RunnerUUID): APIResult<MinecraftServer> {
+        val uuid = overrideUUID ?: ServerUUID(UUID.randomUUID())
+        logger.trace("Creating server {}", uuid)
         val server = MinecraftServer(
-            uuid = uuid ?: ServerUUID(UUID.randomUUID()),
+            uuid = uuid,
             name = name,
             version = version,
             runnerUUID = runnerUUID,
             creationTime = Clock.System.now()
         )
 
+        logger.trace("Getting runner {}", runnerUUID)
         val runner = runnerRepository.getRunner(runnerUUID) ?: return Failure.AuxiliaryResourceNotFound(runnerUUID)
 
         try {
+            logger.trace("Initializing server {}", server.uuid)
             runner.initializeServer(server).ifFalse { return Failure.Unknown() }
+            logger.trace("Successfully initialized server {}", server.uuid)
         } catch (e: IllegalArgumentException) {
+            logger.trace("Failed to initialize server {}", server.uuid)
             return Failure.AlreadyExists(server.uuid)
         }
 
+        logger.trace("Adding server {} to repository", server.uuid)
         val addSuccess = runCatching { serverRepository.addServer(server) }.getOrElse { false }
+        logger.trace("Adding server {} to repository {}", server.uuid, if (addSuccess) "SUCCEEDED" else "FAILED")
         if (addSuccess) {
             return Success(server)
         } else {
-            runCatching { runner.removeServer(server) }
-                .getOrElse { false }
-                .ifFalse { logger.warn("Failed to clean up resources for ${server.uuid} persistence failure.") }
+            logger.trace("Removing server {} from runner {}", server.uuid, runner.uuid)
+            val removeSuccess = runCatching { runner.removeServer(server) }.getOrElse { false }
+            logger.trace("Removing server {} from runner {} {}", server.uuid, runner.uuid, if (removeSuccess) "SUCCEEDED" else "FAILED")
+            if (!removeSuccess) {
+                logger.warn("Failed to clean up resources for ${server.uuid} persistence failure.")
+            }
 
             return Failure.AlreadyExists(server.uuid)
         }
