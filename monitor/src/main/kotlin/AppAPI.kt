@@ -1,23 +1,21 @@
 package com.rohengiralt.monitor
 
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.request.HttpRequestBuilder
-import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.get
-import io.ktor.client.statement.bodyAsChannel
-import io.ktor.client.statement.readBytes
-import io.ktor.http.URLProtocol
-import io.ktor.http.isSuccess
-import io.ktor.http.path
-import io.ktor.util.cio.writeChannel
-import io.ktor.utils.io.copyAndClose
+import com.rohengiralt.shared.util.uuid.UUIDSerializer
+import io.ktor.client.*
+import io.ktor.client.call.*
+import io.ktor.client.engine.cio.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import io.ktor.http.*
+import io.ktor.util.cio.*
+import io.ktor.utils.io.*
+import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.io.IOException
 import java.nio.file.Path
 import java.text.NumberFormat
+import java.util.*
 
 /**
  * The HTTP Client used for communicating with the main app
@@ -32,7 +30,7 @@ private val client = HttpClient(CIO) {
  * If it is, completes normally; if not, throws an exception.
  */
 suspend fun ensureAppRunning() {
-    val pingResponse = client.get(appApiRequest("ping", auth = false))
+    val pingResponse = client.get(appApiRequest("ping", auth = true))
 
     if (!pingResponse.status.isSuccess()) {
         throw IOException("Ping failed, got response $pingResponse")
@@ -66,6 +64,7 @@ suspend fun downloadJar(target: Path): File {
 
 /**
  * Returns the intended SHA-1 hash of the server jar.
+ * @throws IOException if getting the hash fails
  */
 suspend fun serverSha1(): ByteArray {
     val sha1Response = client.get(appApiRequest("sha1"))
@@ -75,6 +74,20 @@ suspend fun serverSha1(): ByteArray {
         throw IOException("SHA-1 request failed, got status ${sha1Response.status}")
 
     return sha1Response.readBytes()
+}
+
+/**
+ * Returns the run UUID assigned to this instance
+ * @throws IOException if getting the UUID fails
+ */
+suspend fun runUUID(): UUID {
+    val runResponse = client.get(appApiRequest("run"))
+
+    if (!runResponse.status.isSuccess())
+        throw IOException("Run UUID request failed, got status ${runResponse.status}")
+
+    val runBody: String = runResponse.body()
+    return Json.decodeFromString(UUIDSerializer, runBody)
 }
 
 private fun appApiRequest(path: String, auth: Boolean = true): HttpRequestBuilder.() -> Unit = {

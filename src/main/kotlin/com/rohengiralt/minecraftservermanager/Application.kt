@@ -1,6 +1,8 @@
 package com.rohengiralt.minecraftservermanager
 
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.MinecraftJarAPI
+import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.MonitorAPI
+import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.MonitorAPIImpl
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.RedundantFallbackAPI
 import com.rohengiralt.minecraftservermanager.domain.model.runner.AbstractMinecraftServerRunner
 import com.rohengiralt.minecraftservermanager.domain.model.runner.kubernetes.DeploymentProcess
@@ -116,10 +118,10 @@ fun Application.module() {
                 }
                 single<LocalEnvironmentRepository> { LocalEnvironmentRepository() }
                 single<DatabaseKubernetesEnvironmentRepository> { DatabaseKubernetesEnvironmentRepository() }
-                single<CurrentRunRepository> { InMemoryCurrentRunRepository() }
                 single<MinecraftServerCurrentRunRecordRepository> { DatabaseMinecraftServerCurrentRunRecordRepository() }
                 single<UserPreferencesRepository> { DatabaseUserPreferencesRepository() }
                 single<MonitorTokenRepository> { DatabaseMonitorTokenRepository() }
+                single<MonitorAPI> { MonitorAPIImpl() }
 
                 single<RestAPIService> { RestAPIServiceImpl() }
                 single<WebsocketAPIService> { WebsocketAPIServiceImpl() }

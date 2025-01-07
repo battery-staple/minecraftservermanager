@@ -60,10 +60,6 @@ fun Application.configureRouting() {
     }
 
     routing {
-        get("/ping") { // TODO: delete - unsecured
-            call.respondText("pong")
-        }
-
         authenticate(*httpAuthProviders) {
             route("api/v2") {
                 route("/rest") {

@@ -28,6 +28,11 @@ interface MonitorTokenRepository {
     suspend fun generateTokenForServer(uuid: ServerUUID): MonitorToken
 
     /**
+     * Returns the previously generated token for the server with uuid [uuid].
+     */
+    suspend fun getTokenForServer(uuid: ServerUUID): MonitorToken?
+
+    /**
      * Deletes the stored token for the server [uuid]
      * @return true if the token is no longer stored, including if it was not present to begin with.
      */
@@ -48,26 +53,32 @@ class DatabaseMonitorTokenRepository : MonitorTokenRepository {
             ?.let(::ServerUUID)
     }
 
-    override suspend fun generateTokenForServer(uuid: ServerUUID): MonitorToken = suspendIOExnTransaction {
+    override suspend fun generateTokenForServer(uuid: ServerUUID): MonitorToken {
         val token = generateRandomToken()
 
-        val insertSuccess = MonitorTokenTable.insertSuccess {
-            it[MonitorTokenTable.serverUUID] = uuid.value
-            it[MonitorTokenTable.token] = token.bytes
+        val insertSuccess = suspendIOExnTransaction {
+            MonitorTokenTable.insertSuccess {
+                it[MonitorTokenTable.serverUUID] = uuid.value
+                it[MonitorTokenTable.token] = token.bytes
+            }
         }
 
         if (!insertSuccess) {
             logger.warn("Token already allocated for server {}", uuid)
 
-            @Suppress("ReplaceGetOrSet") // more consistent this way
-            return@suspendIOExnTransaction MonitorTokenTable
-                .select { MonitorTokenTable.serverUUID eq uuid.value }
-                .single()
-                .get(MonitorTokenTable.token)
-                .let(::MonitorToken)
+            return getTokenForServer(uuid) ?: error("Insert failed but key $uuid does not exist in database.")
         }
 
-        return@suspendIOExnTransaction token
+        return token
+    }
+
+    override suspend fun getTokenForServer(uuid: ServerUUID): MonitorToken? = suspendIOExnTransaction {
+        @Suppress("ReplaceGetOrSet") // more consistent this way
+        MonitorTokenTable
+            .select { MonitorTokenTable.serverUUID eq uuid.value }
+            .single()
+            .get(MonitorTokenTable.token)
+            .let(::MonitorToken)
     }
 
     override suspend fun removeTokenForServer(uuid: ServerUUID): Boolean = suspendIOExnTransaction {

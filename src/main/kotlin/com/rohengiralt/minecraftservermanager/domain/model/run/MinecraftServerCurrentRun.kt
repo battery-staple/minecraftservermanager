@@ -6,9 +6,9 @@ import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerAddress
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironment
 import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
-import com.rohengiralt.shared.util.uuid.UUIDSerializer
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import com.rohengiralt.shared.serverProcess.ServerIO
+import com.rohengiralt.shared.util.uuid.UUIDSerializer
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -23,15 +23,15 @@ data class MinecraftServerCurrentRun(
     /**
      * The uuid of the run (not of the server or runner!)
      */
-    val uuid: RunUUID,
+    override val uuid: RunUUID,
     /**
      * The uuid of the server this run belongs to
      */
-    val serverUUID: ServerUUID,
+    override val serverUUID: ServerUUID,
     /**
      * The uuid of the runner this run is running on
      */
-    val runnerUUID: RunnerUUID,
+    override val runnerUUID: RunnerUUID,
     /**
      * The uuid of the environment in which this run is running
      */
@@ -52,7 +52,7 @@ data class MinecraftServerCurrentRun(
      * The process that is running
      */
     val process: MinecraftServerProcess,
-) {
+) : MinecraftServerRun {
     /**
      * A channel for inputting commands to the server
      */

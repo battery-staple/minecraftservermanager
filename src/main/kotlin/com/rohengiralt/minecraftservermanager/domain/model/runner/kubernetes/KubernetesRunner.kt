@@ -1,5 +1,7 @@
 package com.rohengiralt.minecraftservermanager.domain.model.runner.kubernetes
 
+import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.MonitorAPI
+import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.MonitorAPIImpl.Companion.getMonitorID
 import com.rohengiralt.minecraftservermanager.domain.model.run.LogEntry
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRunRecord
 import com.rohengiralt.minecraftservermanager.domain.model.runner.AbstractMinecraftServerRunner
@@ -20,14 +22,11 @@ import com.uchuhimo.konf.ConfigSpec
 import io.kubernetes.client.openapi.ApiException
 import io.kubernetes.client.openapi.apis.AppsV1Api
 import io.kubernetes.client.openapi.apis.CoreV1Api
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.koin.core.component.KoinComponent
@@ -171,21 +170,17 @@ class KubernetesRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<Kuberne
     }
 
     override suspend fun getLog(runRecord: MinecraftServerCurrentRunRecord): List<LogEntry>? {
-        TODO("Not yet implemented")
+        return monitorAPI.getLog(runRecord.serverUUID, runRecord.runUUID)
     }
 
-    private val tokens: MonitorTokenRepository by inject()
 
+    private val monitorAPI: MonitorAPI by inject()
     private val kubeCore: CoreV1Api by inject()
     private val kubeApps: AppsV1Api by inject()
     private val servers: MinecraftServerRepository by inject()
+    private val tokens: MonitorTokenRepository by inject()
 
     private val logger = LoggerFactory.getLogger(this::class.java)
-
-    companion object {
-        fun getMonitorID(server: ServerUUID) =
-            server.value.toString()
-    }
 }
 
 class KubernetesEnvironment private constructor(
@@ -208,7 +203,7 @@ class KubernetesEnvironment private constructor(
             return null
         }
 
-        logger.trace("Configuring service for port {} to point to server {} ({})", port, server.name, server.uuid)
+        logger.trace("Configuring service for port {} to point to server {} ({})", port, server.name, server.uuid) // TODO: Ensure nothing else running on that port
         val serviceSuccess = configureMinecraftService(port, server)
         if (!serviceSuccess) return null
 
@@ -273,7 +268,7 @@ class KubernetesEnvironment private constructor(
             server: MinecraftServer,
             monitorToken: MonitorToken,
         ): KubernetesEnvironment {
-            val monitorID = KubernetesRunner.getMonitorID(server.uuid)
+            val monitorID = getMonitorID(server.uuid)
 
             return KubernetesEnvironment(
                 uuid = uuid,

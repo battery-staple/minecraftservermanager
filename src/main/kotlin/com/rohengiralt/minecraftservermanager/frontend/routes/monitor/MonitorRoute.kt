@@ -3,17 +3,22 @@ package com.rohengiralt.minecraftservermanager.frontend.routes.monitor
 import com.rohengiralt.minecraftservermanager.domain.service.MonitorAPIService
 import com.rohengiralt.minecraftservermanager.plugins.AuthorizationException
 import com.rohengiralt.minecraftservermanager.security.MonitorPrincipal
-import io.ktor.server.application.call
-import io.ktor.server.application.log
-import io.ktor.server.auth.principal
-import io.ktor.server.response.respondBytes
-import io.ktor.server.response.respondFile
-import io.ktor.server.routing.Route
-import io.ktor.server.routing.get
+import com.rohengiralt.shared.util.uuid.UUIDSerializer
+import io.ktor.server.application.*
+import io.ktor.server.auth.*
+import io.ktor.server.plugins.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import kotlinx.serialization.json.Json
 import org.koin.ktor.ext.inject
 
 fun Route.monitorRoute() {
     val monitorService: MonitorAPIService by inject()
+    val json: Json by inject()
+
+    get("ping") {
+        call.respond("pong")
+    }
 
     get("jar") {
         call.application.log.debug("Received monitor jar request")
@@ -33,6 +38,16 @@ fun Route.monitorRoute() {
         val hash = monitorService.getSHA1(principal.serverUUID)
 
         call.respondBytes(hash)
+    }
+
+    get("run") {
+        call.application.log.debug("Received runUUID request")
+        val principal = call.principal<MonitorPrincipal>() ?: throw AuthorizationException()
+        call.application.log.info("Serving runUUID for {}", principal)
+
+        val uuid = monitorService.getRunUUID(principal.serverUUID) ?: throw NotFoundException()
+
+        call.respond(json.encodeToString(UUIDSerializer, uuid.value))
     }
 }
 

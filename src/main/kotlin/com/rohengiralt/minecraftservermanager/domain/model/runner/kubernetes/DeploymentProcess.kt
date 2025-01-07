@@ -1,5 +1,6 @@
 package com.rohengiralt.minecraftservermanager.domain.model.runner.kubernetes
 
+import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.MonitorAPIImpl.Companion.getMonitorID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.kubernetes.resources.monitorLabel
 import com.rohengiralt.minecraftservermanager.domain.model.runner.kubernetes.resources.monitorName
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
@@ -95,6 +96,7 @@ class DeploymentProcess(
 
     /**
      * Connects to the deployment.
+     * Awaits for the connection to complete.
      * @param restartOnFailure when set, if the deployment does not respond within [CONNECT_POD_TIMEOUT], restarts the pod and tries again.
      *                         When not set, requires that the deployment is already running.
      *                         If not set, a failure to connect after [CONNECT_POD_TIMEOUT] will throw a [ConnectionTimeoutException].
@@ -167,7 +169,7 @@ class DeploymentProcess(
      * @param onConnectionTimeout a timeout for if connecting takes too long
      */
     private fun newConnectionWithTimeout(onConnectionTimeout: PersistentWebsocket.TimeoutHandler?): PersistentWebsocket =
-        PersistentWebsocket(_stdOut, _stdError, onConnectionTimeout) {
+        PersistentWebsocket(_stdOut, _stdError, onConnectionTimeout) { // TODO: Move to MonitorAPI
             url {
                 protocol = URLProtocol.WS
                 host = this@DeploymentProcess.hostname
@@ -225,7 +227,7 @@ class DeploymentProcess(
             port: Int,
             token: MonitorToken,
         ): DeploymentProcess {
-            val monitorID = KubernetesRunner.getMonitorID(server.uuid)
+            val monitorID = getMonitorID(server.uuid)
             val podLabel = monitorLabel(monitorID)
             val currentPod = watchPod(podLabel)
 
@@ -252,6 +254,7 @@ class DeploymentProcess(
                         pods.firstOrNull { pod -> label in pod.metadata.labels }
                     }
                     .distinctUntilChangedBy { pod -> pod?.metadata?.name }
+                    .onEach { companionLogger.debug("New pod for label {}: {}", label, it?.metadata?.name) }
                     .stateIn(companionScope)
             }
 
@@ -274,6 +277,8 @@ class DeploymentProcess(
                 subclass(Record::class)
             }
         }
+
+        private val companionLogger = LoggerFactory.getLogger(Companion::class.java)
     }
 
     // Deployments are uniquely identified by the label on the pod

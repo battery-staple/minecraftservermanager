@@ -138,9 +138,19 @@ fun monitorPVC(monitorID: String, storageMiB: Int): V1PersistentVolumeClaim = pe
     }
 }
 
+/**
+ * The Kubernetes name of the secret storing a monitor's protected data
+ * @param monitorID the name of the monitor
+ */
+fun monitorSecretName(monitorID: String) = monitorName(monitorID)
+
+/**
+ * The secret that stores the monitor's protected data
+ * @param token the auth token used for authenticating connections to/from the monitor
+ */
 fun monitorSecret(monitorID: String, token: String): V1Secret = secret {
     metadata {
-        name = monitorName(monitorID)
+        name = monitorSecretName(monitorID)
     }
     type = "Opaque"
     data = mutableMapOf("token" to token.toByteArray())
