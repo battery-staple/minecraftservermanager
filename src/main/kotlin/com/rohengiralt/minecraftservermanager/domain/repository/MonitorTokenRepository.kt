@@ -73,12 +73,11 @@ class DatabaseMonitorTokenRepository : MonitorTokenRepository {
     }
 
     override suspend fun getTokenForServer(uuid: ServerUUID): MonitorToken? = suspendIOExnTransaction {
-        @Suppress("ReplaceGetOrSet") // more consistent this way
         MonitorTokenTable
             .select { MonitorTokenTable.serverUUID eq uuid.value }
-            .single()
-            .get(MonitorTokenTable.token)
-            .let(::MonitorToken)
+            .singleOrNull()
+            ?.get(MonitorTokenTable.token)
+            ?.let(::MonitorToken)
     }
 
     override suspend fun removeTokenForServer(uuid: ServerUUID): Boolean = suspendIOExnTransaction {
