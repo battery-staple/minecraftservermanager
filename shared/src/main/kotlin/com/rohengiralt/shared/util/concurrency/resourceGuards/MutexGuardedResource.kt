@@ -8,6 +8,12 @@ import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
 
+fun <T> mutexGuardedResourceOf(resource: T): MutexGuardedResource<T> =
+    ReadOnlyMutexGuardedResource(resource)
+
+fun <T> mutableMutexGuardedResourceOf(initialValue: T): ReadWriteMutexGuardedResource<T> =
+    ReadWriteMutexGuardedResource(initialValue)
+
 /**
  * A version of [MutexGuardedResources] that guards only one resource at a time.
  * Refer to the documentation for [MutexGuardedResources] for details.

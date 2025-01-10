@@ -2,10 +2,10 @@ package com.rohengiralt.minecraftservermanager.domain.repository
 
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerInitializingRun
 import com.rohengiralt.minecraftservermanager.domain.model.run.RunUUID
-import com.rohengiralt.shared.util.concurrency.resourceGuards.ReadOnlyMutexGuardedResource
+import com.rohengiralt.shared.util.concurrency.resourceGuards.mutexGuardedResourceOf
 
 class InMemoryInitializingRunRepository : InitializingRunRepository {
-    private val runsResource = ReadOnlyMutexGuardedResource(mutableMapOf<RunUUID, MinecraftServerInitializingRun>())
+    private val runsResource = mutexGuardedResourceOf(mutableMapOf<RunUUID, MinecraftServerInitializingRun>())
 
     override suspend fun addInitializingRun(run: MinecraftServerInitializingRun): Boolean {
         runsResource.use { runs -> runs[run.uuid] = run }

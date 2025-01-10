@@ -4,14 +4,14 @@ import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
 import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
-import com.rohengiralt.shared.util.concurrency.resourceGuards.ReadOnlyMutexGuardedResource
-import com.rohengiralt.shared.util.concurrency.resourceGuards.ReadWriteMutexGuardedResource
-import com.rohengiralt.shared.util.concurrency.resourceGuards.useAll
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.insertSuccess
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.jsonb
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.upsert
 import com.rohengiralt.minecraftservermanager.util.ifTrue.ifTrueAlso
 import com.rohengiralt.minecraftservermanager.util.sql.ioExnTransaction
+import com.rohengiralt.shared.util.concurrency.resourceGuards.mutableMutexGuardedResourceOf
+import com.rohengiralt.shared.util.concurrency.resourceGuards.mutexGuardedResourceOf
+import com.rohengiralt.shared.util.concurrency.resourceGuards.useAll
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -114,13 +114,13 @@ private class ServerWatcher {
     /**
      * A resource guarding all the state flows that emit when a particular server is updated (including deleted).
      */
-    private val watchingServerFlowsResource = ReadOnlyMutexGuardedResource(mutableMapOf<ServerUUID, MutableStateFlow<MinecraftServer?>>())
+    private val watchingServerFlowsResource = mutexGuardedResourceOf(mutableMapOf<ServerUUID, MutableStateFlow<MinecraftServer?>>())
 
     /**
      * A resource guarding a state flow that emits when any server is updated (including deleted).
      * The state flow is null until [allUpdatesFlow] is first called.
      */
-    private val allUpdatesFlowResource = ReadWriteMutexGuardedResource<MutableStateFlow<List<MinecraftServer>>?>(null)
+    private val allUpdatesFlowResource = mutableMutexGuardedResourceOf<MutableStateFlow<List<MinecraftServer>>?>(null)
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
 

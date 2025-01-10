@@ -3,9 +3,10 @@ package com.rohengiralt.minecraftservermanager.domain.repository
 import com.rohengiralt.minecraftservermanager.domain.model.runner.EnvironmentUUID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerEnvironment
 import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
-import com.rohengiralt.shared.util.concurrency.resourceGuards.ReadOnlyMutexGuardedResource
-import com.rohengiralt.shared.util.concurrency.resourceGuards.useAll
 import com.rohengiralt.minecraftservermanager.util.wrapWith
+import com.rohengiralt.shared.util.concurrency.resourceGuards.MutexGuardedResource
+import com.rohengiralt.shared.util.concurrency.resourceGuards.mutexGuardedResourceOf
+import com.rohengiralt.shared.util.concurrency.resourceGuards.useAll
 
 /**
  * An [EnvironmentRepository] that stores environments exclusively in memory.
@@ -19,11 +20,11 @@ class InMemoryEnvironmentRepository<E : MinecraftServerEnvironment> : Environmen
      * 2. byServerCacheResource
      */
 
-    private val byEnvCacheResource: ReadOnlyMutexGuardedResource<MutableMap<EnvironmentUUID, E>> =
-        ReadOnlyMutexGuardedResource(mutableMapOf())
+    private val byEnvCacheResource: MutexGuardedResource<MutableMap<EnvironmentUUID, E>> =
+        mutexGuardedResourceOf(mutableMapOf())
 
-    private val byServerCacheResource: ReadOnlyMutexGuardedResource<MutableMap<ServerUUID, E>> =
-        ReadOnlyMutexGuardedResource(mutableMapOf())
+    private val byServerCacheResource: MutexGuardedResource<MutableMap<ServerUUID, E>> =
+        mutexGuardedResourceOf(mutableMapOf())
 
     override suspend fun getEnvironment(uuid: EnvironmentUUID): E? = wrapWith({ assertInv() }) {
         byEnvCacheResource.use { cache -> cache[uuid] }
