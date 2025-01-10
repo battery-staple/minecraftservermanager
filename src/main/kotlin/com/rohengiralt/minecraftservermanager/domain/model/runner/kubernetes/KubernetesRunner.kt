@@ -276,26 +276,41 @@ class KubernetesEnvironment private constructor(
                 runnerUUID = runnerUUID,
                 monitorToken = monitorToken,
                 monitorID = monitorID,
-                initialProcess = initialProcess(monitorID, server, monitorToken)
+                initialProcess = initialProcess(
+                    environmentUUID = uuid,
+                    monitorID = monitorID,
+                    server = server,
+                    monitorToken = monitorToken
+                )
             )
         }
 
+        /**
+         * A process connecting to the monitor if one is already running.
+         * This would usually happen if the app restarts while a monitor is running.
+         * Returns null if the monitor is not currently running.
+         */
         private suspend fun initialProcess(
+            environmentUUID: EnvironmentUUID,
             monitorID: String,
             server: MinecraftServer,
             monitorToken: MonitorToken
         ): MinecraftServerProcess? {
+            logger.debug("Creating initial process for environment {} for server {}", environmentUUID, server.uuid)
             val monitorLabel = monitorLabel(monitorID)
 
+            logger.trace("Checking if monitor {} deployment is running", monitorID)
             val isDeploymentRunning = try {
-                val pod = kubeCore.listNamespacedPod("default").execute()
-                pod.items.any { monitorLabel in it.metadata.labels }
+                val pods = kubeCore.listNamespacedPod("default").execute()
+                pods.items.any { monitorLabel in it.metadata.labels }
             } catch (e: ApiException) { false }
+            logger.trace("Monitor {} deployment {} running", monitorID, if (isDeploymentRunning) "IS" else "IS NOT")
 
             if (!isDeploymentRunning) {
                 return null
             }
 
+            logger.trace("Creating deployment process")
             val initialProcess = DeploymentProcess(
                 server = server,
                 hostname = monitorName(monitorID),
@@ -303,9 +318,12 @@ class KubernetesEnvironment private constructor(
                 token = monitorToken
             )
 
+            logger.trace("Connecting to process")
             try {
                 initialProcess.connect(restartOnFailure = false)
+                logger.trace("Connecting to process SUCCEEDED")
             } catch (e: DeploymentProcess.ConnectionTimeoutException) {
+                logger.trace("Connecting to process FAILED")
                 return null
             }
 
@@ -314,6 +332,8 @@ class KubernetesEnvironment private constructor(
 
         private val servers: MinecraftServerRepository by inject()
         private val kubeCore: CoreV1Api by inject()
+
+        private val logger = LoggerFactory.getLogger(this::class.java)
     }
 }
 
