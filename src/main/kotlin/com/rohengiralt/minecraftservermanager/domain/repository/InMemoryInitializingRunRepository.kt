@@ -2,7 +2,7 @@ package com.rohengiralt.minecraftservermanager.domain.repository
 
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerInitializingRun
 import com.rohengiralt.minecraftservermanager.domain.model.run.RunUUID
-import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.ReadOnlyMutexGuardedResource
+import com.rohengiralt.shared.util.concurrency.resourceGuards.ReadOnlyMutexGuardedResource
 
 class InMemoryInitializingRunRepository : InitializingRunRepository {
     private val runsResource = ReadOnlyMutexGuardedResource(mutableMapOf<RunUUID, MinecraftServerInitializingRun>())

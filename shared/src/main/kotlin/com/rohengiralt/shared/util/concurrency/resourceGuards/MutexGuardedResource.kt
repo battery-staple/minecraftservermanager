@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalContracts::class)
 
-package com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards
+package com.rohengiralt.shared.util.concurrency.resourceGuards
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock

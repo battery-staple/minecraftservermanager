@@ -3,8 +3,8 @@ package com.rohengiralt.minecraftservermanager.domain.repository
 import com.rohengiralt.minecraftservermanager.domain.model.runner.EnvironmentUUID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerEnvironment
 import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
-import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.ReadOnlyMutexGuardedResource
-import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.useAll
+import com.rohengiralt.shared.util.concurrency.resourceGuards.ReadOnlyMutexGuardedResource
+import com.rohengiralt.shared.util.concurrency.resourceGuards.useAll
 import com.rohengiralt.minecraftservermanager.util.wrapWith
 
 /**

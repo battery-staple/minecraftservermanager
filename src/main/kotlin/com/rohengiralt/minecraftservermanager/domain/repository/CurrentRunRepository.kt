@@ -4,8 +4,8 @@ import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCu
 import com.rohengiralt.minecraftservermanager.domain.model.run.RunUUID
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
 import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
-import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.MutexGuardedResources
-import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.ResourceContext
+import com.rohengiralt.shared.util.concurrency.resourceGuards.MutexGuardedResources
+import com.rohengiralt.shared.util.concurrency.resourceGuards.ResourceContext
 import com.rohengiralt.minecraftservermanager.util.wrapWith
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

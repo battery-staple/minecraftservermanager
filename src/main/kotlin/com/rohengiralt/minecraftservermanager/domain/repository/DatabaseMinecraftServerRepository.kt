@@ -4,9 +4,9 @@ import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftVersion
 import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
-import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.ReadOnlyMutexGuardedResource
-import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.ReadWriteMutexGuardedResource
-import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.useAll
+import com.rohengiralt.shared.util.concurrency.resourceGuards.ReadOnlyMutexGuardedResource
+import com.rohengiralt.shared.util.concurrency.resourceGuards.ReadWriteMutexGuardedResource
+import com.rohengiralt.shared.util.concurrency.resourceGuards.useAll
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.insertSuccess
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.jsonb
 import com.rohengiralt.minecraftservermanager.util.extensions.exposed.upsert
