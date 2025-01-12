@@ -1,8 +1,8 @@
 package com.rohengiralt.minecraftservermanager.frontend.routes.monitor
 
 import com.rohengiralt.minecraftservermanager.domain.service.MonitorAPIService
-import com.rohengiralt.minecraftservermanager.plugins.AuthorizationException
 import com.rohengiralt.minecraftservermanager.security.MonitorPrincipal
+import com.rohengiralt.shared.ktor.AuthorizationException
 import com.rohengiralt.shared.util.uuid.UUIDSerializer
 import io.ktor.server.application.*
 import io.ktor.server.auth.*

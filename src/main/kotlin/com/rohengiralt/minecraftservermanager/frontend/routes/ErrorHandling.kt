@@ -3,8 +3,8 @@ package com.rohengiralt.minecraftservermanager.frontend.routes
 import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService.APIResult
 import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService.APIResult.Failure
 import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService.APIResult.Success
-import com.rohengiralt.minecraftservermanager.plugins.ConflictException
-import com.rohengiralt.minecraftservermanager.plugins.InternalServerException
+import com.rohengiralt.shared.ktor.ConflictException
+import com.rohengiralt.shared.ktor.InternalServerException
 import io.ktor.server.plugins.*
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind

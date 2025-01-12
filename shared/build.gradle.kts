@@ -18,6 +18,9 @@ dependencies {
 
     implementation("org.slf4j:slf4j-api:2.0.13")
 
+    implementation("io.ktor:ktor-server-core:2.3.12")
+    implementation("io.ktor:ktor-server-status-pages:2.3.12")
+
     testImplementation(kotlin("test"))
 }
 
