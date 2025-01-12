@@ -21,8 +21,8 @@ fun StatusPagesConfig.configureStatusPagesExceptionHandling() {
     }
 }
 
-class AuthenticationException : RuntimeException()
-class AuthorizationException : RuntimeException()
+class AuthenticationException(message: String? = null) : RuntimeException(message)
+class AuthorizationException(message: String? = null) : RuntimeException(message)
 class ConflictException(message: String? = null) : RuntimeException(message)
-class NotAllowedException : RuntimeException()
-class InternalServerException : RuntimeException()
+class NotAllowedException(message: String? = null) : RuntimeException(message)
+class InternalServerException(message: String? = null) : RuntimeException(message)
