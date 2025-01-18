@@ -1,4 +1,4 @@
-package com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards
+package com.rohengiralt.shared.util.concurrency.resourceGuards
 
 /**
  * A [MutexGuardedResource] in which [resource] is read-only.

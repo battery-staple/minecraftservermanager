@@ -1,9 +1,13 @@
 package com.rohengiralt.minecraftservermanager.domain.model.server
 
+import com.rohengiralt.minecraftservermanager.util.url.URLSerializer
 import io.ktor.http.*
+import io.ktor.http.encodedPath
+import kotlinx.serialization.Serializable
 
 @JvmInline
-value class MinecraftServerAddress(val url: Url) {
+@Serializable
+value class MinecraftServerAddress(val url: @Serializable(with= URLSerializer::class) Url) {
     init {
         require(url.protocol == URLProtocol.minecraftProtocol)
     }

@@ -1,15 +1,19 @@
 package com.rohengiralt.minecraftservermanager
 
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.MinecraftJarAPI
+import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.MonitorAPI
+import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.MonitorAPIImpl
 import com.rohengiralt.minecraftservermanager.domain.infrastructure.minecraftJarApi.RedundantFallbackAPI
+import com.rohengiralt.minecraftservermanager.domain.model.runner.AbstractMinecraftServerRunner
+import com.rohengiralt.minecraftservermanager.domain.model.runner.kubernetes.DeploymentProcess
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.contentdirectory.LocalMinecraftServerContentDirectoryFactory
-import com.rohengiralt.minecraftservermanager.domain.model.runner.local.currentruns.CurrentRunRepository
-import com.rohengiralt.minecraftservermanager.domain.model.runner.local.currentruns.InMemoryCurrentRunRepository
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.APIMinecraftServerJarFactory
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.FilesystemMinecraftServerJarResourceManager
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJarFactory
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJarResourceManager
 import com.rohengiralt.minecraftservermanager.domain.repository.*
+import com.rohengiralt.minecraftservermanager.domain.service.MonitorAPIService
+import com.rohengiralt.minecraftservermanager.domain.service.MonitorAPIServiceImpl
 import com.rohengiralt.minecraftservermanager.domain.service.WebsocketAPIService
 import com.rohengiralt.minecraftservermanager.domain.service.WebsocketAPIServiceImpl
 import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService
@@ -21,17 +25,27 @@ import com.rohengiralt.minecraftservermanager.user.auth.google.UserIDAuthorizer
 import com.rohengiralt.minecraftservermanager.user.auth.google.WhitelistFileUserIDAuthorizer
 import com.rohengiralt.minecraftservermanager.user.preferences.DatabaseUserPreferencesRepository
 import com.rohengiralt.minecraftservermanager.user.preferences.UserPreferencesRepository
+import com.rohengiralt.shared.serverProcess.LocalMinecraftServerProcess
 import com.rohengiralt.shared.serverProcess.MinecraftServerDispatcher
 import com.rohengiralt.shared.util.assertsEnabled
 import io.ktor.client.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.plugins.websocket.*
+import io.ktor.serialization.kotlinx.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
+import io.kubernetes.client.openapi.ApiClient
+import io.kubernetes.client.openapi.apis.AppsV1Api
+import io.kubernetes.client.openapi.apis.CoreV1Api
+import io.kubernetes.client.util.Config
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.plus
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
 import org.koin.logger.SLF4JLogger
@@ -45,7 +59,7 @@ fun main() {
 
     runBlocking {
         logger.info("Initializing database")
-        initDatabase(10)
+        initDatabase(maxTries = 10)
     }
 
     logger.info("Initializing server")
@@ -65,10 +79,27 @@ fun Application.module() {
                         install(ContentNegotiation) {
                             json(Json { ignoreUnknownKeys = true })
                         }
+
+                        install(WebSockets) {
+                            contentConverter = KotlinxWebsocketSerializationConverter(Json { ignoreUnknownKeys = false })
+                        }
                     }
                 }
-                single<UserIDAuthorizer> { WhitelistFileUserIDAuthorizer() }
                 single<Json> { Json { ignoreUnknownKeys = false } }
+                single<Json>(named("db")) {
+                    Json {
+                        ignoreUnknownKeys = false
+                        serializersModule = listOf(
+                            DeploymentProcess.recordSerializer,
+                            LocalMinecraftServerProcess.recordSerializer
+                        ).reduce(SerializersModule::plus)
+                    }
+                }
+                single<ApiClient> { Config.defaultClient() }
+                single<CoreV1Api> { CoreV1Api(get()) }
+                single<AppsV1Api> { AppsV1Api(get()) }
+
+                single<UserIDAuthorizer> { WhitelistFileUserIDAuthorizer() }
                 single<MinecraftServerRepository> { DatabaseMinecraftServerRepository() }
                 single<MinecraftJarAPI> { RedundantFallbackAPI() }
                 single<MinecraftServerPastRunRepository> { DatabaseMinecraftServerPastRunRepository() }
@@ -86,14 +117,25 @@ fun Application.module() {
                     HardcodedMinecraftServerRunnerRepository()
                 }
                 single<LocalEnvironmentRepository> { LocalEnvironmentRepository() }
-                single<CurrentRunRepository> { InMemoryCurrentRunRepository() }
+                single<DatabaseKubernetesEnvironmentRepository> { DatabaseKubernetesEnvironmentRepository() }
                 single<MinecraftServerCurrentRunRecordRepository> { DatabaseMinecraftServerCurrentRunRecordRepository() }
                 single<UserPreferencesRepository> { DatabaseUserPreferencesRepository() }
+                single<MonitorTokenRepository> { DatabaseMonitorTokenRepository() }
+                single<MonitorAPI> { MonitorAPIImpl() }
 
                 single<RestAPIService> { RestAPIServiceImpl() }
                 single<WebsocketAPIService> { WebsocketAPIServiceImpl() }
+                single<MonitorAPIService> { MonitorAPIServiceImpl() }
             },
         )
+    }
+
+    logger.info("Recovering current runs")
+    val recoveryJob = AbstractMinecraftServerRunner.recoverCurrentRuns()
+
+    logger.debug("Awaiting recovery job")
+    runBlocking { // Intentionally block application startup until current runs are recovered
+        recoveryJob.join()
     }
 
     logger.info("Configuring security")

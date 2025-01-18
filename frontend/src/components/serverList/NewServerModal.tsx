@@ -1,7 +1,10 @@
 import {createServer, CreateServerOptions} from "../../networking/backendAPI/Servers";
-import React, {Dispatch, useEffect, useState} from "react";
-import {ALL_VERSION_PHASES, VersionPhase} from "../../APIModels";
+import {useEffect, useState} from "react";
+import {ALL_VERSION_PHASES, Runner, VersionPhase} from "../../APIModels";
 import {Modal} from "react-bootstrap";
+import {Setter} from "../../util/React";
+import {getAllRunners} from "../../networking/backendAPI/Runners";
+import {Accessed, isError, isPresent} from "../../networking/backendAPI/AccessError";
 
 const defaultVersionPhase = "RELEASE"
 
@@ -10,7 +13,7 @@ export function NewServerModal(props: { isShowing: boolean, setShowing: (showing
     const [name, setName] = useState<string | null>(null)
     const [versionPhase, setVersionPhase] = useState<VersionPhase>(defaultVersionPhase)
     const [version, setVersion] = useState<string | null>(null)
-    const runnerUUID = "d72add0d-4746-4b46-9ecc-2dcd868062f9" // TODO: Support other runners
+    const [runnerUUID, setRunnerUUID] = useState<string | null>(null)
 
     const reset = () => {
         setError(null)
@@ -27,7 +30,7 @@ export function NewServerModal(props: { isShowing: boolean, setShowing: (showing
     }, [props.isShowing]);
 
     let creationOptions = null;
-    if (name !== null && version !== null && versionPhase !== null) {
+    if (name !== null && version !== null && versionPhase !== null && runnerUUID !== null) {
         creationOptions = {
             name: name,
             version: version,
@@ -44,6 +47,7 @@ export function NewServerModal(props: { isShowing: boolean, setShowing: (showing
             <Body name={name} setName={setName}
                   versionPhase={versionPhase} setVersionPhase={setVersionPhase}
                   version={version} setVersion={setVersion}
+                  runnerUUID={runnerUUID} setRunnerUUID={setRunnerUUID}
                   error={error}
             />
             <Footer createServerOptions={creationOptions} setShowing={props.setShowing} setError={setError}/>
@@ -52,18 +56,34 @@ export function NewServerModal(props: { isShowing: boolean, setShowing: (showing
 }
 
 function Body(props: {
-    name: string | null, setName: Dispatch<React.SetStateAction<string | null>>
-    versionPhase: VersionPhase, setVersionPhase: Dispatch<React.SetStateAction<VersionPhase>>
-    version: string | null, setVersion: Dispatch<React.SetStateAction<string | null>>
+    name: string | null, setName: Setter<string | null>,
+    versionPhase: VersionPhase, setVersionPhase: Setter<VersionPhase>,
+    version: string | null, setVersion: Setter<string | null>,
+    runnerUUID: string | null, setRunnerUUID: Setter<string | null>,
     error: string | null
 }) {
+    const [runners, setRunners] = useState<Accessed<Runner[]>>("loading")
+    useEffect(() => {
+        getAllRunners()
+            .then(runners => {
+                setRunners(runners)
+
+                if (runners[0] !== undefined) {
+                    props.setRunnerUUID(runners[0].uuid)
+                }
+            })
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     return <Modal.Body>
         <form>
+            {/* Name */}
             <div className="form-group">
                 <label htmlFor="name">Name: </label>
                 <input name="name" type="text" value={props.name ?? ""}
                        onChange={(e) => props.setName(e.target.value)}/>
             </div>
+            {/* Version Phase */}
             <div className="form-group">
                 <label htmlFor="name">Version Phase: </label>
                 <select name="name"
@@ -78,10 +98,28 @@ function Body(props: {
                     }
                 </select>
             </div>
+            {/* Version */}
             <div className="form-group"> { /* TODO: autocomplete (dynamic based on phase) */}
                 <label htmlFor="version">Version: </label>
                 <input name="version" type="text" value={props.version ?? ""}
                        onChange={(e) => props.setVersion(e.target.value)}/>
+            </div>
+            {/* Runner */}
+            <div className="form-group">
+                <label htmlFor="runner">Runner: </label>
+                <select name="runner"
+                        value={props.runnerUUID ?? ""}
+                        disabled={isError(runners)}
+                        onChange={(e) => props.setRunnerUUID(e.target.value)}>
+                    {
+                        isPresent(runners) ?
+                            runners.map(({name, uuid}) =>
+                                <option value={uuid} key={uuid}>
+                                    {name}
+                                </option>)
+                            : null
+                    }
+                </select>
             </div>
         </form>
         {props.error !== null ? <p className="new-server-modal-error">{props.error}</p> : null}

@@ -1,22 +1,22 @@
 package com.rohengiralt.minecraftservermanager.plugins
 
 import com.rohengiralt.minecraftservermanager.frontend.routes.frontendConfig
+import com.rohengiralt.minecraftservermanager.frontend.routes.monitor.monitorRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.rest.runners.runnersRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.rest.serversRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.rest.statusRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.rest.usersRoute
 import com.rohengiralt.minecraftservermanager.frontend.routes.websockets
+import com.rohengiralt.shared.ktor.configureStatusPagesExceptionHandling
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.http.content.*
-import io.ktor.server.plugins.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.plugins.statuspages.*
-import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import kotlinx.serialization.json.Json
@@ -43,19 +43,7 @@ fun Application.configureRouting() {
     }
 
     install(StatusPages) {
-        exception<Throwable> { call, e ->
-            when (e) {
-                is AuthenticationException -> call.respond(HttpStatusCode.Unauthorized, e.message ?: "Unauthorized")
-                is AuthorizationException -> call.respond(HttpStatusCode.Forbidden, e.message ?: "Forbidden")
-                is BadRequestException -> call.respond(HttpStatusCode.BadRequest, e.message ?: "Bad request")
-                is NotFoundException -> call.respond(HttpStatusCode.NotFound, e.message ?: "Not found")
-                is ConflictException -> call.respond(HttpStatusCode.Conflict, e.message ?: "Conflict")
-                is NotAllowedException -> call.respond(HttpStatusCode.MethodNotAllowed, e.message ?: "Not allowed")
-                is NotImplementedError -> call.respond(HttpStatusCode.NotImplemented, e.message ?: "Not implemented")
-                is InternalServerException -> call.respond(HttpStatusCode.InternalServerError, e.message ?: "Internal Server Error")
-                else -> call.application.environment.log.error("Uncaught exception:\n${e.stackTraceToString()}")
-            }
-        }
+        configureStatusPagesExceptionHandling()
     }
 
     routing {
@@ -92,11 +80,11 @@ fun Application.configureRouting() {
                 websockets()
             }
         }
+
+        authenticate(*monitorAuthProviders) {
+            route("api/monitor/v1") {
+                monitorRoute()
+            }
+        }
     }
 }
-
-class AuthenticationException : RuntimeException()
-class AuthorizationException : RuntimeException()
-class ConflictException(message: String? = null) : RuntimeException(message)
-class NotAllowedException : RuntimeException()
-class InternalServerException : RuntimeException()

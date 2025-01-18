@@ -3,16 +3,11 @@ kind: Service
 metadata:
   name: msm-app
 spec:
-  type: NodePort
+  type: ClusterIP
   ports:
     - name: http
       protocol: TCP
       port: 8080
-      nodePort: 30007
-    - name: minecraft-1
-      protocol: TCP
-      port: 25565
-      nodePort: 30008
   selector:
     app: msm-app
 ---
@@ -81,8 +76,13 @@ spec:
                 secretKeyRef:
                   name: local-runner
                   key: local-runner-domain
+            - name: KUBERUNNER_DOMAIN
+              valueFrom:
+                secretKeyRef:
+                  name: kube-runner
+                  key: kube-runner-domain
             - name: HOST_HOSTNAME
-              value: "localhost:8080"
+              value: "localhost"
           ports:
             - containerPort: 8080
             - containerPort: 25565
@@ -90,3 +90,9 @@ spec:
         - name: whitelist-volume
           secret:
             secretName: whitelist-file
+      serviceAccountName: msm-app
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: msm-app

@@ -1,8 +1,8 @@
 @file:OptIn(ExperimentalContracts::class)
 
-package com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards
+package com.rohengiralt.shared.util.concurrency.resourceGuards
 
-import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.ReadWriteMutexGuardedResource.MutableResource
+import com.rohengiralt.shared.util.concurrency.resourceGuards.ReadWriteMutexGuardedResource.MutableResource
 import kotlinx.coroutines.sync.withLock
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
@@ -21,7 +21,7 @@ data class ReadWriteMutexGuardedResource<T>(
      * To ensure concurrency safety, do not store references to any resources in any object with
      * a lifetime potentially greater than [block].
      */
-    suspend inline fun <R> useMutable( block: (MutableResource) -> R) =
+    suspend inline fun <R> useMutable(block: (MutableResource) -> R) =
         mutex.withLock {
             block(MutableResource())
         }

@@ -1,22 +1,25 @@
 package com.rohengiralt.minecraftservermanager.security
 
-import com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards.ReadWriteMutexGuardedResource
+import com.rohengiralt.minecraftservermanager.domain.model.runner.kubernetes.MonitorToken
+import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
+import com.rohengiralt.minecraftservermanager.domain.repository.MonitorTokenRepository
 import io.ktor.server.auth.*
-import java.util.*
-
-// TODO: REMOVE DUMMY TOKEN
-val monitorTokens = ReadWriteMutexGuardedResource(listOf<Pair<String, MonitorPrincipal>>("asdf" to MonitorPrincipal(UUID.randomUUID())))
+import org.koin.core.context.GlobalContext
 
 fun AuthenticationConfig.monitorAuth(name: String) {
     bearer(name) {
         authenticate { credential ->
-            val validTokens = monitorTokens.get()
+            val serverUUID = monitorTokens.getServerWithToken(MonitorToken.fromString(credential.token)) ?: return@authenticate null
 
-            return@authenticate validTokens
-                .find { (token, _) -> token == credential.token }
-                ?.let { (_, principal) -> principal }
+            return@authenticate MonitorPrincipal(serverUUID)
         }
     }
 }
 
-data class MonitorPrincipal(val monitorUUID: UUID) : Principal
+/**
+ * A [Principal] authenticating a particular monitor instance
+ * @param serverUUID the uuid of the server the monitor belongs to
+ */
+data class MonitorPrincipal(val serverUUID: ServerUUID) : Principal
+
+private val monitorTokens: MonitorTokenRepository by GlobalContext.get().inject()

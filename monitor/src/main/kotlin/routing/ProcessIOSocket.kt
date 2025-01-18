@@ -18,6 +18,8 @@ import kotlinx.serialization.json.Json
  */
 fun Route.processIOSocket(process: MinecraftServerProcess) {
     webSocket("/io") {
+        call.application.environment.log.info("Received web socket connection request")
+
         coroutineScope {
             launch(Dispatchers.IO) {
                 call.application.environment.log.trace("Starting websocket output job")
@@ -39,22 +41,21 @@ fun Route.processIOSocket(process: MinecraftServerProcess) {
                         "Server stopped"
                     )
                 ) // If we've reached here, the channel closed
-                // (i.e., the process has ended)
+                  // (i.e., the process has ended)
                 call.application.environment.log.trace("Console websocket output job ended for runner")
             }
 
             launch(Dispatchers.IO) {
                 call.application.environment.log.trace("Starting websocket input job")
-                incoming.consumeEach {
-                    launch {
-                        (it as? Frame.Text)?.let { frame ->
-                            call.application.environment.log.trace("Received {}", frame.readText())
-                            process.input.send(frame.readText())
-                        } ?: call.application.environment.log.warn(
-                            "Received non-text frame with type {}",
-                            it.frameType
-                        )
+                incoming.consumeEach { frame ->
+                    if (frame !is Frame.Text) {
+                        call.application.environment.log.warn("Received non-text frame with type {}", frame.frameType)
+                        return@launch
                     }
+
+                    val message = Json.decodeFromString<ConsoleMessageAPIModel.Input>(frame.readText())
+                    call.application.environment.log.trace("Received {}", message.text)
+                    process.input.send(message.text)
                 }
                 call.application.environment.log.trace("Console websocket input job ended")
             }

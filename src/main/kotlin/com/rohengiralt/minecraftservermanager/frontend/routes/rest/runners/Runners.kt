@@ -3,9 +3,9 @@ package com.rohengiralt.minecraftservermanager.frontend.routes.rest.runners
 import com.rohengiralt.minecraftservermanager.domain.service.rest.RestAPIService
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerRunnerAPIModel
 import com.rohengiralt.minecraftservermanager.frontend.routes.orThrow
-import com.rohengiralt.minecraftservermanager.plugins.NotAllowedException
 import com.rohengiralt.minecraftservermanager.util.routes.getParameterOrBadRequest
 import com.rohengiralt.minecraftservermanager.util.routes.parseRunnerUUIDOrBadRequest
+import com.rohengiralt.shared.ktor.NotAllowedException
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*

@@ -1,0 +1,174 @@
+package com.rohengiralt.minecraftservermanager.domain.model.runner.kubernetes.resources
+
+import com.rohengiralt.minecraftservermanager.util.kubernetes.*
+import io.kubernetes.client.custom.IntOrString
+import io.kubernetes.client.custom.Quantity
+import io.kubernetes.client.openapi.models.V1Deployment
+import io.kubernetes.client.openapi.models.V1PersistentVolumeClaim
+import io.kubernetes.client.openapi.models.V1Secret
+
+/**
+ * A Kubernetes deployment for creating a monitor microservice
+ * @param id a unique ID identifying this monitor.
+ */
+fun monitorDeployment(
+    id: String,
+    serverName: String,
+    minSpaceMB: Int,
+    maxSpaceMB: Int,
+    initialReplicas: Int,
+): V1Deployment {
+    val monitorName = monitorName(id)
+    val labels = mapOf(monitorLabel(id))
+    val httpPort = 8080
+    val minecraftPort = 8080
+
+    return deployment {
+        metadata {
+            name = monitorName
+            this.labels = labels
+        }
+
+        spec {
+            replicas = initialReplicas
+            selector {
+                matchLabels(labels)
+            }
+
+            template {
+                metadata {
+                    this.labels = labels
+                }
+
+                spec {
+                    containers {
+                        container {
+                            name = "$monitorName-container"
+                            image = "localhost:5000/stapledbattery/minecraftservermanager-monitor"
+                            imagePullPolicy = "Always"
+
+                            volumeMounts {
+                                volumeMount {
+                                    name = "home"
+                                    mountPath = "/monitor"
+                                }
+                            }
+
+                            env {
+                                `var` { name = "minSpaceMB"; value = minSpaceMB.toString() }
+                                `var` { name = "maxSpaceMB"; value = maxSpaceMB.toString() }
+                                `var` { name = "name"; value = serverName }
+                                `var` { name = "port"; value = httpPort.toString() }
+                                `var` {
+                                    name = "token"
+                                    valueFrom {
+                                        secretKeyRef {
+                                            name = monitorName
+                                            key = "token"
+                                        }
+                                    }
+                                }
+                            }
+
+                            ports {
+                                port { containerPort = httpPort; name = monitorHttpContainerPortName() }
+                                port { containerPort = minecraftPort; name = monitorMinecraftContainerPortName() }
+                            }
+                        }
+                    }
+
+                    volumes {
+                        volume {
+                            name = "home"
+                            persistentVolumeClaim {
+                                claimName = "$monitorName-pvc"
+                            }
+                        }
+                    }
+
+                    restartPolicy = "Always"
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The service used to expose the monitor
+ * @param monitorID a unique ID identifying the monitor
+ * @param httpPort the port to expose for http and websocket traffic
+ */
+fun monitorService(
+    monitorID: String,
+    httpPort: Int,
+) = service {
+    metadata {
+        name = monitorName(monitorID)
+    }
+
+    spec {
+        type = "ClusterIP"
+        selector = mapOf(monitorLabel(monitorID))
+        ports {
+            port {
+                name = "http"
+                protocol = "TCP"
+                port = httpPort
+                targetPort = IntOrString(monitorHttpContainerPortName())
+            }
+        }
+    }
+}
+/**
+ * The PVC used by the monitor to store its data
+ * @param monitorID a unique ID identifying the monitor
+ */
+fun monitorPVC(monitorID: String, storageMiB: Int): V1PersistentVolumeClaim = persistentVolumeClaim {
+    metadata {
+        name = "${monitorName(monitorID)}-pvc"
+    }
+    spec {
+        accessModes = listOf("ReadWriteOnce")
+        storageClassName = "local-path"
+        resources {
+            requests = mapOf(
+                "storage" to Quantity("${storageMiB}Mi"),
+            )
+        }
+    }
+}
+
+/**
+ * The Kubernetes name of the secret storing a monitor's protected data
+ * @param monitorID the name of the monitor
+ */
+fun monitorSecretName(monitorID: String) = monitorName(monitorID)
+
+/**
+ * The secret that stores the monitor's protected data
+ * @param token the auth token used for authenticating connections to/from the monitor
+ */
+fun monitorSecret(monitorID: String, token: String): V1Secret = secret {
+    metadata {
+        name = monitorSecretName(monitorID)
+    }
+    type = "Opaque"
+    data = mutableMapOf("token" to token.toByteArray())
+}
+
+/**
+ * A label used for identifying a monitor instance
+ */
+fun monitorLabel(monitorID: String): Pair<String, String> =
+    "app" to monitorName(monitorID)
+
+fun monitorHttpContainerPortName(): String = "http"
+
+fun monitorMinecraftContainerPortName(): String = "minecraft"
+
+/**
+ * The name for a monitor with id [monitorID].
+ * Also used as the prefix for various resources regarding the monitor
+ */
+fun monitorName(monitorID: String): String =
+    "msm-monitor-$monitorID"

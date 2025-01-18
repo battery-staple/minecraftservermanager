@@ -1,12 +1,18 @@
 @file:OptIn(ExperimentalContracts::class)
 
-package com.rohengiralt.minecraftservermanager.util.concurrency.resourceGuards
+package com.rohengiralt.shared.util.concurrency.resourceGuards
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
+
+fun <T> mutexGuardedResourceOf(resource: T): MutexGuardedResource<T> =
+    ReadOnlyMutexGuardedResource(resource)
+
+fun <T> mutableMutexGuardedResourceOf(initialValue: T): ReadWriteMutexGuardedResource<T> =
+    ReadWriteMutexGuardedResource(initialValue)
 
 /**
  * A version of [MutexGuardedResources] that guards only one resource at a time.

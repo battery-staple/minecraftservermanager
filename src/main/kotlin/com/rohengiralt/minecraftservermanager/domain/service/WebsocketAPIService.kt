@@ -18,7 +18,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import org.slf4j.LoggerFactory
 
 interface WebsocketAPIService {
     /**
@@ -60,7 +59,6 @@ class WebsocketAPIServiceImpl : WebsocketAPIService, KoinComponent {
         val output = Channel<ServerIO>()
         coroutineScope.launch {
             run.interleavedIO.collect { ioMessage ->
-                logger.trace("Piping {}", ioMessage)
                 output.send(ioMessage)
             }
         }
@@ -69,7 +67,6 @@ class WebsocketAPIServiceImpl : WebsocketAPIService, KoinComponent {
         coroutineScope.launch {
             input.consumeEach { inputMessage ->
                 assert(inputMessage is ServerIO.Input) { "Received non-input message ($inputMessage) as input"}
-                logger.trace("Piping {}", inputMessage)
                 run.input.send(inputMessage.text)
             }
         }
@@ -99,5 +96,4 @@ class WebsocketAPIServiceImpl : WebsocketAPIService, KoinComponent {
 
     private val serverRepository: MinecraftServerRepository by inject()
     private val runnerRepository: MinecraftServerRunnerRepository by inject()
-    private val logger = LoggerFactory.getLogger(this::class.java)
 }

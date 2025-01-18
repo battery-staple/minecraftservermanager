@@ -2,11 +2,12 @@ package com.rohengiralt.minecraftservermanager.domain.model.runner
 
 import com.rohengiralt.minecraftservermanager.domain.ResourceUUID
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRun
+import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerInitializingRun
 import com.rohengiralt.minecraftservermanager.domain.model.run.RunUUID
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServer
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironment
 import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
-import com.rohengiralt.minecraftservermanager.util.extensions.uuid.UUIDSerializer
+import com.rohengiralt.shared.util.uuid.UUIDSerializer
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import java.util.*
@@ -46,12 +47,12 @@ interface MinecraftServerRunner {
     /**
      * Prepares the environment to run the given server, and then runs the server.
      * @param server the server to run
-     * @param environmentOverrides additional configuration to specify how the server is run
+     * @param runtimeEnvironment additional configuration to specify how the server is run
      * @return a record representing the new run of [server], or null if running failed.
      */
     suspend fun runServer(
         server: MinecraftServer,
-        environmentOverrides: MinecraftServerRuntimeEnvironment = MinecraftServerRuntimeEnvironment.EMPTY
+        runtimeEnvironment: MinecraftServerRuntimeEnvironment
     ): MinecraftServerCurrentRun?
 
     /**
@@ -78,6 +79,13 @@ interface MinecraftServerRunner {
      * @return true if all runs currently in progress were ended (if nothing was running, returns true)
      */
     suspend fun stopAllRuns(): Boolean
+
+    /**
+     * Gets all runs currently initializing on this runner.
+     * @return a list of records representing all initializing runs on this runner.
+     *         Empty if nothing is currently initializing.
+     */
+    suspend fun getAllInitializingRuns(): List<MinecraftServerInitializingRun>
 
     /**
      * Gets a run with the given [uuid], if such a run exists.

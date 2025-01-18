@@ -10,6 +10,8 @@ import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.Function
 import org.jetbrains.exposed.sql.statements.api.PreparedStatementApi
+import org.koin.core.qualifier.named
+import org.koin.java.KoinJavaComponent.getKoin
 import org.postgresql.util.PGobject
 
 class JsonbColumnType<T : Any>(
@@ -53,7 +55,7 @@ fun <T : Any> Table.jsonb(name: String, stringify: (T) -> String, parse: (String
 fun <T : Any> Table.jsonb(
     name: String,
     serializer: KSerializer<T>,
-    json: Json = Json { ignoreUnknownKeys = false }
+    json: Json = getKoin().get(named("db"))
 ): Column<T> = jsonb(
     name = name,
     stringify = { json.encodeToString(serializer, it) },

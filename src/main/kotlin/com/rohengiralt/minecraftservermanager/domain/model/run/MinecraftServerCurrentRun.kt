@@ -6,10 +6,12 @@ import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerAddress
 import com.rohengiralt.minecraftservermanager.domain.model.server.MinecraftServerRuntimeEnvironment
 import com.rohengiralt.minecraftservermanager.domain.model.server.ServerUUID
-import com.rohengiralt.minecraftservermanager.util.extensions.uuid.UUIDSerializer
+import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import com.rohengiralt.shared.serverProcess.ServerIO
+import com.rohengiralt.shared.util.uuid.UUIDSerializer
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 import java.util.*
@@ -21,15 +23,15 @@ data class MinecraftServerCurrentRun(
     /**
      * The uuid of the run (not of the server or runner!)
      */
-    val uuid: RunUUID,
+    override val uuid: RunUUID,
     /**
      * The uuid of the server this run belongs to
      */
-    val serverUUID: ServerUUID,
+    override val serverUUID: ServerUUID,
     /**
      * The uuid of the runner this run is running on
      */
-    val runnerUUID: RunnerUUID,
+    override val runnerUUID: RunnerUUID,
     /**
      * The uuid of the environment in which this run is running
      */
@@ -47,14 +49,19 @@ data class MinecraftServerCurrentRun(
      */
     val startTime: Instant,
     /**
+     * The process that is running
+     */
+    val process: MinecraftServerProcess,
+) : MinecraftServerRun {
+    /**
      * A channel for inputting commands to the server
      */
-    val input: SendChannel<String>,
+    val input: SendChannel<String> = process.input
     /**
      * A flow containing all messages input to and sent by this run
      */
-    val interleavedIO: Flow<ServerIO>
-)
+    val interleavedIO: Flow<ServerIO> = process.interleavedIO.map { it.content }
+}
 
 @Serializable
 @JvmInline

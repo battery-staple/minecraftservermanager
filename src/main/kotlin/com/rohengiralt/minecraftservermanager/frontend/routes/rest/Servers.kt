@@ -5,8 +5,8 @@ import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerAPIM
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerCurrentRunAPIModel
 import com.rohengiralt.minecraftservermanager.frontend.model.MinecraftServerEnvironmentAPIModel
 import com.rohengiralt.minecraftservermanager.frontend.routes.orThrow
-import com.rohengiralt.minecraftservermanager.plugins.NotAllowedException
 import com.rohengiralt.minecraftservermanager.util.routes.*
+import com.rohengiralt.shared.ktor.NotAllowedException
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*

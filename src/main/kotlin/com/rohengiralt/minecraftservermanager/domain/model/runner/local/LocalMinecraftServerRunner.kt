@@ -4,7 +4,6 @@ import com.rohengiralt.minecraftservermanager.domain.model.run.LogEntry
 import com.rohengiralt.minecraftservermanager.domain.model.run.MinecraftServerCurrentRunRecord
 import com.rohengiralt.minecraftservermanager.domain.model.runner.AbstractMinecraftServerRunner
 import com.rohengiralt.minecraftservermanager.domain.model.runner.EnvironmentUUID
-import com.rohengiralt.minecraftservermanager.domain.model.runner.MinecraftServerEnvironment
 import com.rohengiralt.minecraftservermanager.domain.model.runner.RunnerUUID
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.contentdirectory.LocalMinecraftServerContentDirectoryFactory
 import com.rohengiralt.minecraftservermanager.domain.model.runner.local.serverjar.MinecraftServerJarResourceManager
@@ -14,6 +13,7 @@ import com.rohengiralt.minecraftservermanager.domain.repository.LocalEnvironment
 import com.uchuhimo.konf.Config
 import com.uchuhimo.konf.ConfigSpec
 import org.koin.core.component.inject
+import org.koin.java.KoinJavaComponent.getKoin
 import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.util.*
@@ -27,9 +27,10 @@ private object LocalRunnerSpec : ConfigSpec() {
 }
 
 
-object LocalMinecraftServerRunner : AbstractMinecraftServerRunner<LocalMinecraftServerEnvironment>(
-    uuid = RunnerUUID(UUID.fromString("d72add0d-4746-4b46-9ecc-2dcd868062f9")), // Randomly generated, but constant
-    name = "Local"
+class LocalMinecraftServerRunner(uuid: RunnerUUID) : AbstractMinecraftServerRunner<LocalMinecraftServerEnvironment>(
+    uuid = uuid,
+    name = "Local",
+    environments = getKoin().get<LocalEnvironmentRepository>()
 ) {
     override val domain: String = localRunnerConfig[LocalRunnerSpec.domain]
 
@@ -56,6 +57,7 @@ object LocalMinecraftServerRunner : AbstractMinecraftServerRunner<LocalMinecraft
         val newEnvironment = LocalMinecraftServerEnvironment(
             uuid = environmentUUID,
             serverUUID = server.uuid,
+            runnerUUID = this.uuid,
             serverName = server.name,
             contentDirectory = contentDirectory,
             jar = jar
@@ -64,9 +66,7 @@ object LocalMinecraftServerRunner : AbstractMinecraftServerRunner<LocalMinecraft
         return newEnvironment
     }
 
-    override suspend fun cleanupEnvironment(environment: MinecraftServerEnvironment): Boolean {
-        require(environment is LocalMinecraftServerEnvironment)
-
+    override suspend fun cleanupEnvironment(environment: LocalMinecraftServerEnvironment): Boolean {
         logger.trace("Cleaning up environment {} from local runner", environment.uuid)
 
         @OptIn(ExperimentalPathApi::class)
@@ -101,8 +101,6 @@ object LocalMinecraftServerRunner : AbstractMinecraftServerRunner<LocalMinecraft
             null
         }
     }
-
-    override val environments: LocalEnvironmentRepository by inject()
 
     private val serverJarResourceManager: MinecraftServerJarResourceManager by inject()
     private val contentDirectoryFactory: LocalMinecraftServerContentDirectoryFactory by inject()

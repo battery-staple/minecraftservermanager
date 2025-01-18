@@ -55,7 +55,7 @@ class MinecraftServerDispatcher {
             } ?: return null
 
         logger.trace("Successfully ran server with process {}", process)
-        return MinecraftServerProcess(name, process)
+        return LocalMinecraftServerProcess(name, process)
     }
 
     private val Path.eulaFile get() = this/"eula.txt"

@@ -66,7 +66,7 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-java-time:0.34.1")
 
     implementation("com.google.api-client:google-api-client:2.6.0")
-    implementation("io.kubernetes:client-java:20.0.0")
+    implementation("io.kubernetes:client-java:21.0.0")
 
     implementation("org.postgresql:postgresql:42.7.3")
     implementation("io.insert-koin:koin-ktor:3.3.1")
@@ -74,6 +74,7 @@ dependencies {
     implementation("com.uchuhimo:konf:1.1.2") {
         exclude(group = "pull-parser", module = "pull-parser") // https://stackoverflow.com/questions/71910861/failed-to-auto-configure-default-logger-context-joranexception-parser-configu
     }
+    implementation("com.google.guava:guava:33.2.1-jre")
 
     implementation("io.ktor:ktor-server-auth-jvm:$ktor_version")
     implementation("io.ktor:ktor-server-core-jvm:$ktor_version")

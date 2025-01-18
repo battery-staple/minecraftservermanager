@@ -2,18 +2,16 @@ package com.rohengiralt.minecraftservermanager.domain.model.runner
 
 import com.rohengiralt.minecraftservermanager.domain.model.run.*
 import com.rohengiralt.minecraftservermanager.domain.model.server.*
-import com.rohengiralt.minecraftservermanager.domain.repository.CurrentRunRepository
-import com.rohengiralt.minecraftservermanager.domain.repository.EnvironmentRepository
-import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerCurrentRunRecordRepository
-import com.rohengiralt.minecraftservermanager.domain.repository.MinecraftServerPastRunRepository
-import com.rohengiralt.minecraftservermanager.util.ifNull
+import com.rohengiralt.minecraftservermanager.domain.repository.*
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess
 import com.rohengiralt.shared.serverProcess.MinecraftServerProcess.ProcessMessage
+import kotlinx.atomicfu.AtomicRef
+import kotlinx.atomicfu.atomic
+import kotlinx.atomicfu.getAndUpdate
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.Clock
@@ -29,10 +27,17 @@ import kotlin.time.Duration.Companion.seconds
  * Handles creating [MinecraftServerCurrentRun]s and [MinecraftServerPastRun]s when processes are created or end.
  * Also handles graceful recovery from abrupt application exits.
  * @param E the type of environment used by this runner
+ * @param uuid the UUID of this runner
+ * @param name the name of this runner
+ * @param environments where to store the environments created by this runner
  */
 abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
     final override val uuid: RunnerUUID,
     final override var name: String,
+    /**
+     * Stores the environments created by this runner
+     */
+    val environments: EnvironmentRepository<E>
 ) : MinecraftServerRunner, KoinComponent {
 
     /**
@@ -43,10 +48,9 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
 
     /**
      * Deletes or marks for later deletion all resources belonging to [environment].
-     * @throws IllegalArgumentException if [environment] was created by a different runner
      * @return true if the environment was successfully cleaned up; false if cleanup failed.
      */
-    protected abstract suspend fun cleanupEnvironment(environment: MinecraftServerEnvironment): Boolean
+    protected abstract suspend fun cleanupEnvironment(environment: E): Boolean
 
     /**
      * Attempts to get the log stored by a particular run.
@@ -54,17 +58,14 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
      */
     protected abstract suspend fun getLog(runRecord: MinecraftServerCurrentRunRecord): List<LogEntry>? // TODO: Include as part of MSProcess/Instance
 
-    /**
-     * Stores the environments created by this runner
-     */
-    protected abstract val environments: EnvironmentRepository<E>
+    private val initializingRuns: InitializingRunRepository = InMemoryInitializingRunRepository()
+    private val currentRuns: CurrentRunRepository = InMemoryCurrentRunRepository()
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 
     private val environmentsMutex = Mutex()
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
-    private val currentRuns: CurrentRunRepository by inject()
-    private val currentRunRecordRepository: MinecraftServerCurrentRunRecordRepository by inject()
+    private val currentRunRecordRepository: MinecraftServerCurrentRunRecordRepository by inject() // TODO: Don't inject; should be per-instance, not global
     private val pastRunRepository: MinecraftServerPastRunRepository by inject()
 
     /*
@@ -74,28 +75,7 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
      */
 
     init {
-        try {
-            logger.info("Archiving left over current runs")
-            val runsToArchive = runBlocking {
-                currentRunRecordRepository.getAllRecords()
-                    .map { record ->
-                        MinecraftServerPastRun(
-                            uuid = record.runUUID,
-                            serverUUID = record.serverUUID,
-                            runnerUUID = record.runnerUUID,
-                            startTime = record.startTime,
-                            stopTime = null,
-                            log = getLog(record) ?: emptyList()
-                        )
-                    }
-            }
-
-            pastRunRepository.savePastRuns(runsToArchive)
-            logger.info("Archived ${runsToArchive.size} left over current run(s)")
-            currentRunRecordRepository.removeAllRecords()
-        } catch (e: Throwable) {
-            logger.error("Failed to archive left over current run(s), got error: {}", e.message)
-        }
+        registerInstance(this)
     }
 
     override suspend fun initializeServer(server: MinecraftServer): Boolean = environmentsMutex.withLock {
@@ -151,55 +131,61 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
 
     override suspend fun runServer(
         server: MinecraftServer,
-        environmentOverrides: MinecraftServerRuntimeEnvironment,
+        runtimeEnvironment: MinecraftServerRuntimeEnvironment,
     ): MinecraftServerCurrentRun? {
         // TODO: If server already running (in same environment?), noop
-        val runtimeEnvironment = environmentOverrides.run { // TODO: Should use other default, get from config?
-            copy(
-                port = port ?: MinecraftServerRuntimeEnvironment.Port(Port(25565u)), // TODO: portRepository.getNextAvailablePort()
-                maxHeapSize = maxHeapSize ?: MinecraftServerRuntimeEnvironment.MaxHeapSize(2048u),
-                minHeapSize = minHeapSize ?: MinecraftServerRuntimeEnvironment.MinHeapSize(1024u)
-            )
-        }
-        assert(runtimeEnvironment.port !== null && runtimeEnvironment.maxHeapSize !== null && runtimeEnvironment.minHeapSize !== null)
-        runtimeEnvironment.port!!; runtimeEnvironment.maxHeapSize!!; runtimeEnvironment.minHeapSize!! // Allows smart casts
+        val port = runtimeEnvironment.port ?: MinecraftServerRuntimeEnvironment.Port(Port(25565u))
+        val maxHeapSize = runtimeEnvironment.maxHeapSize ?: MinecraftServerRuntimeEnvironment.MaxHeapSize(2048u)
+        val minHeapSize = runtimeEnvironment.minHeapSize ?: MinecraftServerRuntimeEnvironment.MinHeapSize(1024u)
 
         logger.trace("Running server {} with {}", server.uuid, runtimeEnvironment)
 
+        logger.trace("Getting environment for server {} in runner {}", server.uuid, uuid)
         val environment = environments.getEnvironmentByServer(server.uuid)
         if (environment == null) {
             logger.error("No environment exists for server {}.", server.uuid)
             return null
         }
 
+        val runUUID = RunUUID(UUID.randomUUID())
+        logger.trace("Marking new run {} as initializing for server {} in runner {}", runUUID, server.uuid, this.uuid)
+        initializingRuns.addInitializingRun(MinecraftServerInitializingRun(
+            uuid = runUUID,
+            serverUUID = server.uuid,
+            runnerUUID = this.uuid,
+            environment.uuid
+        ))
+
+        logger.trace("Starting process for server {} in runner {}", server.uuid, uuid)
         val startTime = Clock.System.now()
         val process = environment.runServer(
-            runtimeEnvironment.port.port,
-            runtimeEnvironment.maxHeapSize.memoryMB,
-            runtimeEnvironment.minHeapSize.memoryMB
+            port = port.port,
+            maxHeapSizeMB = maxHeapSize.memoryMB,
+            minHeapSizeMB = minHeapSize.memoryMB
         ) ?: return null
 
+        logger.trace("Creating new current run for server {} in runner {}", server.uuid, uuid)
         val newCurrentRun = MinecraftServerCurrentRun(
-            uuid = RunUUID(UUID.randomUUID()),
+            uuid = runUUID,
             serverUUID = server.uuid,
             runnerUUID = uuid,
             environmentUUID = environment.uuid,
             runtimeEnvironment = runtimeEnvironment,
             address = MinecraftServerAddress(
                 host = domain,
-                port = runtimeEnvironment.port.port
+                port = port.port
             ),
             startTime = startTime,
-            input = process.input,
-            interleavedIO = process.interleavedIO
-                .filterIsInstance<ProcessMessage.IO<*>>()
-                .map { it.content }
+            process = process
         )
 
-        logger.trace("Recording new current run {} for server {} in environment {}", newCurrentRun.uuid, server.name, uuid)
+        logger.trace("Recording new current run {} for server {} in runner {}", newCurrentRun.uuid, server.uuid, uuid)
         recordNewCurrentRun(newCurrentRun)
 
-        logger.trace("Starting archive on end job for run {}", newCurrentRun.uuid)
+        logger.trace("Unmarking run {} as initializing for server {} in runner {}", runUUID, server.uuid, uuid)
+        initializingRuns.deleteInitializingRun(runUUID)
+
+        logger.trace("Starting archive on end job for run {} of server {} in runner {}", newCurrentRun.uuid, server.uuid, uuid)
         process.archiveOnEndJob(newCurrentRun)
 
         return newCurrentRun
@@ -251,7 +237,9 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
     )
 
     private suspend fun MinecraftServerProcess.stop(): Boolean {
-        stop(softTimeout = 5.seconds, additionalForcibleTimeout = 5.seconds).ifNull { //TODO: No magic number timeout
+        try {
+            stop(softTimeout = 5.seconds, additionalForcibleTimeout = 5.seconds) // TODO: No magic number timeout
+        } catch (e: MinecraftServerProcess.StopFailed) {
             logger.error("Timed out while trying to stop run $uuid") // TODO: this uuid is wrong
             return false
         }
@@ -276,8 +264,8 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
         val process = environment.currentProcess.value
 
         if (process == null) { // Run just ended
-            logger.trace("Cannot stop run {}, run not found", uuid)
-            throw IllegalArgumentException("Run $uuid not found")
+            logger.trace("Cannot stop run {}, process not found", uuid)
+            throw IllegalArgumentException("Process for run $uuid not found")
         }
 
         return process.stop()
@@ -304,6 +292,9 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
             .mapNotNull { environment -> environment.currentProcess.value }
             .all { process -> process.stop() }
 
+    override suspend fun getAllInitializingRuns(): List<MinecraftServerInitializingRun> =
+        initializingRuns.getAllInitializingRuns()
+
     override suspend fun getCurrentRun(uuid: RunUUID): MinecraftServerCurrentRun? =
         currentRuns.getCurrentRunByUUID(uuid)
 
@@ -315,4 +306,119 @@ abstract class AbstractMinecraftServerRunner<E : MinecraftServerEnvironment>(
 
     override suspend fun getAllCurrentRunsFlow(server: MinecraftServer): StateFlow<List<MinecraftServerCurrentRun>> =
         currentRuns.getCurrentRunsState(server)
+
+    companion object {
+        /**
+         * Restores all the current runs belonging to any subclass that
+         * were not handled when the application last shut down.
+         */
+        fun recoverCurrentRuns() = coroutineScope.launch {
+            val jobs = recoverCurrentRunsJobs.value
+
+            jobs.forEach { job ->
+                val success = job.start()
+                if (success) {
+                    logger.trace("Successfully started recover current runs job {}", job)
+                } else {
+                    logger.trace("Failed to start recover current runs job {}", job)
+                }
+            }
+
+            jobs.joinAll()
+        }
+
+        /**
+         * Registers a subclass for current run handling.
+         * Should be called exclusively in the initializer of [AbstractMinecraftServerRunner].
+         */
+        private fun registerInstance(instance: AbstractMinecraftServerRunner<*>) {
+            recoverCurrentRunsJobs.getAndUpdate { jobs ->
+                jobs + recoverCurrentRunsJob(instance)
+            }
+        }
+
+        /**
+         * Handles recovery of left over current runs for an instance of [AbstractMinecraftServerRunner]
+         */
+        private fun recoverCurrentRunsJob(instance: AbstractMinecraftServerRunner<*>): Job = coroutineScope.launch(start = CoroutineStart.LAZY) {
+            try {
+                instance.logger.info("Archiving left over current runs")
+                val stoppedRuns = mutableListOf<MinecraftServerPastRun>()
+                val continuingRuns = mutableListOf<MinecraftServerCurrentRun>()
+
+                val records = instance.currentRunRecordRepository.getAllRecords()
+                instance.logger.trace("Found ${records.size} record(s) to recover")
+
+                for (record in records) {
+                    val env = instance.environments.getEnvironment(record.environmentUUID)
+                    if (env == null) {
+                        instance.logger.trace(
+                            "Environment {} not found. Not archiving record for run {}.",
+                            record.environmentUUID,
+                            record.runUUID
+                        )
+                        continue
+                    }
+
+                    val currentProcess = env.currentProcess.value
+                    val isStillRunning = currentProcess?.toRecord() == record.process
+                    if (isStillRunning) {
+                        check(currentProcess != null) // TODO: Remove (K2 fails to infer this)
+                        instance.logger.trace("Restoring current run for record {}", record.runUUID)
+                        continuingRuns.add(record.toCurrentRun(currentProcess))
+                    } else {
+                        instance.logger.trace("Archiving left over record {}", record.runUUID)
+                        stoppedRuns.add(record.toPastRun(instance))
+                    }
+                }
+
+                instance.logger.info("Adding ${continuingRuns.size} continuing run(s)")
+                instance.currentRuns.addCurrentRuns(continuingRuns)
+                instance.logger.info("Added ${continuingRuns.size} continuing run(s)")
+
+                instance.logger.info("Archiving ${continuingRuns.size} left over current run(s)")
+                instance.pastRunRepository.savePastRuns(stoppedRuns)
+                stoppedRuns.forEach { instance.currentRunRecordRepository.removeRecord(it.uuid) }
+                instance.logger.info("Archived ${stoppedRuns.size} left over current run(s)")
+            } catch (e: Throwable) {
+                instance.logger.error("Failed to archive/restore left over current run(s)", e)
+            }
+        }
+
+        /**
+         * Creates a [MinecraftServerPastRun] from a [MinecraftServerCurrentRunRecord]
+         */
+        private suspend fun MinecraftServerCurrentRunRecord.toPastRun(instance: AbstractMinecraftServerRunner<*>): MinecraftServerPastRun =
+            MinecraftServerPastRun(
+                uuid = runUUID,
+                serverUUID = serverUUID,
+                runnerUUID = runnerUUID,
+                startTime = startTime,
+                stopTime = null,
+                log = instance.getLog(this) ?: emptyList()
+            )
+
+        /**
+         * Creates a [MinecraftServerCurrentRun] from a [MinecraftServerCurrentRunRecord]
+         */
+        private fun MinecraftServerCurrentRunRecord.toCurrentRun(process: MinecraftServerProcess): MinecraftServerCurrentRun =
+            MinecraftServerCurrentRun(
+                uuid = runUUID,
+                serverUUID = serverUUID,
+                runnerUUID = runnerUUID,
+                environmentUUID = environmentUUID,
+                runtimeEnvironment = runtimeEnvironment,
+                address = address,
+                startTime = startTime,
+                process = process
+            )
+
+        /**
+         * A list of all the current run recovery jobs, one from each instance.
+         */
+        private val recoverCurrentRunsJobs: AtomicRef<List<Job>> = atomic(emptyList())
+
+        private val coroutineScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        private val logger = LoggerFactory.getLogger(Companion::class.java)
+    }
 }
